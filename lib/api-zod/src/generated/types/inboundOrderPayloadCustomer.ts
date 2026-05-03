@@ -6,6 +6,10 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface HealthStatus {
-  status: string;
-}
+export type InboundOrderPayloadCustomer = {
+  name: string;
+  phone: string;
+  /** @nullable */
+  email?: string | null;
+  address: string;
+};

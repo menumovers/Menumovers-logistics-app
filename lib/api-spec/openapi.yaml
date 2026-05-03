@@ -3,20 +3,29 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Bestellenbij logistics platform API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
-    description: Health operations
+  - name: auth
+  - name: inbound
+  - name: orders
+  - name: riders
+  - name: restaurants
+  - name: users
+  - name: settings
+  - name: push
+security:
+  - bearerAuth: []
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
+      security: []
       responses:
         "200":
           description: Healthy
@@ -24,13 +33,1121 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /auth/login:
+    post:
+      operationId: login
+      tags: [auth]
+      security: []
+      summary: Sign in with email and password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: Logged in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthSession"
+        "401":
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /auth/logout:
+    post:
+      operationId: logout
+      tags: [auth]
+      summary: Sign out
+      responses:
+        "204":
+          description: Logged out
+  /auth/me:
+    get:
+      operationId: getCurrentUser
+      tags: [auth]
+      summary: Get the currently authenticated user
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CurrentUser"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /inbound/orders:
+    post:
+      operationId: ingestOrder
+      tags: [inbound]
+      security: []
+      summary: Receive a new order from the upstream distribution service
+      description: |
+        Authenticated via the `x-inbound-secret` header. Idempotent on `externalOrderId`:
+        re-sending the same payload updates the existing order record instead of creating a duplicate.
+      parameters:
+        - in: header
+          name: x-inbound-secret
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InboundOrderPayload"
+      responses:
+        "200":
+          description: Order accepted (idempotent)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Order"
+        "400":
+          description: Invalid payload
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Invalid inbound secret
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /orders:
+    get:
+      operationId: listOrders
+      tags: [orders]
+      summary: List orders, scoped to the caller's role
+      parameters:
+        - in: query
+          name: status
+          schema:
+            $ref: "#/components/schemas/OrderStatus"
+        - in: query
+          name: restaurantId
+          schema:
+            type: string
+        - in: query
+          name: riderId
+          schema:
+            type: string
+        - in: query
+          name: q
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Orders
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/OrderListItem"
+  /orders/{id}:
+    get:
+      operationId: getOrder
+      tags: [orders]
+      summary: Get a single order with its full audit trail and overrides
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Order
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrderDetail"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /orders/{id}/status:
+    post:
+      operationId: transitionOrderStatus
+      tags: [orders]
+      summary: Advance the order status
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TransitionStatusRequest"
+      responses:
+        "200":
+          description: Updated order
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrderDetail"
+        "422":
+          description: Invalid status transition
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /orders/{id}/assign:
+    post:
+      operationId: assignOrder
+      tags: [orders]
+      summary: Assign a rider to an order (atomic)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AssignOrderRequest"
+      responses:
+        "200":
+          description: Assigned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrderDetail"
+        "409":
+          description: Order is no longer pending or already assigned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /orders/{id}/pickup-time:
+    post:
+      operationId: updatePickupTime
+      tags: [orders]
+      summary: Update one of the pickup time sources
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdatePickupTimeRequest"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrderDetail"
+  /orders/{id}/items/hide:
+    post:
+      operationId: hideOrderItem
+      tags: [orders]
+      summary: Hide an item from the order by its index in the original payload
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/HideItemRequest"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrderDetail"
+  /orders/{id}/items/add:
+    post:
+      operationId: addOrderItem
+      tags: [orders]
+      summary: Add an extra item to the order as a display-layer override
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddItemRequest"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrderDetail"
+  /orders/{id}/notification:
+    post:
+      operationId: setRiderNotification
+      tags: [orders]
+      summary: Set or clear the pending banner message shown to the assigned rider
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SetRiderNotificationRequest"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrderDetail"
+  /orders/{id}/contact:
+    post:
+      operationId: updateOrderContact
+      tags: [orders]
+      summary: Override delivery address or customer contact info
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateOrderContactRequest"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrderDetail"
+  /riders:
+    get:
+      operationId: listRiders
+      tags: [riders]
+      summary: List riders with current workload counts
+      responses:
+        "200":
+          description: Riders
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/RiderWithWorkload"
+    post:
+      operationId: createRider
+      tags: [riders]
+      summary: Create a new rider account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateRiderRequest"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RiderWithWorkload"
+  /riders/{id}:
+    patch:
+      operationId: updateRider
+      tags: [riders]
+      summary: Update rider account or availability
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateRiderRequest"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RiderWithWorkload"
+  /riders/me/availability:
+    post:
+      operationId: setOwnAvailability
+      tags: [riders]
+      summary: Rider sets their own availability status
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SetAvailabilityRequest"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RiderWithWorkload"
+  /restaurants:
+    get:
+      operationId: listRestaurants
+      tags: [restaurants]
+      responses:
+        "200":
+          description: Restaurants
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Restaurant"
+    post:
+      operationId: createRestaurant
+      tags: [restaurants]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateRestaurantRequest"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Restaurant"
+  /restaurants/{id}:
+    patch:
+      operationId: updateRestaurant
+      tags: [restaurants]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateRestaurantRequest"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Restaurant"
+    delete:
+      operationId: deleteRestaurant
+      tags: [restaurants]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted
+  /users:
+    get:
+      operationId: listUsers
+      tags: [users]
+      responses:
+        "200":
+          description: Users
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/User"
+    post:
+      operationId: createUser
+      tags: [users]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateUserRequest"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+  /users/{id}:
+    patch:
+      operationId: updateUser
+      tags: [users]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateUserRequest"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+    delete:
+      operationId: deleteUser
+      tags: [users]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted
+  /settings:
+    get:
+      operationId: getSettings
+      tags: [settings]
+      responses:
+        "200":
+          description: Settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Settings"
+    patch:
+      operationId: updateSettings
+      tags: [settings]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateSettingsRequest"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Settings"
+  /push/vapid-public-key:
+    get:
+      operationId: getVapidPublicKey
+      tags: [push]
+      summary: Returns the VAPID public key for push subscription registration
+      responses:
+        "200":
+          description: VAPID public key
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VapidPublicKey"
+  /push/subscribe:
+    post:
+      operationId: subscribePush
+      tags: [push]
+      summary: Register a Web Push subscription for the current user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PushSubscriptionRequest"
+      responses:
+        "201":
+          description: Subscribed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PushSubscriptionAck"
+  /push/unsubscribe:
+    post:
+      operationId: unsubscribePush
+      tags: [push]
+      summary: Remove a Web Push subscription for the current user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UnsubscribePushRequest"
+      responses:
+        "204":
+          description: Unsubscribed
 components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
   schemas:
     HealthStatus:
       type: object
+      required: [status]
       properties:
         status:
           type: string
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+        code:
+          type: string
+        requestId:
+          type: string
+    UserRole:
+      type: string
+      enum: [admin, coordinator, rider, restaurant_staff]
+    AccountStatus:
+      type: string
+      enum: [active, suspended]
+    OrderStatus:
+      type: string
+      enum:
+        - pending
+        - driver_assigned
+        - en_route_to_restaurant
+        - picked_up
+        - en_route_to_customer
+        - delivered
+        - failed
+    RiderAvailability:
+      type: string
+      enum: [offline, online, backup]
+    PickupTimeSource:
+      type: string
+      enum: [rider, restaurant, override]
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+        password:
+          type: string
+    AuthSession:
+      type: object
+      required: [token, user]
+      properties:
+        token:
+          type: string
+        user:
+          $ref: "#/components/schemas/CurrentUser"
+    CurrentUser:
+      type: object
+      required: [id, email, name, role, accountStatus]
+      properties:
+        id:
+          type: string
+        email:
+          type: string
+        name:
+          type: string
+        role:
+          $ref: "#/components/schemas/UserRole"
+        accountStatus:
+          $ref: "#/components/schemas/AccountStatus"
+        restaurantId:
+          type: ["string", "null"]
+        riderId:
+          type: ["string", "null"]
+    User:
+      type: object
+      required: [id, email, name, role, accountStatus, createdAt]
+      properties:
+        id:
+          type: string
+        email:
+          type: string
+        name:
+          type: string
+        role:
+          $ref: "#/components/schemas/UserRole"
+        accountStatus:
+          $ref: "#/components/schemas/AccountStatus"
+        restaurantId:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+    CreateUserRequest:
+      type: object
+      required: [email, name, password, role]
+      properties:
+        email:
+          type: string
+        name:
+          type: string
+        password:
+          type: string
+        role:
+          $ref: "#/components/schemas/UserRole"
+        restaurantId:
+          type: ["string", "null"]
+    UpdateUserRequest:
+      type: object
+      properties:
+        email:
+          type: string
+        name:
+          type: string
+        password:
+          type: string
+        role:
+          $ref: "#/components/schemas/UserRole"
+        accountStatus:
+          $ref: "#/components/schemas/AccountStatus"
+        restaurantId:
+          type: ["string", "null"]
+    Restaurant:
+      type: object
+      required: [id, name, address, minDeliveryTime, createdAt]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        address:
+          type: string
+        phone:
+          type: ["string", "null"]
+        minDeliveryTime:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+    CreateRestaurantRequest:
+      type: object
+      required: [name, address, minDeliveryTime]
+      properties:
+        name:
+          type: string
+        address:
+          type: string
+        phone:
+          type: ["string", "null"]
+        minDeliveryTime:
+          type: integer
+    UpdateRestaurantRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        address:
+          type: string
+        phone:
+          type: ["string", "null"]
+        minDeliveryTime:
+          type: integer
+    OrderItem:
+      type: object
+      required: [name, quantity, price]
+      properties:
+        name:
+          type: string
+        quantity:
+          type: integer
+        price:
+          type: string
+        notes:
+          type: ["string", "null"]
+    InboundOrderPayload:
+      type: object
       required:
+        - orderId
+        - restaurantId
+        - customer
+        - items
+        - deliveryFee
+        - totalAmount
+      properties:
+        orderId:
+          type: string
+        restaurantId:
+          type: string
+        customer:
+          type: object
+          required: [name, phone, address]
+          properties:
+            name:
+              type: string
+            phone:
+              type: string
+            email:
+              type: ["string", "null"]
+            address:
+              type: string
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/OrderItem"
+        deliveryFee:
+          type: string
+        totalAmount:
+          type: string
+        deliveryInstructions:
+          type: ["string", "null"]
+    Order:
+      type: object
+      required:
+        - id
+        - externalOrderId
+        - restaurantId
         - status
-
+        - customerName
+        - customerPhone
+        - deliveryAddress
+        - deliveryFee
+        - totalAmount
+        - items
+        - pickupTimeOriginal
+        - effectivePickupTime
+        - createdAt
+      properties:
+        id:
+          type: string
+        externalOrderId:
+          type: string
+        restaurantId:
+          type: string
+        riderId:
+          type: ["string", "null"]
+        status:
+          $ref: "#/components/schemas/OrderStatus"
+        customerName:
+          type: string
+        customerPhone:
+          type: string
+        customerEmail:
+          type: ["string", "null"]
+        deliveryAddress:
+          type: string
+        deliveryInstructions:
+          type: ["string", "null"]
+        deliveryFee:
+          type: string
+        totalAmount:
+          type: string
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/OrderItem"
+        pickupTimeOriginal:
+          type: string
+          format: date-time
+        pickupTimeRider:
+          type: ["string", "null"]
+          format: date-time
+        pickupTimeRestaurant:
+          type: ["string", "null"]
+          format: date-time
+        pickupTimeOverride:
+          type: ["string", "null"]
+          format: date-time
+        effectivePickupTime:
+          type: string
+          format: date-time
+        effectivePickupSource:
+          $ref: "#/components/schemas/PickupTimeSource"
+        pendingRiderNotification:
+          type: ["string", "null"]
+        failureReason:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+    OrderListItem:
+      allOf:
+        - $ref: "#/components/schemas/Order"
+        - type: object
+          properties:
+            restaurantName:
+              type: string
+            riderName:
+              type: ["string", "null"]
+    OrderStatusLog:
+      type: object
+      required: [id, toStatus, createdAt]
+      properties:
+        id:
+          type: string
+        fromStatus:
+          oneOf:
+            - $ref: "#/components/schemas/OrderStatus"
+            - type: "null"
+        toStatus:
+          $ref: "#/components/schemas/OrderStatus"
+        actorUserId:
+          type: ["string", "null"]
+        actorUserName:
+          type: ["string", "null"]
+        actorRole:
+          type: ["string", "null"]
+        note:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+    ItemOverride:
+      type: object
+      required: [id, type, createdAt]
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+          enum: [hide, add]
+        itemIndex:
+          type: ["integer", "null"]
+        addedItem:
+          oneOf:
+            - $ref: "#/components/schemas/OrderItem"
+            - type: "null"
+        createdAt:
+          type: string
+          format: date-time
+    OrderDetail:
+      allOf:
+        - $ref: "#/components/schemas/OrderListItem"
+        - type: object
+          required: [statusLog, itemOverrides]
+          properties:
+            statusLog:
+              type: array
+              items:
+                $ref: "#/components/schemas/OrderStatusLog"
+            itemOverrides:
+              type: array
+              items:
+                $ref: "#/components/schemas/ItemOverride"
+    TransitionStatusRequest:
+      type: object
+      required: [toStatus]
+      properties:
+        toStatus:
+          $ref: "#/components/schemas/OrderStatus"
+        note:
+          type: ["string", "null"]
+        failureReason:
+          type: ["string", "null"]
+    AssignOrderRequest:
+      type: object
+      required: [riderId]
+      properties:
+        riderId:
+          type: string
+    UpdatePickupTimeRequest:
+      type: object
+      required: [source, pickupTime]
+      properties:
+        source:
+          $ref: "#/components/schemas/PickupTimeSource"
+        pickupTime:
+          oneOf:
+            - type: string
+              format: date-time
+            - type: "null"
+    HideItemRequest:
+      type: object
+      required: [itemIndex]
+      properties:
+        itemIndex:
+          type: integer
+    AddItemRequest:
+      type: object
+      required: [item]
+      properties:
+        item:
+          $ref: "#/components/schemas/OrderItem"
+    SetRiderNotificationRequest:
+      type: object
+      properties:
+        message:
+          type: ["string", "null"]
+    UpdateOrderContactRequest:
+      type: object
+      properties:
+        customerName:
+          type: string
+        customerPhone:
+          type: string
+        customerEmail:
+          type: ["string", "null"]
+        deliveryAddress:
+          type: string
+        deliveryInstructions:
+          type: ["string", "null"]
+    RiderWithWorkload:
+      type: object
+      required:
+        - id
+        - userId
+        - name
+        - email
+        - availabilityStatus
+        - accountStatus
+        - activeOrderCount
+        - queuedOrderCount
+      properties:
+        id:
+          type: string
+        userId:
+          type: string
+        name:
+          type: string
+        email:
+          type: string
+        phone:
+          type: ["string", "null"]
+        availabilityStatus:
+          $ref: "#/components/schemas/RiderAvailability"
+        accountStatus:
+          $ref: "#/components/schemas/AccountStatus"
+        activeOrderCount:
+          type: integer
+        queuedOrderCount:
+          type: integer
+    CreateRiderRequest:
+      type: object
+      required: [email, name, password]
+      properties:
+        email:
+          type: string
+        name:
+          type: string
+        password:
+          type: string
+        phone:
+          type: ["string", "null"]
+        availabilityStatus:
+          $ref: "#/components/schemas/RiderAvailability"
+    UpdateRiderRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        phone:
+          type: ["string", "null"]
+        availabilityStatus:
+          $ref: "#/components/schemas/RiderAvailability"
+        accountStatus:
+          $ref: "#/components/schemas/AccountStatus"
+    SetAvailabilityRequest:
+      type: object
+      required: [availabilityStatus]
+      properties:
+        availabilityStatus:
+          $ref: "#/components/schemas/RiderAvailability"
+    Settings:
+      type: object
+      required: [outboundWebhookUrl, outboundWebhookUrlSource, vapidConfigured]
+      properties:
+        outboundWebhookUrl:
+          type: ["string", "null"]
+        outboundWebhookUrlSource:
+          type: string
+          enum: [env, settings, unset]
+        vapidConfigured:
+          type: boolean
+        inboundSecretConfigured:
+          type: boolean
+    UpdateSettingsRequest:
+      type: object
+      properties:
+        outboundWebhookUrl:
+          type: ["string", "null"]
+    VapidPublicKey:
+      type: object
+      required: [publicKey, configured]
+      properties:
+        publicKey:
+          type: ["string", "null"]
+        configured:
+          type: boolean
+    PushSubscriptionRequest:
+      type: object
+      required: [endpoint, keys]
+      properties:
+        endpoint:
+          type: string
+        keys:
+          type: object
+          required: [p256dh, auth]
+          properties:
+            p256dh:
+              type: string
+            auth:
+              type: string
+        userAgent:
+          type: ["string", "null"]
+    PushSubscriptionAck:
+      type: object
+      required: [id]
+      properties:
+        id:
+          type: string
+    UnsubscribePushRequest:
+      type: object
+      required: [endpoint]
+      properties:
+        endpoint:
+          type: string

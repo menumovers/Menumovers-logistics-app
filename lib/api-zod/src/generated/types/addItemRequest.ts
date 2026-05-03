@@ -5,7 +5,8 @@
  * Bestellenbij logistics platform API
  * OpenAPI spec version: 0.1.0
  */
+import type { OrderItem } from "./orderItem";
 
-export interface HealthStatus {
-  status: string;
+export interface AddItemRequest {
+  item: OrderItem;
 }

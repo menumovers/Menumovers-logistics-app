@@ -26,3 +26,12 @@ externalPort = 8080
 [[ports]]
 localPort = 8081
 externalPort = 80
+
+[nix]
+channel = "stable-25_05"
+
+[userenv]
+
+[userenv.development]
+JWT_SECRET = "YGMI/s4tDrGu4F0zr/HD8o0yml2PnPCnnMpAOhe3wruM1RwIBradb84IcmWBDzWq"
+INBOUND_SHARED_SECRET = "hh8Tvf0PbYre+RVO0K5nC3P6mdf7Jq17mvJYNDZphh8="
