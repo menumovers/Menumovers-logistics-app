@@ -185,9 +185,20 @@ The structure for each entry: **Name**, **Location**, **What it does**, **Formul
 - **Do not**: append `/api` to the base. Do not write your own `fetch` wrapper.
 
 ### Auth context
-- **Location**: `artifacts/bestellenbij/src/lib/auth.tsx` → `AuthProvider`, `useAuth`
-- **What it does**: Reads `bb_token`, runs `useGetCurrentUser`, redirects on 401, provides `signOut` and `applyToken`.
-- **Do not**: call `useGetCurrentUser` from random components for auth — use `useAuth`.
+- **Location**: `artifacts/bestellenbij/src/lib/auth.tsx` → `AuthProvider`, `useAuth`, `RequireRole`
+- **What it does**: Reads `bb_token`, runs `useGetCurrentUser`, clears the token on a 401, provides `applyToken`. `signOut` is context-aware: it reads `window.location.pathname`, asks `getContextForPath`, and navigates to that context's login (`/rider/login` or `/restaurant/login`). `RequireRole` redirects unauthenticated callers to the same context-appropriate login, and authenticated callers with the wrong role to `ROLE_HOMES[user.role]`.
+- **Do not**: call `useGetCurrentUser` from random components for auth — use `useAuth`. Do not hard-code `/login` as the post-logout destination — go through `getLoginPath`.
+
+### App context (rider vs restaurant)
+- **Location**: `artifacts/bestellenbij/src/lib/app-context.ts`
+- **What it does**: The runtime view of which of the two PWAs the user is in. Exports `AppContext = "rider" | "restaurant"`, the role allowlists (`RIDER_ROLES = [admin, coordinator, rider]`, `RESTAURANT_ROLES = [restaurant_staff]`), `getContextForPath` (path → context — restaurant iff path is `/restaurant` or `/restaurant/...`), `getContextForRole` (role → context — `restaurant_staff` is restaurant, everyone else is rider), `getLoginPath`, and `getAllowedRolesForContext`.
+- **Callers**: `lib/auth.tsx` (signOut + RequireRole redirect targets), `pages/login.tsx` (variant role gating + cross-link), `pages/landing.tsx` (link targets), `main.tsx` (manifest selection).
+- **Do not**: introduce a third app variant without updating this module first. Do not duplicate the role partitioning at a call site (`role === "restaurant_staff" ? …`) — call `getContextForRole`. Do not let a login page accept a role outside `getAllowedRolesForContext(variant)`.
+
+### Web app manifests
+- **Location**: `artifacts/bestellenbij/public/manifest-rider.webmanifest`, `artifacts/bestellenbij/public/manifest-restaurant.webmanifest`; runtime selection in `artifacts/bestellenbij/src/main.tsx`.
+- **What it does**: Bestellenbij ships as two independently-installable PWAs from one bundle. Rider PWA: `scope = "/"`, `start_url = "/rider/login"`, `id = "/?app=rider"`. Restaurant PWA: `scope = "/restaurant/"`, `start_url = "/restaurant/login"`, `id = "/?app=restaurant"`. `index.html` declares one `<link rel="manifest" id="app-manifest">` defaulting to the rider manifest; on boot, `main.tsx` reads the path, calls `getContextForPath`, and rewrites the `href` before React mounts.
+- **Do not**: add a second `<link rel="manifest">` to `index.html`. Do not turn manifest generation back on in `vite.config.ts` (it would emit a third file that conflicts with these two — `manifest: false` is intentional). Do not change `id` on either manifest without coordinating an OS-level reinstall — Chrome and iOS key the installed app on `id`. Do not narrow the rider scope without a route audit; admin/coordinator/rider routes (`/admin`, `/coordinator`, `/rider`, `/settings`) all live at root and rely on the rider PWA's `/` scope to capture them.
 
 ### Generated API hooks and Zods
 - **Location**: `lib/api-client-react` and `lib/api-zod` — generated from `lib/api-spec/openapi.yaml` by `pnpm --filter @workspace/api-spec run codegen`.
@@ -221,3 +232,4 @@ Per-endpoint rate limits are applied in `app.ts` before the main router: `/api/a
 
 - **2026-05-03** — Initial documentation pass. Captured all SSOTs that exist today: pickup-time priority (server + client), state machine, status visuals, urgency thresholds, push audiences, webhook retry, auth, order serialization, formatters. Noted no gaps below — items that should be centralized but aren't yet are tracked in `docs/todo.md`.
 - **2026-05-03** — SSOT centralization pass. (1) Active locale resolution is now a priority chain (profile > localStorage > navigator > `nl`); `applyProfileLocale` is the only path the AuthProvider uses, and `PATCH /users/me/locale` persists the per-user override (`users.preferred_locale`). (2) Outbound webhook URL precedence inverted: admin-configurable `system_settings.outbound_webhook_url` wins, env is fallback. Every `enqueueOutboundEvent` call threads `correlationId` (request id), persisted on `webhook_retry_queue.correlation_id` and surfaced in retry logs. (3) New `lib/janitor.ts` prunes expired `revoked_tokens` every 5 minutes. (4) New `lib/settings-readers.ts` for typed runtime settings; `allow_rider_self_claim` (default true) gates rider self-claim on `POST /orders/:id/assign`.
+- **2026-05-03** — Dual-PWA split. The web artifact is now two independently-installable PWAs from one bundle: rider (internal — admin/coordinator/rider, scope `/`) and restaurant (external — restaurant_staff, scope `/restaurant/`). New SSOT `lib/app-context.ts` partitions roles, paths, and login targets. New SSOT entry "Web app manifests" registers the two static manifests and the runtime swap in `main.tsx`. `signOut` and `RequireRole` redirect to context-appropriate logins. Frontend routes added: `/` (landing with two role-pick buttons), `/rider/login` (rider-app login, gates to `RIDER_ROLES`), `/restaurant/login` (restaurant-app login, gates to `RESTAURANT_ROLES`). Legacy `/login` retained as a rider-variant alias for old bookmarks.

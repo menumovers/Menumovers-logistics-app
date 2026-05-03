@@ -38,7 +38,7 @@ Bestellenbij is built as a monorepo using pnpm workspaces, with a Node 24 and Ty
 *   **Validation:** Zod for schema validation.
 *   **API Contract:** OpenAPI (`lib/api-spec/openapi.yaml`) generates `@workspace/api-client-react` (TanStack Query hooks) and `@workspace/api-zod` (Zod schemas) via Orval.
 *   **Frontend:** React 18, Vite 7, Wouter for routing, TanStack Query for data fetching, Tailwind CSS, framer-motion, react-i18next, shadcn/Radix UI primitives.
-*   **PWA:** Hand-rolled `public/sw.js` and `public/manifest.webmanifest`.
+*   **PWA:** Hand-rolled `public/sw.js` plus two static manifests (`public/manifest-rider.webmanifest`, `public/manifest-restaurant.webmanifest`); `main.tsx` swaps the active `<link rel="manifest">` href at boot. `vite-plugin-pwa` is configured with `strategies: "injectManifest"` and `manifest: false` so it bundles our SW but never emits a manifest.
 *   **Web Push:** `web-push` library with VAPID.
 *   **Build:** esbuild for API server (CJS bundle), Vite for the web artifact.
 

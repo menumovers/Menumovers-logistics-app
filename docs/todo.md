@@ -10,11 +10,11 @@ For each item: what it is, what investigation is already done, priority.
 
 ### H1. Rider self-assign authorization on `POST /api/orders/:id/assign` — DONE (2026-05-03)
 
-The route now allows a rider caller iff `system_settings.allow_rider_self_claim` is on, `body.riderId === req.auth.riderId`, and the order is `pending`. The atomic `UPDATE ... WHERE status='pending'` invariant is unchanged. Admin UI exposes the toggle on the Settings tab. Note: the rider self-claim button is not currently hidden when the flag is off — the server returns 403 and the frontend renders a `claimUnavailable` toast. If we ever want pre-emptive UI hiding we'd need a public flags endpoint.
+The route now allows a rider caller iff `system_settings.allow_rider_self_claim` is on, `body.riderId === req.auth.riderId`, and the order is `pending`. The atomic `UPDATE ... WHERE status='pending'` invariant is unchanged. Admin UI exposes the toggle on the Settings tab. The auth-only `GET /settings/flags` endpoint (`{ allowRiderSelfClaim }`) is consumed by `pages/rider.tsx` via `useGetSettingsFlags` so the self-claim button is pre-emptively hidden when the flag is off, on top of the 403 the server still returns.
 
 ### H2. Frontend `RequireRole` cross-role direct navigation
 
-Direct-URL navigation by a role outside the page's allowed set should redirect rather than render briefly. The guard exists in `App.tsx` but there are routes where the guard is applied loosely. Investigation: walk every `<Route>` in `App.tsx` and confirm each is wrapped. Priority: high (security posture).
+Direct-URL navigation by a role outside the page's allowed set should redirect rather than render briefly. The guard exists in `App.tsx` but there are routes where the guard is applied loosely. Investigation: walk every `<Route>` in `App.tsx` and confirm each is wrapped. The 2026-05-03 PWA split added three new public routes (`/`, `/rider/login`, `/restaurant/login`) that intentionally do not go through `RequireRole`; the audit needs to re-confirm each authed route is still guarded after the route table reshuffle. Priority: high (security posture).
 
 ### H3. No automated tests
 
