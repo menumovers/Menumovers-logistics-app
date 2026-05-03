@@ -22,7 +22,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Spinner } from "@/components/ui/spinner";
 import { StatusBadge } from "@/components/status-badge";
 import { PickupCountdown, PickupSourceBadge } from "@/components/pickup-countdown";
-import { ArrowLeft, Phone, MapPin, Bell, BellOff, Store, ChevronRight } from "lucide-react";
+import { ArrowLeft, Phone, MapPin, Bell, BellOff, Store, ChevronRight, Clock, Layers } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { effectivePickup, formatCurrency, formatTime } from "@/lib/format";
 
@@ -32,6 +32,12 @@ const NEXT: Partial<Record<OrderStatusType, OrderStatusType>> = {
   picked_up: "en_route_to_customer",
   en_route_to_customer: "delivered",
 };
+
+const CAN_POSTPONE: OrderStatusType[] = [
+  "driver_assigned",
+  "en_route_to_restaurant",
+  "en_route_to_customer",
+];
 
 export default function RiderOrderPage() {
   const { id } = useParams();
@@ -47,6 +53,7 @@ export default function RiderOrderPage() {
   const { toast } = useToast();
 
   const [failureReason, setFailureReason] = useState("");
+  const [postponeReason, setPostponeReason] = useState("");
   const [pickupTime, setPickupTime] = useState("");
 
   const effIso = order.data ? effectivePickup(order.data).iso : null;
@@ -70,6 +77,13 @@ export default function RiderOrderPage() {
       <Link href="/rider" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground" data-testid="link-back-rider">
         <ArrowLeft className="size-4" /> {t("common.back")}
       </Link>
+
+      {o.tripId && o.tripNumber != null ? (
+        <div className="rounded-lg border border-primary/40 bg-primary/[0.04] px-3 py-2 text-sm flex items-center gap-2" data-testid="banner-trip-context">
+          <Layers className="size-4 text-primary shrink-0" />
+          <span className="font-medium">{t("trip.partOfTrip", { number: o.tripNumber })}</span>
+        </div>
+      ) : null}
 
       {o.pendingRiderNotification ? (
         <div className="rounded-lg bg-accent border border-accent text-accent-foreground p-4 flex items-start gap-3" data-testid="banner-rider-notification">
@@ -126,6 +140,43 @@ export default function RiderOrderPage() {
         </CardContent>
       </Card>
 
+      {o.status === "postponed" ? (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">{t("postpone.resume")}</CardTitle>
+          </CardHeader>
+          <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <Button
+              size="lg"
+              disabled={transition.isPending}
+              onClick={() =>
+                transition.mutate(
+                  { id: o.id, data: { toStatus: "en_route_to_restaurant" } },
+                  { onSuccess: () => { toast({ title: t("orderStatus.en_route_to_restaurant") }); invalidate(); } },
+                )
+              }
+              data-testid="button-rider-resume-restaurant"
+            >
+              {t("orderStatus.en_route_to_restaurant")}
+            </Button>
+            <Button
+              size="lg"
+              variant="secondary"
+              disabled={transition.isPending}
+              onClick={() =>
+                transition.mutate(
+                  { id: o.id, data: { toStatus: "en_route_to_customer" } },
+                  { onSuccess: () => { toast({ title: t("orderStatus.en_route_to_customer") }); invalidate(); } },
+                )
+              }
+              data-testid="button-rider-resume-customer"
+            >
+              {t("orderStatus.en_route_to_customer")}
+            </Button>
+          </CardContent>
+        </Card>
+      ) : null}
+
       {next ? (
         <Button
           size="lg"
@@ -141,6 +192,45 @@ export default function RiderOrderPage() {
         >
           {t("rider.advance")} · {t(`orderStatus.${next}`)} <ChevronRight className="size-5 ml-2" />
         </Button>
+      ) : null}
+
+      {CAN_POSTPONE.includes(o.status) ? (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Clock className="size-4" /> {t("postpone.action")}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            <Textarea
+              value={postponeReason}
+              onChange={(e) => setPostponeReason(e.target.value)}
+              rows={2}
+              placeholder={t("postpone.reasonPlaceholder")}
+              data-testid="textarea-postpone-reason"
+            />
+            <Button
+              variant="outline"
+              className="w-full"
+              disabled={transition.isPending}
+              onClick={() =>
+                transition.mutate(
+                  { id: o.id, data: { toStatus: "postponed", note: postponeReason || undefined } },
+                  {
+                    onSuccess: () => {
+                      toast({ title: t("postpone.submitted") });
+                      setPostponeReason("");
+                      invalidate();
+                    },
+                  },
+                )
+              }
+              data-testid="button-rider-postpone"
+            >
+              {t("postpone.submit")}
+            </Button>
+          </CardContent>
+        </Card>
       ) : null}
 
       {o.status !== "delivered" && o.status !== "failed" ? (

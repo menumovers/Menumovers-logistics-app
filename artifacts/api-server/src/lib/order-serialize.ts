@@ -6,6 +6,7 @@ import {
   ordersTable,
   restaurantsTable,
   ridersTable,
+  tripsTable,
   usersTable,
   type ItemOverride,
   type Order,
@@ -51,7 +52,21 @@ export function applyItemOverrides(
   return [...visible, ...added].map(toSerializedItem);
 }
 
-function baseOrderFields(order: Order, items: SerializedOrderItem[]) {
+function effectiveOf(order: Order): Date {
+  return resolveEffectivePickupTime({
+    pickupTimeOriginal: order.pickupTimeOriginal,
+    pickupTimeRider: order.pickupTimeRider,
+    pickupTimeRestaurant: order.pickupTimeRestaurant,
+    pickupTimeOverride: order.pickupTimeOverride,
+  }).effectivePickupTime;
+}
+
+function baseOrderFields(
+  order: Order,
+  items: SerializedOrderItem[],
+  bundlePickupTime: Date | null,
+  tripNumber: number | null,
+) {
   const eff = resolveEffectivePickupTime({
     pickupTimeOriginal: order.pickupTimeOriginal,
     pickupTimeRider: order.pickupTimeRider,
@@ -80,22 +95,40 @@ function baseOrderFields(order: Order, items: SerializedOrderItem[]) {
     effectivePickupSource: eff.effectivePickupSource,
     pendingRiderNotification: order.pendingRiderNotification,
     failureReason: order.failureReason,
+    tripId: order.tripId,
+    tripNumber,
+    bundlePickupTime,
     createdAt: order.createdAt,
   };
 }
 
 async function loadJoins(
-  orders: Pick<Order, "id" | "restaurantId" | "riderId">[],
+  orders: Order[],
 ): Promise<{
   restaurantsById: Map<string, { id: string; name: string }>;
   ridersById: Map<string, { id: string; name: string }>;
   overridesByOrder: Map<string, ItemOverride[]>;
+  /**
+   * Earliest effective pickup time across same-(tripId, restaurantId)
+   * orders, when more than one exists. Keyed by orderId. Computed across
+   * the trip — even orders not in the current `orders` set are considered.
+   */
+  bundlePickupByOrder: Map<string, Date>;
+  tripNumbersById: Map<string, number>;
 }> {
   const restaurantsById = new Map<string, { id: string; name: string }>();
   const ridersById = new Map<string, { id: string; name: string }>();
   const overridesByOrder = new Map<string, ItemOverride[]>();
+  const bundlePickupByOrder = new Map<string, Date>();
+  const tripNumbersById = new Map<string, number>();
   if (orders.length === 0) {
-    return { restaurantsById, ridersById, overridesByOrder };
+    return {
+      restaurantsById,
+      ridersById,
+      overridesByOrder,
+      bundlePickupByOrder,
+      tripNumbersById,
+    };
   }
   const orderIds = orders.map((o) => o.id);
   const restaurantIds = Array.from(new Set(orders.map((o) => o.restaurantId)));
@@ -106,8 +139,15 @@ async function loadJoins(
         .filter((x): x is string => typeof x === "string"),
     ),
   );
+  const tripIds = Array.from(
+    new Set(
+      orders
+        .map((o) => o.tripId)
+        .filter((x): x is string => typeof x === "string"),
+    ),
+  );
 
-  const [restaurants, riders, overrides] = await Promise.all([
+  const [restaurants, riders, overrides, tripMates, tripRows] = await Promise.all([
     restaurantIds.length > 0
       ? db
           .select({ id: restaurantsTable.id, name: restaurantsTable.name })
@@ -126,7 +166,17 @@ async function loadJoins(
       .from(itemOverridesTable)
       .where(inArray(itemOverridesTable.orderId, orderIds))
       .orderBy(asc(itemOverridesTable.createdAt)),
+    tripIds.length > 0
+      ? db.select().from(ordersTable).where(inArray(ordersTable.tripId, tripIds))
+      : Promise.resolve([] as Order[]),
+    tripIds.length > 0
+      ? db
+          .select({ id: tripsTable.id, tripNumber: tripsTable.tripNumber })
+          .from(tripsTable)
+          .where(inArray(tripsTable.id, tripIds))
+      : Promise.resolve([] as { id: string; tripNumber: number }[]),
   ]);
+  for (const t of tripRows) tripNumbersById.set(t.id, t.tripNumber);
   for (const r of restaurants) restaurantsById.set(r.id, r);
   for (const r of riders) ridersById.set(r.id, r);
   for (const o of overrides) {
@@ -134,33 +184,83 @@ async function loadJoins(
     arr.push(o);
     overridesByOrder.set(o.orderId, arr);
   }
-  return { restaurantsById, ridersById, overridesByOrder };
+  // Group trip-mate orders by (tripId, restaurantId), then per order set the
+  // earliest effective pickup time when the group has more than one order.
+  const groupKey = (tripId: string, restaurantId: string) =>
+    `${tripId}::${restaurantId}`;
+  const groupMembers = new Map<string, Order[]>();
+  for (const o of tripMates) {
+    if (!o.tripId) continue;
+    const key = groupKey(o.tripId, o.restaurantId);
+    const arr = groupMembers.get(key) ?? [];
+    arr.push(o);
+    groupMembers.set(key, arr);
+  }
+  for (const [, members] of groupMembers) {
+    if (members.length < 2) continue;
+    const earliest = members
+      .map((m) => effectiveOf(m).getTime())
+      .reduce((a, b) => Math.min(a, b), Number.POSITIVE_INFINITY);
+    const bundle = new Date(earliest);
+    for (const m of members) bundlePickupByOrder.set(m.id, bundle);
+  }
+  return {
+    restaurantsById,
+    ridersById,
+    overridesByOrder,
+    bundlePickupByOrder,
+    tripNumbersById,
+  };
 }
 
+export type SerializedOrderListItem = Awaited<
+  ReturnType<typeof serializeOrderListItem>
+>;
+
 export async function serializeOrderListItem(order: Order) {
-  const { restaurantsById, ridersById, overridesByOrder } = await loadJoins([
-    order,
-  ]);
+  const {
+    restaurantsById,
+    ridersById,
+    overridesByOrder,
+    bundlePickupByOrder,
+    tripNumbersById,
+  } = await loadJoins([order]);
   const overrides = overridesByOrder.get(order.id) ?? [];
   const items = applyItemOverrides(order.items ?? [], overrides);
   const restaurant = restaurantsById.get(order.restaurantId);
   const rider = order.riderId ? ridersById.get(order.riderId) : null;
   return {
-    ...baseOrderFields(order, items),
+    ...baseOrderFields(
+      order,
+      items,
+      bundlePickupByOrder.get(order.id) ?? null,
+      order.tripId ? (tripNumbersById.get(order.tripId) ?? null) : null,
+    ),
     restaurantName: restaurant?.name,
     riderName: rider?.name ?? null,
   };
 }
 
 export async function serializeOrderListItems(orders: Order[]) {
-  const { restaurantsById, ridersById, overridesByOrder } = await loadJoins(orders);
+  const {
+    restaurantsById,
+    ridersById,
+    overridesByOrder,
+    bundlePickupByOrder,
+    tripNumbersById,
+  } = await loadJoins(orders);
   return orders.map((order) => {
     const overrides = overridesByOrder.get(order.id) ?? [];
     const items = applyItemOverrides(order.items ?? [], overrides);
     const restaurant = restaurantsById.get(order.restaurantId);
     const rider = order.riderId ? ridersById.get(order.riderId) : null;
     return {
-      ...baseOrderFields(order, items),
+      ...baseOrderFields(
+        order,
+        items,
+        bundlePickupByOrder.get(order.id) ?? null,
+        order.tripId ? (tripNumbersById.get(order.tripId) ?? null) : null,
+      ),
       restaurantName: restaurant?.name,
       riderName: rider?.name ?? null,
     };
@@ -189,17 +289,7 @@ export async function serializeOrderDetail(orderId: string) {
       .from(itemOverridesTable)
       .where(eq(itemOverridesTable.orderId, orderId))
       .orderBy(asc(itemOverridesTable.createdAt)),
-    (async () => {
-      const [o] = await db
-        .select({
-          id: ordersTable.id,
-          restaurantId: ordersTable.restaurantId,
-          riderId: ordersTable.riderId,
-        })
-        .from(ordersTable)
-        .where(eq(ordersTable.id, orderId));
-      return o ? loadJoins([o]) : loadJoins([]);
-    })(),
+    loadJoins([order]),
   ]);
 
   const items = applyItemOverrides(order.items ?? [], overrides);
@@ -209,7 +299,14 @@ export async function serializeOrderDetail(orderId: string) {
     : null;
 
   return {
-    ...baseOrderFields(order, items),
+    ...baseOrderFields(
+      order,
+      items,
+      joinData.bundlePickupByOrder.get(order.id) ?? null,
+      order.tripId
+        ? (joinData.tripNumbersById.get(order.tripId) ?? null)
+        : null,
+    ),
     restaurantName: restaurant?.name,
     riderName: rider?.name ?? null,
     statusLog: statusLogRows.map(({ log, actorName }) => ({

@@ -39,5 +39,20 @@ export interface Order {
   pendingRiderNotification?: string | null;
   /** @nullable */
   failureReason?: string | null;
+  /** @nullable */
+  tripId?: string | null;
+  /**
+   * Human-friendly trip number for the trip this order belongs to.
+   * @nullable
+   */
+  tripNumber?: number | null;
+  /**
+   * Earliest effective pickup time across same-restaurant orders in
+the same trip. Null when the order is not part of a trip with
+another order at the same restaurant.
+
+   * @nullable
+   */
+  bundlePickupTime?: Date | null;
   createdAt: Date;
 }

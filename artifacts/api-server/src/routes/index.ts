@@ -7,6 +7,7 @@ import restaurantsRouter from "./restaurants";
 import usersRouter from "./users";
 import settingsRouter from "./settings";
 import pushRouter from "./push";
+import tripsRouter from "./trips";
 
 const router: IRouter = Router();
 
@@ -18,5 +19,6 @@ router.use(restaurantsRouter);
 router.use(usersRouter);
 router.use(settingsRouter);
 router.use(pushRouter);
+router.use(tripsRouter);
 
 export default router;

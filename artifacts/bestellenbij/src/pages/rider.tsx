@@ -29,6 +29,7 @@ const ACTIVE_STATUSES: ReadonlyArray<OrderListItem["status"]> = [
   "en_route_to_restaurant",
   "picked_up",
   "en_route_to_customer",
+  "postponed",
 ];
 
 export default function RiderPage() {

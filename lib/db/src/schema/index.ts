@@ -11,3 +11,4 @@ export * from "./order-items";
 export * from "./rider-assignments";
 export * from "./pickup-time-adjustments";
 export * from "./revoked-tokens";
+export * from "./trips";

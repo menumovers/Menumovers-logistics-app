@@ -22,6 +22,7 @@ export const ORDER_STATUSES = [
   "en_route_to_customer",
   "delivered",
   "failed",
+  "postponed",
 ] as const;
 export type OrderStatus = (typeof ORDER_STATUSES)[number];
 
@@ -66,6 +67,10 @@ export const ordersTable = pgTable(
     pickupTimeOverride: timestamp("pickup_time_override", { withTimezone: true }),
     pendingRiderNotification: text("pending_rider_notification"),
     failureReason: text("failure_reason"),
+    // Trip bundling: when set, the order is part of a coordinator-built trip
+    // executed alongside other orders by a single rider. Trip is layered
+    // above order status — clearing this column does not change `status`.
+    tripId: uuid("trip_id"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true })
       .notNull()
@@ -77,6 +82,7 @@ export const ordersTable = pgTable(
     statusIdx: index("orders_status_idx").on(t.status),
     restaurantIdx: index("orders_restaurant_idx").on(t.restaurantId),
     riderIdx: index("orders_rider_idx").on(t.riderId),
+    tripIdx: index("orders_trip_idx").on(t.tripId),
   }),
 );
 

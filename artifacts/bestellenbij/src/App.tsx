@@ -8,6 +8,8 @@ import LoginPage from "@/pages/login";
 import AdminPage from "@/pages/admin";
 import CoordinatorPage from "@/pages/coordinator";
 import CoordinatorOrderPage from "@/pages/coordinator-order";
+import CoordinatorTripBuilderPage from "@/pages/coordinator-trip-builder";
+import CoordinatorTripPage from "@/pages/coordinator-trip";
 import RiderPage from "@/pages/rider";
 import RiderOrderPage from "@/pages/rider-order";
 import RestaurantPage from "@/pages/restaurant";
@@ -46,6 +48,12 @@ function Routes() {
       </Route>
       <Route path="/coordinator/orders/:id">
         <RequireRole roles={["admin", "coordinator"]}><AppShell><CoordinatorOrderPage /></AppShell></RequireRole>
+      </Route>
+      <Route path="/coordinator/trips/new">
+        <RequireRole roles={["admin", "coordinator"]}><AppShell><CoordinatorTripBuilderPage /></AppShell></RequireRole>
+      </Route>
+      <Route path="/coordinator/trips/:id">
+        <RequireRole roles={["admin", "coordinator"]}><AppShell><CoordinatorTripPage /></AppShell></RequireRole>
       </Route>
       <Route path="/rider">
         <RequireRole roles={["admin", "coordinator", "rider"]}><AppShell><RiderPage /></AppShell></RequireRole>

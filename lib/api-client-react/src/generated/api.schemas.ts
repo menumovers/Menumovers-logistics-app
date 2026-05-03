@@ -41,6 +41,23 @@ export const OrderStatus = {
   en_route_to_customer: "en_route_to_customer",
   delivered: "delivered",
   failed: "failed",
+  postponed: "postponed",
+} as const;
+
+export type TripStatus = (typeof TripStatus)[keyof typeof TripStatus];
+
+export const TripStatus = {
+  planned: "planned",
+  in_progress: "in_progress",
+  completed: "completed",
+  dissolved: "dissolved",
+} as const;
+
+export type TripStopKind = (typeof TripStopKind)[keyof typeof TripStopKind];
+
+export const TripStopKind = {
+  pickup: "pickup",
+  dropoff: "dropoff",
 } as const;
 
 export type RiderAvailability =
@@ -244,6 +261,21 @@ export interface Order {
   pendingRiderNotification?: string | null;
   /** @nullable */
   failureReason?: string | null;
+  /** @nullable */
+  tripId?: string | null;
+  /**
+   * Human-friendly trip number for the trip this order belongs to.
+   * @nullable
+   */
+  tripNumber?: number | null;
+  /**
+   * Earliest effective pickup time across same-restaurant orders in
+the same trip. Null when the order is not part of a trip with
+another order at the same restaurant.
+
+   * @nullable
+   */
+  bundlePickupTime?: string | null;
   createdAt: string;
 }
 
@@ -418,9 +450,81 @@ export interface UnsubscribePushRequest {
   endpoint: string;
 }
 
+export interface TripStop {
+  id: string;
+  orderId: string;
+  kind: TripStopKind;
+  sequence: number;
+  /** @nullable */
+  completedAt?: string | null;
+}
+
+export type TripStopWithOrder = TripStop & {
+  externalOrderId: string;
+  customerName: string;
+  restaurantId: string;
+  restaurantName: string;
+  deliveryAddress: string;
+  orderStatus: OrderStatus;
+  effectivePickupTime: string;
+};
+
+export interface TripListItem {
+  id: string;
+  tripNumber: number;
+  /** @nullable */
+  name?: string | null;
+  /** @nullable */
+  riderId?: string | null;
+  /** @nullable */
+  riderName?: string | null;
+  status: TripStatus;
+  orderCount: number;
+  stopCount: number;
+  completedStopCount?: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type TripDetail = TripListItem & {
+  stops: TripStopWithOrder[];
+  orders: OrderListItem[];
+};
+
+export interface CreateTripRequest {
+  /** @nullable */
+  name?: string | null;
+  /** @nullable */
+  riderId?: string | null;
+  /** @minItems 1 */
+  orderIds: string[];
+}
+
+export interface UpdateTripRequest {
+  /** @nullable */
+  name?: string | null;
+  /** @nullable */
+  riderId?: string | null;
+}
+
+export interface StopInput {
+  orderId: string;
+  kind: TripStopKind;
+}
+
+export interface ReplaceTripStopsRequest {
+  /** @minItems 1 */
+  stops: StopInput[];
+}
+
 export type ListOrdersParams = {
   status?: OrderStatus;
   restaurantId?: string;
   riderId?: string;
   q?: string;
+};
+
+export type ListTripsParams = {
+  status?: TripStatus;
+  riderId?: string;
 };

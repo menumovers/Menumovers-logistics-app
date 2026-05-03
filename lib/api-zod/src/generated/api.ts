@@ -99,6 +99,7 @@ export const IngestOrderResponse = zod.object({
     "en_route_to_customer",
     "delivered",
     "failed",
+    "postponed",
   ]),
   customerName: zod.string(),
   customerPhone: zod.string(),
@@ -125,6 +126,17 @@ export const IngestOrderResponse = zod.object({
     .optional(),
   pendingRiderNotification: zod.string().nullish(),
   failureReason: zod.string().nullish(),
+  tripId: zod.string().nullish(),
+  tripNumber: zod
+    .number()
+    .nullish()
+    .describe("Human-friendly trip number for the trip this order belongs to."),
+  bundlePickupTime: zod.coerce
+    .date()
+    .nullish()
+    .describe(
+      "Earliest effective pickup time across same-restaurant orders in\nthe same trip. Null when the order is not part of a trip with\nanother order at the same restaurant.\n",
+    ),
   createdAt: zod.coerce.date(),
 });
 
@@ -141,6 +153,7 @@ export const ListOrdersQueryParams = zod.object({
       "en_route_to_customer",
       "delivered",
       "failed",
+      "postponed",
     ])
     .optional(),
   restaurantId: zod.coerce.string().optional(),
@@ -162,6 +175,7 @@ export const ListOrdersResponseItem = zod
       "en_route_to_customer",
       "delivered",
       "failed",
+      "postponed",
     ]),
     customerName: zod.string(),
     customerPhone: zod.string(),
@@ -188,6 +202,19 @@ export const ListOrdersResponseItem = zod
       .optional(),
     pendingRiderNotification: zod.string().nullish(),
     failureReason: zod.string().nullish(),
+    tripId: zod.string().nullish(),
+    tripNumber: zod
+      .number()
+      .nullish()
+      .describe(
+        "Human-friendly trip number for the trip this order belongs to.",
+      ),
+    bundlePickupTime: zod.coerce
+      .date()
+      .nullish()
+      .describe(
+        "Earliest effective pickup time across same-restaurant orders in\nthe same trip. Null when the order is not part of a trip with\nanother order at the same restaurant.\n",
+      ),
     createdAt: zod.coerce.date(),
   })
   .and(
@@ -219,6 +246,7 @@ export const GetOrderResponse = zod
       "en_route_to_customer",
       "delivered",
       "failed",
+      "postponed",
     ]),
     customerName: zod.string(),
     customerPhone: zod.string(),
@@ -245,6 +273,19 @@ export const GetOrderResponse = zod
       .optional(),
     pendingRiderNotification: zod.string().nullish(),
     failureReason: zod.string().nullish(),
+    tripId: zod.string().nullish(),
+    tripNumber: zod
+      .number()
+      .nullish()
+      .describe(
+        "Human-friendly trip number for the trip this order belongs to.",
+      ),
+    bundlePickupTime: zod.coerce
+      .date()
+      .nullish()
+      .describe(
+        "Earliest effective pickup time across same-restaurant orders in\nthe same trip. Null when the order is not part of a trip with\nanother order at the same restaurant.\n",
+      ),
     createdAt: zod.coerce.date(),
   })
   .and(
@@ -268,6 +309,7 @@ export const GetOrderResponse = zod
                 "en_route_to_customer",
                 "delivered",
                 "failed",
+                "postponed",
               ]),
               zod.null(),
             ])
@@ -280,6 +322,7 @@ export const GetOrderResponse = zod
             "en_route_to_customer",
             "delivered",
             "failed",
+            "postponed",
           ]),
           actorUserId: zod.string().nullish(),
           actorUserName: zod.string().nullish(),
@@ -326,6 +369,7 @@ export const TransitionOrderStatusBody = zod.object({
     "en_route_to_customer",
     "delivered",
     "failed",
+    "postponed",
   ]),
   note: zod.string().nullish(),
   failureReason: zod.string().nullish(),
@@ -345,6 +389,7 @@ export const TransitionOrderStatusResponse = zod
       "en_route_to_customer",
       "delivered",
       "failed",
+      "postponed",
     ]),
     customerName: zod.string(),
     customerPhone: zod.string(),
@@ -371,6 +416,19 @@ export const TransitionOrderStatusResponse = zod
       .optional(),
     pendingRiderNotification: zod.string().nullish(),
     failureReason: zod.string().nullish(),
+    tripId: zod.string().nullish(),
+    tripNumber: zod
+      .number()
+      .nullish()
+      .describe(
+        "Human-friendly trip number for the trip this order belongs to.",
+      ),
+    bundlePickupTime: zod.coerce
+      .date()
+      .nullish()
+      .describe(
+        "Earliest effective pickup time across same-restaurant orders in\nthe same trip. Null when the order is not part of a trip with\nanother order at the same restaurant.\n",
+      ),
     createdAt: zod.coerce.date(),
   })
   .and(
@@ -394,6 +452,7 @@ export const TransitionOrderStatusResponse = zod
                 "en_route_to_customer",
                 "delivered",
                 "failed",
+                "postponed",
               ]),
               zod.null(),
             ])
@@ -406,6 +465,7 @@ export const TransitionOrderStatusResponse = zod
             "en_route_to_customer",
             "delivered",
             "failed",
+            "postponed",
           ]),
           actorUserId: zod.string().nullish(),
           actorUserName: zod.string().nullish(),
@@ -461,6 +521,7 @@ export const AssignOrderResponse = zod
       "en_route_to_customer",
       "delivered",
       "failed",
+      "postponed",
     ]),
     customerName: zod.string(),
     customerPhone: zod.string(),
@@ -487,6 +548,19 @@ export const AssignOrderResponse = zod
       .optional(),
     pendingRiderNotification: zod.string().nullish(),
     failureReason: zod.string().nullish(),
+    tripId: zod.string().nullish(),
+    tripNumber: zod
+      .number()
+      .nullish()
+      .describe(
+        "Human-friendly trip number for the trip this order belongs to.",
+      ),
+    bundlePickupTime: zod.coerce
+      .date()
+      .nullish()
+      .describe(
+        "Earliest effective pickup time across same-restaurant orders in\nthe same trip. Null when the order is not part of a trip with\nanother order at the same restaurant.\n",
+      ),
     createdAt: zod.coerce.date(),
   })
   .and(
@@ -510,6 +584,7 @@ export const AssignOrderResponse = zod
                 "en_route_to_customer",
                 "delivered",
                 "failed",
+                "postponed",
               ]),
               zod.null(),
             ])
@@ -522,6 +597,7 @@ export const AssignOrderResponse = zod
             "en_route_to_customer",
             "delivered",
             "failed",
+            "postponed",
           ]),
           actorUserId: zod.string().nullish(),
           actorUserName: zod.string().nullish(),
@@ -578,6 +654,7 @@ export const UpdatePickupTimeResponse = zod
       "en_route_to_customer",
       "delivered",
       "failed",
+      "postponed",
     ]),
     customerName: zod.string(),
     customerPhone: zod.string(),
@@ -604,6 +681,19 @@ export const UpdatePickupTimeResponse = zod
       .optional(),
     pendingRiderNotification: zod.string().nullish(),
     failureReason: zod.string().nullish(),
+    tripId: zod.string().nullish(),
+    tripNumber: zod
+      .number()
+      .nullish()
+      .describe(
+        "Human-friendly trip number for the trip this order belongs to.",
+      ),
+    bundlePickupTime: zod.coerce
+      .date()
+      .nullish()
+      .describe(
+        "Earliest effective pickup time across same-restaurant orders in\nthe same trip. Null when the order is not part of a trip with\nanother order at the same restaurant.\n",
+      ),
     createdAt: zod.coerce.date(),
   })
   .and(
@@ -627,6 +717,7 @@ export const UpdatePickupTimeResponse = zod
                 "en_route_to_customer",
                 "delivered",
                 "failed",
+                "postponed",
               ]),
               zod.null(),
             ])
@@ -639,6 +730,7 @@ export const UpdatePickupTimeResponse = zod
             "en_route_to_customer",
             "delivered",
             "failed",
+            "postponed",
           ]),
           actorUserId: zod.string().nullish(),
           actorUserName: zod.string().nullish(),
@@ -694,6 +786,7 @@ export const HideOrderItemResponse = zod
       "en_route_to_customer",
       "delivered",
       "failed",
+      "postponed",
     ]),
     customerName: zod.string(),
     customerPhone: zod.string(),
@@ -720,6 +813,19 @@ export const HideOrderItemResponse = zod
       .optional(),
     pendingRiderNotification: zod.string().nullish(),
     failureReason: zod.string().nullish(),
+    tripId: zod.string().nullish(),
+    tripNumber: zod
+      .number()
+      .nullish()
+      .describe(
+        "Human-friendly trip number for the trip this order belongs to.",
+      ),
+    bundlePickupTime: zod.coerce
+      .date()
+      .nullish()
+      .describe(
+        "Earliest effective pickup time across same-restaurant orders in\nthe same trip. Null when the order is not part of a trip with\nanother order at the same restaurant.\n",
+      ),
     createdAt: zod.coerce.date(),
   })
   .and(
@@ -743,6 +849,7 @@ export const HideOrderItemResponse = zod
                 "en_route_to_customer",
                 "delivered",
                 "failed",
+                "postponed",
               ]),
               zod.null(),
             ])
@@ -755,6 +862,7 @@ export const HideOrderItemResponse = zod
             "en_route_to_customer",
             "delivered",
             "failed",
+            "postponed",
           ]),
           actorUserId: zod.string().nullish(),
           actorUserName: zod.string().nullish(),
@@ -815,6 +923,7 @@ export const AddOrderItemResponse = zod
       "en_route_to_customer",
       "delivered",
       "failed",
+      "postponed",
     ]),
     customerName: zod.string(),
     customerPhone: zod.string(),
@@ -841,6 +950,19 @@ export const AddOrderItemResponse = zod
       .optional(),
     pendingRiderNotification: zod.string().nullish(),
     failureReason: zod.string().nullish(),
+    tripId: zod.string().nullish(),
+    tripNumber: zod
+      .number()
+      .nullish()
+      .describe(
+        "Human-friendly trip number for the trip this order belongs to.",
+      ),
+    bundlePickupTime: zod.coerce
+      .date()
+      .nullish()
+      .describe(
+        "Earliest effective pickup time across same-restaurant orders in\nthe same trip. Null when the order is not part of a trip with\nanother order at the same restaurant.\n",
+      ),
     createdAt: zod.coerce.date(),
   })
   .and(
@@ -864,6 +986,7 @@ export const AddOrderItemResponse = zod
                 "en_route_to_customer",
                 "delivered",
                 "failed",
+                "postponed",
               ]),
               zod.null(),
             ])
@@ -876,6 +999,7 @@ export const AddOrderItemResponse = zod
             "en_route_to_customer",
             "delivered",
             "failed",
+            "postponed",
           ]),
           actorUserId: zod.string().nullish(),
           actorUserName: zod.string().nullish(),
@@ -931,6 +1055,7 @@ export const SetRiderNotificationResponse = zod
       "en_route_to_customer",
       "delivered",
       "failed",
+      "postponed",
     ]),
     customerName: zod.string(),
     customerPhone: zod.string(),
@@ -957,6 +1082,19 @@ export const SetRiderNotificationResponse = zod
       .optional(),
     pendingRiderNotification: zod.string().nullish(),
     failureReason: zod.string().nullish(),
+    tripId: zod.string().nullish(),
+    tripNumber: zod
+      .number()
+      .nullish()
+      .describe(
+        "Human-friendly trip number for the trip this order belongs to.",
+      ),
+    bundlePickupTime: zod.coerce
+      .date()
+      .nullish()
+      .describe(
+        "Earliest effective pickup time across same-restaurant orders in\nthe same trip. Null when the order is not part of a trip with\nanother order at the same restaurant.\n",
+      ),
     createdAt: zod.coerce.date(),
   })
   .and(
@@ -980,6 +1118,7 @@ export const SetRiderNotificationResponse = zod
                 "en_route_to_customer",
                 "delivered",
                 "failed",
+                "postponed",
               ]),
               zod.null(),
             ])
@@ -992,6 +1131,7 @@ export const SetRiderNotificationResponse = zod
             "en_route_to_customer",
             "delivered",
             "failed",
+            "postponed",
           ]),
           actorUserId: zod.string().nullish(),
           actorUserName: zod.string().nullish(),
@@ -1051,6 +1191,7 @@ export const UpdateOrderContactResponse = zod
       "en_route_to_customer",
       "delivered",
       "failed",
+      "postponed",
     ]),
     customerName: zod.string(),
     customerPhone: zod.string(),
@@ -1077,6 +1218,19 @@ export const UpdateOrderContactResponse = zod
       .optional(),
     pendingRiderNotification: zod.string().nullish(),
     failureReason: zod.string().nullish(),
+    tripId: zod.string().nullish(),
+    tripNumber: zod
+      .number()
+      .nullish()
+      .describe(
+        "Human-friendly trip number for the trip this order belongs to.",
+      ),
+    bundlePickupTime: zod.coerce
+      .date()
+      .nullish()
+      .describe(
+        "Earliest effective pickup time across same-restaurant orders in\nthe same trip. Null when the order is not part of a trip with\nanother order at the same restaurant.\n",
+      ),
     createdAt: zod.coerce.date(),
   })
   .and(
@@ -1100,6 +1254,7 @@ export const UpdateOrderContactResponse = zod
                 "en_route_to_customer",
                 "delivered",
                 "failed",
+                "postponed",
               ]),
               zod.null(),
             ])
@@ -1112,6 +1267,7 @@ export const UpdateOrderContactResponse = zod
             "en_route_to_customer",
             "delivered",
             "failed",
+            "postponed",
           ]),
           actorUserId: zod.string().nullish(),
           actorUserName: zod.string().nullish(),
@@ -1345,6 +1501,537 @@ export const UpdateSettingsResponse = zod.object({
 export const GetSettingsFlagsResponse = zod.object({
   allowRiderSelfClaim: zod.boolean(),
 });
+
+/**
+ * @summary List trips
+ */
+export const ListTripsQueryParams = zod.object({
+  status: zod
+    .enum(["planned", "in_progress", "completed", "dissolved"])
+    .optional(),
+  riderId: zod.coerce.string().optional(),
+});
+
+export const ListTripsResponseItem = zod.object({
+  id: zod.string(),
+  tripNumber: zod.number(),
+  name: zod.string().nullish(),
+  riderId: zod.string().nullish(),
+  riderName: zod.string().nullish(),
+  status: zod.enum(["planned", "in_progress", "completed", "dissolved"]),
+  orderCount: zod.number(),
+  stopCount: zod.number(),
+  completedStopCount: zod.number().optional(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+export const ListTripsResponse = zod.array(ListTripsResponseItem);
+
+/**
+ * @summary Create a new trip from a set of orders
+ */
+
+export const CreateTripBody = zod.object({
+  name: zod.string().nullish(),
+  riderId: zod.string().nullish(),
+  orderIds: zod.array(zod.string()).min(1),
+});
+
+/**
+ * @summary Get trip detail
+ */
+export const GetTripParams = zod.object({
+  id: zod.coerce.string(),
+});
+
+export const GetTripResponse = zod
+  .object({
+    id: zod.string(),
+    tripNumber: zod.number(),
+    name: zod.string().nullish(),
+    riderId: zod.string().nullish(),
+    riderName: zod.string().nullish(),
+    status: zod.enum(["planned", "in_progress", "completed", "dissolved"]),
+    orderCount: zod.number(),
+    stopCount: zod.number(),
+    completedStopCount: zod.number().optional(),
+    createdAt: zod.coerce.date(),
+    updatedAt: zod.coerce.date(),
+  })
+  .and(
+    zod.object({
+      stops: zod.array(
+        zod
+          .object({
+            id: zod.string(),
+            orderId: zod.string(),
+            kind: zod.enum(["pickup", "dropoff"]),
+            sequence: zod.number(),
+            completedAt: zod.coerce.date().nullish(),
+          })
+          .and(
+            zod.object({
+              externalOrderId: zod.string(),
+              customerName: zod.string(),
+              restaurantId: zod.string(),
+              restaurantName: zod.string(),
+              deliveryAddress: zod.string(),
+              orderStatus: zod.enum([
+                "pending",
+                "driver_assigned",
+                "en_route_to_restaurant",
+                "picked_up",
+                "en_route_to_customer",
+                "delivered",
+                "failed",
+                "postponed",
+              ]),
+              effectivePickupTime: zod.coerce.date(),
+            }),
+          ),
+      ),
+      orders: zod.array(
+        zod
+          .object({
+            id: zod.string(),
+            externalOrderId: zod.string(),
+            restaurantId: zod.string(),
+            riderId: zod.string().nullish(),
+            status: zod.enum([
+              "pending",
+              "driver_assigned",
+              "en_route_to_restaurant",
+              "picked_up",
+              "en_route_to_customer",
+              "delivered",
+              "failed",
+              "postponed",
+            ]),
+            customerName: zod.string(),
+            customerPhone: zod.string(),
+            customerEmail: zod.string().nullish(),
+            deliveryAddress: zod.string(),
+            deliveryInstructions: zod.string().nullish(),
+            deliveryFee: zod.string(),
+            totalAmount: zod.string(),
+            items: zod.array(
+              zod.object({
+                name: zod.string(),
+                quantity: zod.number(),
+                price: zod.string(),
+                notes: zod.string().nullish(),
+              }),
+            ),
+            pickupTimeOriginal: zod.coerce.date(),
+            pickupTimeRider: zod.coerce.date().nullish(),
+            pickupTimeRestaurant: zod.coerce.date().nullish(),
+            pickupTimeOverride: zod.coerce.date().nullish(),
+            effectivePickupTime: zod.coerce.date(),
+            effectivePickupSource: zod
+              .enum(["rider", "restaurant", "override"])
+              .optional(),
+            pendingRiderNotification: zod.string().nullish(),
+            failureReason: zod.string().nullish(),
+            tripId: zod.string().nullish(),
+            tripNumber: zod
+              .number()
+              .nullish()
+              .describe(
+                "Human-friendly trip number for the trip this order belongs to.",
+              ),
+            bundlePickupTime: zod.coerce
+              .date()
+              .nullish()
+              .describe(
+                "Earliest effective pickup time across same-restaurant orders in\nthe same trip. Null when the order is not part of a trip with\nanother order at the same restaurant.\n",
+              ),
+            createdAt: zod.coerce.date(),
+          })
+          .and(
+            zod.object({
+              restaurantName: zod.string().optional(),
+              riderName: zod.string().nullish(),
+            }),
+          ),
+      ),
+    }),
+  );
+
+/**
+ * @summary Rename or reassign a trip
+ */
+export const UpdateTripParams = zod.object({
+  id: zod.coerce.string(),
+});
+
+export const UpdateTripBody = zod.object({
+  name: zod.string().nullish(),
+  riderId: zod.string().nullish(),
+});
+
+export const UpdateTripResponse = zod
+  .object({
+    id: zod.string(),
+    tripNumber: zod.number(),
+    name: zod.string().nullish(),
+    riderId: zod.string().nullish(),
+    riderName: zod.string().nullish(),
+    status: zod.enum(["planned", "in_progress", "completed", "dissolved"]),
+    orderCount: zod.number(),
+    stopCount: zod.number(),
+    completedStopCount: zod.number().optional(),
+    createdAt: zod.coerce.date(),
+    updatedAt: zod.coerce.date(),
+  })
+  .and(
+    zod.object({
+      stops: zod.array(
+        zod
+          .object({
+            id: zod.string(),
+            orderId: zod.string(),
+            kind: zod.enum(["pickup", "dropoff"]),
+            sequence: zod.number(),
+            completedAt: zod.coerce.date().nullish(),
+          })
+          .and(
+            zod.object({
+              externalOrderId: zod.string(),
+              customerName: zod.string(),
+              restaurantId: zod.string(),
+              restaurantName: zod.string(),
+              deliveryAddress: zod.string(),
+              orderStatus: zod.enum([
+                "pending",
+                "driver_assigned",
+                "en_route_to_restaurant",
+                "picked_up",
+                "en_route_to_customer",
+                "delivered",
+                "failed",
+                "postponed",
+              ]),
+              effectivePickupTime: zod.coerce.date(),
+            }),
+          ),
+      ),
+      orders: zod.array(
+        zod
+          .object({
+            id: zod.string(),
+            externalOrderId: zod.string(),
+            restaurantId: zod.string(),
+            riderId: zod.string().nullish(),
+            status: zod.enum([
+              "pending",
+              "driver_assigned",
+              "en_route_to_restaurant",
+              "picked_up",
+              "en_route_to_customer",
+              "delivered",
+              "failed",
+              "postponed",
+            ]),
+            customerName: zod.string(),
+            customerPhone: zod.string(),
+            customerEmail: zod.string().nullish(),
+            deliveryAddress: zod.string(),
+            deliveryInstructions: zod.string().nullish(),
+            deliveryFee: zod.string(),
+            totalAmount: zod.string(),
+            items: zod.array(
+              zod.object({
+                name: zod.string(),
+                quantity: zod.number(),
+                price: zod.string(),
+                notes: zod.string().nullish(),
+              }),
+            ),
+            pickupTimeOriginal: zod.coerce.date(),
+            pickupTimeRider: zod.coerce.date().nullish(),
+            pickupTimeRestaurant: zod.coerce.date().nullish(),
+            pickupTimeOverride: zod.coerce.date().nullish(),
+            effectivePickupTime: zod.coerce.date(),
+            effectivePickupSource: zod
+              .enum(["rider", "restaurant", "override"])
+              .optional(),
+            pendingRiderNotification: zod.string().nullish(),
+            failureReason: zod.string().nullish(),
+            tripId: zod.string().nullish(),
+            tripNumber: zod
+              .number()
+              .nullish()
+              .describe(
+                "Human-friendly trip number for the trip this order belongs to.",
+              ),
+            bundlePickupTime: zod.coerce
+              .date()
+              .nullish()
+              .describe(
+                "Earliest effective pickup time across same-restaurant orders in\nthe same trip. Null when the order is not part of a trip with\nanother order at the same restaurant.\n",
+              ),
+            createdAt: zod.coerce.date(),
+          })
+          .and(
+            zod.object({
+              restaurantName: zod.string().optional(),
+              riderName: zod.string().nullish(),
+            }),
+          ),
+      ),
+    }),
+  );
+
+/**
+ * @summary Replace the ordered stop list of a trip
+ */
+export const ReplaceTripStopsParams = zod.object({
+  id: zod.coerce.string(),
+});
+
+export const ReplaceTripStopsBody = zod.object({
+  stops: zod
+    .array(
+      zod.object({
+        orderId: zod.string(),
+        kind: zod.enum(["pickup", "dropoff"]),
+      }),
+    )
+    .min(1),
+});
+
+export const ReplaceTripStopsResponse = zod
+  .object({
+    id: zod.string(),
+    tripNumber: zod.number(),
+    name: zod.string().nullish(),
+    riderId: zod.string().nullish(),
+    riderName: zod.string().nullish(),
+    status: zod.enum(["planned", "in_progress", "completed", "dissolved"]),
+    orderCount: zod.number(),
+    stopCount: zod.number(),
+    completedStopCount: zod.number().optional(),
+    createdAt: zod.coerce.date(),
+    updatedAt: zod.coerce.date(),
+  })
+  .and(
+    zod.object({
+      stops: zod.array(
+        zod
+          .object({
+            id: zod.string(),
+            orderId: zod.string(),
+            kind: zod.enum(["pickup", "dropoff"]),
+            sequence: zod.number(),
+            completedAt: zod.coerce.date().nullish(),
+          })
+          .and(
+            zod.object({
+              externalOrderId: zod.string(),
+              customerName: zod.string(),
+              restaurantId: zod.string(),
+              restaurantName: zod.string(),
+              deliveryAddress: zod.string(),
+              orderStatus: zod.enum([
+                "pending",
+                "driver_assigned",
+                "en_route_to_restaurant",
+                "picked_up",
+                "en_route_to_customer",
+                "delivered",
+                "failed",
+                "postponed",
+              ]),
+              effectivePickupTime: zod.coerce.date(),
+            }),
+          ),
+      ),
+      orders: zod.array(
+        zod
+          .object({
+            id: zod.string(),
+            externalOrderId: zod.string(),
+            restaurantId: zod.string(),
+            riderId: zod.string().nullish(),
+            status: zod.enum([
+              "pending",
+              "driver_assigned",
+              "en_route_to_restaurant",
+              "picked_up",
+              "en_route_to_customer",
+              "delivered",
+              "failed",
+              "postponed",
+            ]),
+            customerName: zod.string(),
+            customerPhone: zod.string(),
+            customerEmail: zod.string().nullish(),
+            deliveryAddress: zod.string(),
+            deliveryInstructions: zod.string().nullish(),
+            deliveryFee: zod.string(),
+            totalAmount: zod.string(),
+            items: zod.array(
+              zod.object({
+                name: zod.string(),
+                quantity: zod.number(),
+                price: zod.string(),
+                notes: zod.string().nullish(),
+              }),
+            ),
+            pickupTimeOriginal: zod.coerce.date(),
+            pickupTimeRider: zod.coerce.date().nullish(),
+            pickupTimeRestaurant: zod.coerce.date().nullish(),
+            pickupTimeOverride: zod.coerce.date().nullish(),
+            effectivePickupTime: zod.coerce.date(),
+            effectivePickupSource: zod
+              .enum(["rider", "restaurant", "override"])
+              .optional(),
+            pendingRiderNotification: zod.string().nullish(),
+            failureReason: zod.string().nullish(),
+            tripId: zod.string().nullish(),
+            tripNumber: zod
+              .number()
+              .nullish()
+              .describe(
+                "Human-friendly trip number for the trip this order belongs to.",
+              ),
+            bundlePickupTime: zod.coerce
+              .date()
+              .nullish()
+              .describe(
+                "Earliest effective pickup time across same-restaurant orders in\nthe same trip. Null when the order is not part of a trip with\nanother order at the same restaurant.\n",
+              ),
+            createdAt: zod.coerce.date(),
+          })
+          .and(
+            zod.object({
+              restaurantName: zod.string().optional(),
+              riderName: zod.string().nullish(),
+            }),
+          ),
+      ),
+    }),
+  );
+
+/**
+ * @summary Dissolve a trip and detach its orders
+ */
+export const DissolveTripParams = zod.object({
+  id: zod.coerce.string(),
+});
+
+export const DissolveTripResponse = zod
+  .object({
+    id: zod.string(),
+    tripNumber: zod.number(),
+    name: zod.string().nullish(),
+    riderId: zod.string().nullish(),
+    riderName: zod.string().nullish(),
+    status: zod.enum(["planned", "in_progress", "completed", "dissolved"]),
+    orderCount: zod.number(),
+    stopCount: zod.number(),
+    completedStopCount: zod.number().optional(),
+    createdAt: zod.coerce.date(),
+    updatedAt: zod.coerce.date(),
+  })
+  .and(
+    zod.object({
+      stops: zod.array(
+        zod
+          .object({
+            id: zod.string(),
+            orderId: zod.string(),
+            kind: zod.enum(["pickup", "dropoff"]),
+            sequence: zod.number(),
+            completedAt: zod.coerce.date().nullish(),
+          })
+          .and(
+            zod.object({
+              externalOrderId: zod.string(),
+              customerName: zod.string(),
+              restaurantId: zod.string(),
+              restaurantName: zod.string(),
+              deliveryAddress: zod.string(),
+              orderStatus: zod.enum([
+                "pending",
+                "driver_assigned",
+                "en_route_to_restaurant",
+                "picked_up",
+                "en_route_to_customer",
+                "delivered",
+                "failed",
+                "postponed",
+              ]),
+              effectivePickupTime: zod.coerce.date(),
+            }),
+          ),
+      ),
+      orders: zod.array(
+        zod
+          .object({
+            id: zod.string(),
+            externalOrderId: zod.string(),
+            restaurantId: zod.string(),
+            riderId: zod.string().nullish(),
+            status: zod.enum([
+              "pending",
+              "driver_assigned",
+              "en_route_to_restaurant",
+              "picked_up",
+              "en_route_to_customer",
+              "delivered",
+              "failed",
+              "postponed",
+            ]),
+            customerName: zod.string(),
+            customerPhone: zod.string(),
+            customerEmail: zod.string().nullish(),
+            deliveryAddress: zod.string(),
+            deliveryInstructions: zod.string().nullish(),
+            deliveryFee: zod.string(),
+            totalAmount: zod.string(),
+            items: zod.array(
+              zod.object({
+                name: zod.string(),
+                quantity: zod.number(),
+                price: zod.string(),
+                notes: zod.string().nullish(),
+              }),
+            ),
+            pickupTimeOriginal: zod.coerce.date(),
+            pickupTimeRider: zod.coerce.date().nullish(),
+            pickupTimeRestaurant: zod.coerce.date().nullish(),
+            pickupTimeOverride: zod.coerce.date().nullish(),
+            effectivePickupTime: zod.coerce.date(),
+            effectivePickupSource: zod
+              .enum(["rider", "restaurant", "override"])
+              .optional(),
+            pendingRiderNotification: zod.string().nullish(),
+            failureReason: zod.string().nullish(),
+            tripId: zod.string().nullish(),
+            tripNumber: zod
+              .number()
+              .nullish()
+              .describe(
+                "Human-friendly trip number for the trip this order belongs to.",
+              ),
+            bundlePickupTime: zod.coerce
+              .date()
+              .nullish()
+              .describe(
+                "Earliest effective pickup time across same-restaurant orders in\nthe same trip. Null when the order is not part of a trip with\nanother order at the same restaurant.\n",
+              ),
+            createdAt: zod.coerce.date(),
+          })
+          .and(
+            zod.object({
+              restaurantName: zod.string().optional(),
+              riderName: zod.string().nullish(),
+            }),
+          ),
+      ),
+    }),
+  );
 
 /**
  * @summary Returns the VAPID public key for push subscription registration

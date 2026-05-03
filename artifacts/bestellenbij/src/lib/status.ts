@@ -8,6 +8,7 @@ export const STATUS_CLASS: Record<OrderStatus, string> = {
   en_route_to_customer: "bg-chart-4/15 text-chart-4 border-chart-4/40",
   delivered: "bg-chart-5/15 text-chart-5 border-chart-5/40",
   failed: "bg-destructive/12 text-destructive border-destructive/40",
+  postponed: "bg-accent/15 text-accent-foreground border-accent/40",
 };
 
 export const URGENCY_CLASS: Record<"neutral" | "warn" | "danger" | "late", string> = {

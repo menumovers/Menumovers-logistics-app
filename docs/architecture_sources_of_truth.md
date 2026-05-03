@@ -49,9 +49,16 @@ The structure for each entry: **Name**, **Location**, **What it does**, **Formul
 ### Order status state machine
 - **Location**: `artifacts/api-server/src/lib/state-machine.ts` → `isValidTransition`, `assertValidTransition`
 - **What it does**: The authoritative legal-transition graph for `OrderStatus`.
-- **Logic**: Pipeline transitions are `pending → driver_assigned → en_route_to_restaurant → picked_up → en_route_to_customer → delivered`. `failed` is reachable from any non-failed state. No same-state transitions. No transitions out of terminal states.
-- **Callers**: `routes/orders.ts` on every status-changing endpoint.
+- **Logic**: Pipeline transitions are `pending → driver_assigned → en_route_to_restaurant → picked_up → en_route_to_customer → delivered`. `postponed` is reachable from `driver_assigned`, `en_route_to_restaurant`, and `en_route_to_customer`, and resumes back to either `en_route_to_restaurant` or `en_route_to_customer` (rider chooses). `failed` is reachable from any non-failed state including `postponed`. No same-state transitions. No transitions out of terminal states.
+- **Callers**: `routes/orders.ts` on every status-changing endpoint; `routes/trips.ts` for trip-driven postpone/resume.
 - **Do not**: implement a parallel "can the rider do X here" check in the frontend. The frontend may hide buttons, but the server is the only authority.
+
+### Trip bundling and bundled pickup time
+- **Location**: schema in `lib/db/src/schema/trips.ts` (`tripsTable`, `tripStopsTable`, `orders.tripId` FK); writes in `artifacts/api-server/src/routes/trips.ts`; bundled pickup computed in `artifacts/api-server/src/lib/order-serialize.ts`.
+- **What it does**: Groups orders that share a single rider pickup pass under one `Trip` (`planned | in_progress | completed | dissolved`). For all orders in a trip that share the same `restaurantId`, the serializer surfaces a unified `bundlePickupTime` (the earliest of the effective pickup times in that bundle, so the restaurant prepares in time for the first one) so the restaurant card shows a single time.
+- **Trip number**: each trip has a monotonic `tripNumber` (integer) used for human display. Order DTOs include `tripId` (uuid) for joins and `tripNumber` for display.
+- **Callers**: coordinator UI (`pages/coordinator-trip-builder.tsx`, `pages/coordinator-trip.tsx`, `pages/coordinator.tsx` `TripsSection`), rider UI (`pages/rider-order.tsx` trip banner + postpone/resume), restaurant UI (`pages/restaurant.tsx` `BundleCard`).
+- **Do not**: render trips by `tripId` UUID in user-facing copy — always use `tripNumber`. Do not compute the bundle pickup time on the client; rely on `bundlePickupTime` from the API.
 
 ### Item overrides application
 - **Location**: `artifacts/api-server/src/lib/order-serialize.ts` → `applyItemOverrides`

@@ -17,6 +17,7 @@ tags:
   - name: users
   - name: settings
   - name: push
+  - name: trips
 security:
   - bearerAuth: []
 paths:
@@ -617,6 +618,141 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/SettingsFlags"
+  /trips:
+    get:
+      operationId: listTrips
+      tags: [trips]
+      summary: List trips
+      parameters:
+        - in: query
+          name: status
+          schema:
+            $ref: "#/components/schemas/TripStatus"
+        - in: query
+          name: riderId
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Trip list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TripListItem"
+    post:
+      operationId: createTrip
+      tags: [trips]
+      summary: Create a new trip from a set of orders
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTripRequest"
+      responses:
+        "201":
+          description: Trip created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TripDetail"
+        "400":
+          description: Invalid payload
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /trips/{id}:
+    get:
+      operationId: getTrip
+      tags: [trips]
+      summary: Get trip detail
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Trip detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TripDetail"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    patch:
+      operationId: updateTrip
+      tags: [trips]
+      summary: Rename or reassign a trip
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateTripRequest"
+      responses:
+        "200":
+          description: Trip updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TripDetail"
+  /trips/{id}/stops:
+    put:
+      operationId: replaceTripStops
+      tags: [trips]
+      summary: Replace the ordered stop list of a trip
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReplaceTripStopsRequest"
+      responses:
+        "200":
+          description: Trip updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TripDetail"
+  /trips/{id}/dissolve:
+    post:
+      operationId: dissolveTrip
+      tags: [trips]
+      summary: Dissolve a trip and detach its orders
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Trip dissolved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TripDetail"
   /push/vapid-public-key:
     get:
       operationId: getVapidPublicKey
@@ -701,6 +837,13 @@ components:
         - en_route_to_customer
         - delivered
         - failed
+        - postponed
+    TripStatus:
+      type: string
+      enum: [planned, in_progress, completed, dissolved]
+    TripStopKind:
+      type: string
+      enum: [pickup, dropoff]
     RiderAvailability:
       type: string
       enum: [offline, online, backup]
@@ -960,6 +1103,18 @@ components:
           type: ["string", "null"]
         failureReason:
           type: ["string", "null"]
+        tripId:
+          type: ["string", "null"]
+        tripNumber:
+          type: ["integer", "null"]
+          description: Human-friendly trip number for the trip this order belongs to.
+        bundlePickupTime:
+          type: ["string", "null"]
+          format: date-time
+          description: |
+            Earliest effective pickup time across same-restaurant orders in
+            the same trip. Null when the order is not part of a trip with
+            another order at the same restaurant.
         createdAt:
           type: string
           format: date-time
@@ -1210,3 +1365,125 @@ components:
       properties:
         endpoint:
           type: string
+    TripStop:
+      type: object
+      required: [id, orderId, kind, sequence]
+      properties:
+        id:
+          type: string
+        orderId:
+          type: string
+        kind:
+          $ref: "#/components/schemas/TripStopKind"
+        sequence:
+          type: integer
+        completedAt:
+          type: ["string", "null"]
+          format: date-time
+    TripStopWithOrder:
+      allOf:
+        - $ref: "#/components/schemas/TripStop"
+        - type: object
+          required: [externalOrderId, customerName, restaurantId, restaurantName, deliveryAddress, orderStatus, effectivePickupTime]
+          properties:
+            externalOrderId:
+              type: string
+            customerName:
+              type: string
+            restaurantId:
+              type: string
+            restaurantName:
+              type: string
+            deliveryAddress:
+              type: string
+            orderStatus:
+              $ref: "#/components/schemas/OrderStatus"
+            effectivePickupTime:
+              type: string
+              format: date-time
+    TripListItem:
+      type: object
+      required:
+        - id
+        - tripNumber
+        - status
+        - orderCount
+        - stopCount
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+        tripNumber:
+          type: integer
+        name:
+          type: ["string", "null"]
+        riderId:
+          type: ["string", "null"]
+        riderName:
+          type: ["string", "null"]
+        status:
+          $ref: "#/components/schemas/TripStatus"
+        orderCount:
+          type: integer
+        stopCount:
+          type: integer
+        completedStopCount:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    TripDetail:
+      allOf:
+        - $ref: "#/components/schemas/TripListItem"
+        - type: object
+          required: [stops, orders]
+          properties:
+            stops:
+              type: array
+              items:
+                $ref: "#/components/schemas/TripStopWithOrder"
+            orders:
+              type: array
+              items:
+                $ref: "#/components/schemas/OrderListItem"
+    CreateTripRequest:
+      type: object
+      required: [orderIds]
+      properties:
+        name:
+          type: ["string", "null"]
+        riderId:
+          type: ["string", "null"]
+        orderIds:
+          type: array
+          items:
+            type: string
+          minItems: 1
+    UpdateTripRequest:
+      type: object
+      properties:
+        name:
+          type: ["string", "null"]
+        riderId:
+          type: ["string", "null"]
+    StopInput:
+      type: object
+      required: [orderId, kind]
+      properties:
+        orderId:
+          type: string
+        kind:
+          $ref: "#/components/schemas/TripStopKind"
+    ReplaceTripStopsRequest:
+      type: object
+      required: [stops]
+      properties:
+        stops:
+          type: array
+          items:
+            $ref: "#/components/schemas/StopInput"
+          minItems: 1

@@ -5,11 +5,14 @@ import {
   useListOrders,
   useListRestaurants,
   useListRiders,
+  useListTrips,
   getListOrdersQueryKey,
   getListRestaurantsQueryKey,
   getListRidersQueryKey,
+  getListTripsQueryKey,
   OrderStatus,
   type OrderListItem,
+  type TripListItem,
 } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -25,7 +28,8 @@ import { Spinner } from "@/components/ui/spinner";
 import { StatusBadge } from "@/components/status-badge";
 import { PickupCountdown, PickupSourceBadge } from "@/components/pickup-countdown";
 import { effectivePickup, formatCurrency } from "@/lib/format";
-import { Bike, MapPin, Phone, Bell, ChevronRight } from "lucide-react";
+import { Bike, MapPin, Phone, Bell, ChevronRight, Layers, Plus } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
 
 const ALL = "__all__";
@@ -52,8 +56,14 @@ export default function CoordinatorPage() {
   });
   const restaurants = useListRestaurants({ query: { queryKey: getListRestaurantsQueryKey() } });
   const riders = useListRiders({ query: { queryKey: getListRidersQueryKey(), refetchInterval: 30_000 } });
+  const trips = useListTrips(undefined, {
+    query: { queryKey: getListTripsQueryKey(), refetchInterval: 30_000 },
+  });
 
   const list = orders.data ?? [];
+  const activeTrips = (trips.data ?? []).filter(
+    (tr) => tr.status !== "completed" && tr.status !== "dissolved",
+  );
 
   return (
     <div className="space-y-5">
@@ -62,10 +72,19 @@ export default function CoordinatorPage() {
           <h1 className="text-2xl font-bold tracking-tight">{t("coordinator.title")}</h1>
           <p className="text-muted-foreground text-sm">{t("coordinator.subtitle")}</p>
         </div>
-        <div className="text-sm text-muted-foreground tabular-nums" data-testid="text-orders-count">
-          {t("coordinator.ordersCount", { count: list.length })}
+        <div className="flex items-center gap-3">
+          <div className="text-sm text-muted-foreground tabular-nums" data-testid="text-orders-count">
+            {t("coordinator.ordersCount", { count: list.length })}
+          </div>
+          <Button asChild data-testid="button-new-trip">
+            <Link href="/coordinator/trips/new">
+              <Plus className="size-4 mr-1" /> {t("trip.newTrip")}
+            </Link>
+          </Button>
         </div>
       </header>
+
+      {activeTrips.length > 0 ? <TripsSection trips={activeTrips} /> : null}
 
       <Card>
         <CardContent className="grid grid-cols-1 md:grid-cols-4 gap-3 py-4">
@@ -131,6 +150,67 @@ export default function CoordinatorPage() {
         </motion.div>
       )}
     </div>
+  );
+}
+
+function TripsSection({ trips }: { trips: TripListItem[] }) {
+  const { t } = useTranslation();
+  return (
+    <Card data-testid="card-trips-section">
+      <CardHeader className="pb-3">
+        <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-2">
+          <Layers className="size-4" /> {t("trip.tripsSection")}
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <ul className="space-y-2">
+          {trips.map((tr) => {
+            const total = tr.stopCount;
+            const done = tr.completedStopCount ?? 0;
+            const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+            return (
+              <li key={tr.id}>
+                <Link
+                  href={`/coordinator/trips/${tr.id}`}
+                  className="flex items-center gap-3 rounded-md border border-primary/30 bg-primary/[0.04] px-3 py-2.5 hover:border-primary/60"
+                  data-testid={`trip-row-${tr.id}`}
+                >
+                  <Layers className="size-4 text-primary shrink-0" />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 text-sm">
+                      <span className="font-bold tabular-nums">
+                        {t("trip.tripNumber", { number: tr.tripNumber })}
+                      </span>
+                      {tr.name ? (
+                        <>
+                          <span className="text-muted-foreground">·</span>
+                          <span className="truncate">{tr.name}</span>
+                        </>
+                      ) : null}
+                    </div>
+                    <div className="mt-0.5 flex items-center gap-2 text-xs text-muted-foreground">
+                      <Bike className="size-3" />
+                      <span>{tr.riderName ?? t("trip.unassigned")}</span>
+                      <span>·</span>
+                      <span>{t("trip.progress", { done, total })}</span>
+                    </div>
+                  </div>
+                  <div className="hidden md:flex w-32 items-center gap-2">
+                    <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
+                      <div className="h-full bg-primary" style={{ width: `${pct}%` }} />
+                    </div>
+                    <span className="w-9 text-right text-xs tabular-nums text-muted-foreground">
+                      {pct}%
+                    </span>
+                  </div>
+                  <ChevronRight className="size-4 text-muted-foreground shrink-0" />
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      </CardContent>
+    </Card>
   );
 }
 

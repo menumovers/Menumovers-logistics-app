@@ -41,10 +41,11 @@ import { effectivePickup, formatCurrency, formatDateTime, formatTime } from "@/l
 
 const TRANSITIONS: Record<OrderStatusType, OrderStatusType[]> = {
   pending: ["failed"],
-  driver_assigned: ["en_route_to_restaurant", "failed"],
-  en_route_to_restaurant: ["picked_up", "failed"],
+  driver_assigned: ["en_route_to_restaurant", "postponed", "failed"],
+  en_route_to_restaurant: ["picked_up", "postponed", "failed"],
   picked_up: ["en_route_to_customer", "failed"],
-  en_route_to_customer: ["delivered", "failed"],
+  en_route_to_customer: ["delivered", "postponed", "failed"],
+  postponed: ["en_route_to_restaurant", "en_route_to_customer", "failed"],
   delivered: [],
   failed: [],
 };

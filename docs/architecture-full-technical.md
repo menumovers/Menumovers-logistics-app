@@ -29,7 +29,8 @@ The business language is Dutch (`nl-NL`); English is supported as a secondary lo
 What the system does:
 
 - Ingests orders from the distribution service (idempotent, shared-secret).
-- Drives every order through a strict status lifecycle: `pending → driver_assigned → en_route_to_restaurant → picked_up → en_route_to_customer → delivered`, with `failed` reachable from any non-terminal state.
+- Drives every order through a strict status lifecycle: `pending → driver_assigned → en_route_to_restaurant → picked_up → en_route_to_customer → delivered`, with `postponed` as a temporary parking state from `driver_assigned`, `en_route_to_restaurant`, or `en_route_to_customer` (resumable to either restaurant or customer leg) and `failed` reachable from any non-terminal state.
+- Lets coordinators bundle multiple orders into a `Trip` so one rider executes them as a single pickup pass; restaurants see a unified bundled pickup time per trip.
 - Lets coordinators and admins assign riders atomically, override pickup times, override delivery contact info, and add or hide items per order.
 - Lets riders self-claim unassigned orders, propose a pickup time, and advance status from their device.
 - Lets restaurant staff see only their own restaurant's orders and adjust the restaurant-side pickup time.

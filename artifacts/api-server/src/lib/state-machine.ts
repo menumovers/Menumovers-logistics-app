@@ -2,12 +2,16 @@ import type { OrderStatus } from "@workspace/db";
 
 const PIPELINE_TRANSITIONS: Record<OrderStatus, ReadonlyArray<OrderStatus>> = {
   pending: ["driver_assigned"],
-  driver_assigned: ["en_route_to_restaurant"],
-  en_route_to_restaurant: ["picked_up"],
+  driver_assigned: ["en_route_to_restaurant", "postponed"],
+  en_route_to_restaurant: ["picked_up", "postponed"],
   picked_up: ["en_route_to_customer"],
-  en_route_to_customer: ["delivered"],
+  en_route_to_customer: ["delivered", "postponed"],
   delivered: [],
   failed: [],
+  // From postponed, the rider may resume to either in-flight phase, or fail.
+  // Which leg is appropriate depends on what came before; the API trusts the
+  // rider/UI here.
+  postponed: ["en_route_to_restaurant", "en_route_to_customer"],
 };
 
 export function isValidTransition(from: OrderStatus, to: OrderStatus): boolean {

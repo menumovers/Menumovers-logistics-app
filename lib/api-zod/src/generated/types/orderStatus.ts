@@ -16,4 +16,5 @@ export const OrderStatus = {
   en_route_to_customer: "en_route_to_customer",
   delivered: "delivered",
   failed: "failed",
+  postponed: "postponed",
 } as const;
