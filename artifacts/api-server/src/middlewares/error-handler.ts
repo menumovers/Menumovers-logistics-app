@@ -45,7 +45,15 @@ export function errorHandler(
     return;
   }
 
-  req.log.error({ err }, "Unhandled route error");
+  const params = (req as Request & { params?: Record<string, unknown> }).params;
+  const orderId =
+    params && typeof params["id"] === "string" && req.path.includes("/orders/")
+      ? (params["id"] as string)
+      : undefined;
+  req.log.error(
+    { err, requestId, orderId, path: req.path, method: req.method },
+    "Unhandled route error",
+  );
   const isProd = process.env["NODE_ENV"] === "production";
   const message =
     !isProd && err instanceof Error ? err.message : "Internal server error";

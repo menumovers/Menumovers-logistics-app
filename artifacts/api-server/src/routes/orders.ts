@@ -49,6 +49,38 @@ const wrap =
     fn(req, res).catch(next);
   };
 
+/**
+ * Build a Drizzle WHERE predicate that scopes order rows to those the
+ * authenticated principal is allowed to see. Authorization is enforced at
+ * the SQL level rather than in application code so it cannot be bypassed by
+ * route handlers that forget to call a guard.
+ *
+ * Returns `undefined` for admin/coordinator (unrestricted) and a predicate
+ * encoding the role-specific filter otherwise. Returns `sql\`false\`` when
+ * the principal can never see any rows (e.g. restaurant_staff with no
+ * restaurant), to short-circuit safely without leaking other rows.
+ */
+function orderScopeWhere(auth: NonNullable<Request["auth"]>) {
+  if (auth.role === "admin" || auth.role === "coordinator") return undefined;
+  if (auth.role === "restaurant_staff") {
+    if (!auth.restaurantId) return sql`false`;
+    return eq(ordersTable.restaurantId, auth.restaurantId);
+  }
+  if (auth.role === "rider") {
+    const ownAssigned = auth.riderId
+      ? eq(ordersTable.riderId, auth.riderId)
+      : sql`false`;
+    return or(
+      and(
+        eq(ordersTable.status, "pending"),
+        sql`${ordersTable.riderId} IS NULL`,
+      )!,
+      ownAssigned,
+    )!;
+  }
+  return sql`false`;
+}
+
 async function loadOrderOr404(id: string) {
   const [order] = await db
     .select()
@@ -58,23 +90,17 @@ async function loadOrderOr404(id: string) {
   return order;
 }
 
-function assertOrderVisible(
-  order: { restaurantId: string; riderId: string | null; status: string },
-  req: Request,
-): void {
-  const auth = req.auth!;
-  if (auth.role === "admin" || auth.role === "coordinator") return;
-  if (auth.role === "restaurant_staff") {
-    if (auth.restaurantId === order.restaurantId) return;
-    throw httpError(403, "FORBIDDEN", "Forbidden");
-  }
-  if (auth.role === "rider") {
-    // Pending queue (any unassigned pending order) or self-assigned orders only.
-    if (order.status === "pending" && order.riderId === null) return;
-    if (auth.riderId && order.riderId === auth.riderId) return;
-    throw httpError(403, "FORBIDDEN", "Forbidden");
-  }
-  throw httpError(403, "FORBIDDEN", "Forbidden");
+async function loadOrderForAuthOr404(
+  auth: NonNullable<Request["auth"]>,
+  id: string,
+) {
+  const scope = orderScopeWhere(auth);
+  const where = scope
+    ? and(eq(ordersTable.id, id), scope)
+    : eq(ordersTable.id, id);
+  const [order] = await db.select().from(ordersTable).where(where);
+  if (!order) throw httpError(404, "ORDER_NOT_FOUND", "Order not found");
+  return order;
 }
 
 // =====================================================================
@@ -216,30 +242,9 @@ router.get(
     if (restaurantId) filters.push(eq(ordersTable.restaurantId, restaurantId));
     if (riderId) filters.push(eq(ordersTable.riderId, riderId));
 
-    // Role-based scoping.
-    if (auth.role === "restaurant_staff") {
-      if (!auth.restaurantId) {
-        res.json([]);
-        return;
-      }
-      filters.push(eq(ordersTable.restaurantId, auth.restaurantId));
-    } else if (auth.role === "rider") {
-      const [rider] = await db
-        .select({ id: ridersTable.id })
-        .from(ridersTable)
-        .where(eq(ridersTable.userId, auth.sub));
-      if (!rider) {
-        res.json([]);
-        return;
-      }
-      // Riders see pending (so they can pick) plus their own assigned orders.
-      filters.push(
-        or(
-          eq(ordersTable.status, "pending"),
-          eq(ordersTable.riderId, rider.id),
-        )!,
-      );
-    }
+    // Role-based scoping enforced at the SQL level via shared helper.
+    const scope = orderScopeWhere(auth);
+    if (scope) filters.push(scope);
 
     if (q) {
       const term = `%${q}%`;
@@ -272,8 +277,8 @@ router.get(
   requireAuth,
   wrap(async (req, res) => {
     const id = req.params["id"] as string;
-    const order = await loadOrderOr404(id);
-    assertOrderVisible(order, req);
+    const auth = req.auth!;
+    await loadOrderForAuthOr404(auth, id);
     const detail = await serializeOrderDetail(id);
     res.json(detail);
   }),
@@ -291,7 +296,7 @@ router.post(
     const parsed = TransitionOrderStatusBody.safeParse(req.body);
     if (!parsed.success) throw httpError(400, "VALIDATION_ERROR", parsed.error.message);
 
-    const order = await loadOrderOr404(id);
+    const order = await loadOrderForAuthOr404(auth, id);
     const toStatus = parsed.data.toStatus as OrderStatus;
     assertValidTransition(order.status, toStatus);
 
@@ -475,8 +480,7 @@ router.post(
     if (!parsed.success) throw httpError(400, "VALIDATION_ERROR", parsed.error.message);
     const { source, pickupTime } = parsed.data;
 
-    const order = await loadOrderOr404(id);
-    assertOrderVisible(order, req);
+    const order = await loadOrderForAuthOr404(auth, id);
 
     // Per-source role authorization.
     if (source === "rider") {
@@ -668,7 +672,5 @@ router.post(
     res.json(detail);
   }),
 );
-
-// Avoid unused import warnings.
 
 export default router;
