@@ -1,0 +1,111 @@
+You are about to create the foundational documentation for this project.
+This documentation will serve as an operating manual for any developer, AI or human. Its primary job is to constrain and guide future LLM sessions, not just to describe the code.
+
+Read the entire codebase now. Then produce the following documents, or if they already exist, update them to meet the following specification:
+
+---
+
+## 1. `replit.md` (or `CLAUDE.md` / `PROJECT.md` — whichever is the LLM context file for this environment)
+
+This is the master file, loaded at the start of every session. Structure it as:
+
+### Overview
+One paragraph: what the product does, who it's for, what problem it solves.
+Be specific about scope — what this codebase handles and what it does NOT handle.
+
+### Hard Policies
+Non-negotiable constraints derived from the product's nature. Examples:
+- Guest access requirements (can unauthenticated users do X?)
+- Data ownership rules (who can see whose data?)
+- Any regulatory or legal constraints already present in the code
+
+### The [Project Name] Guardian
+Define the LLM's role explicitly:
+- Title: "Lead Architect for [Project Name]"
+- Mission: prevent [specific failure mode] by enforcing [specific principle]
+  (e.g. "prevent plausible tech debt by enforcing centralized utilities")
+- List 3–5 numbered rule categories, each with 2–4 concrete sub-rules.
+  Base these on patterns already in the code — auth flows, calculation logic,
+  time/locale handling, external service calls, etc.
+- Add a "Hard Constraints / No-Go Zone" section for things like `as any`,
+  unsafe parsing, or any pattern you've already decided to avoid.
+
+### Pattern Enforcement Table
+A table mapping "if you are touching X" → "use this file/function".
+Populate it from the code that exists now. Mark it "(non-exhaustive — see SSOT doc)".
+
+### System Architecture
+- Tech stack (runtime, frontend, database, auth, payments, hosting)
+- Core architectural decisions: list each one with a one-sentence rationale.
+  Focus on decisions that constrain future work (monolith vs. microservice,
+  polling vs. websockets, server-side vs. client-side validation, etc.)
+- Database schema location and migration workflow
+
+### Documentation Conventions
+One line per document explaining its purpose and when to consult it.  
+Enforce updating of all relevant documentation after completing tasks.
+
+### External Dependencies
+List each external service with: name, purpose, which env vars configure it,
+and whether it's live or in-progress.
+
+---
+
+## 2. `docs/architecture_sources_of_truth.md`
+
+This is the SSOT registry. For each piece of business logic in the codebase that
+could be duplicated or re-implemented by a future LLM:
+
+- **Name** the utility / function / module
+- **Location**: exact file path and exported name
+- **What it does**: one sentence
+- **Formula or logic** (if it's a calculation): write it out explicitly
+- **Callers**: list the files that use it now
+- **Do not**: describe what NOT to do instead of using this SSOT
+
+Group these into logical categories (e.g. Calculations, Auth, Time/Locale,
+External Services, Data Access).
+
+Add a **Route Modules** section if routes are split across files — table of
+module → endpoints → how it's registered.
+
+Add an empty **Change Log** section at the bottom with today's date and a note
+about the initial documentation pass.
+
+---
+
+### 3. `docs/architecture-full-technical.md`
+
+A reference document for new contributors:
+- Business context and product scope
+- Table of contents
+- System overview (what it does, what it explicitly does not do)
+- Technology stack with versions where discoverable
+- Component structure (frontend, backend, shared, external)
+- Critical business flows (step-by-step: order creation, payment, auth, etc.)
+- External integrations (for each: purpose, auth method, failure handling)
+- Authentication & authorization model
+- Known limitations and design trade-offs (document what's awkward and why it exists)
+- Future development areas (high-level, not the detailed FUTURE_WORK.md register)
+
+---
+
+## 4. `docs/todo.md`
+
+List any deferred engineering work you can identify from the codebase:
+- TODOs in comments
+- Incomplete features (e.g. a schema column that exists but no UI)
+- Patterns that should be centralized but aren't yet
+- Known limitations you can infer from the code structure
+
+For each item: describe it, explain the investigation already done
+(so the next contributor doesn't re-discover it), and rate priority (High/Med/Low).
+
+---
+
+After generating all files, state:
+- What you chose to put in the Guardian rules and why
+- What SSOTs you identified that don't have a centralized utility yet
+  (these are risks — flag them)
+- Any architectural decisions you're uncertain about that should be confirmed
+  with the human before being documented as fact
