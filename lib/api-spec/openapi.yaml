@@ -591,6 +591,7 @@ paths:
     get:
       operationId: getVapidPublicKey
       tags: [push]
+      security: []
       summary: Returns the VAPID public key for push subscription registration
       responses:
         "200":
