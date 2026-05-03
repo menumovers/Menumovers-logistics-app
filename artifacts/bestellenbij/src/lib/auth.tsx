@@ -10,6 +10,7 @@ import { ApiError } from "@workspace/api-client-react";
 import { useLocation } from "wouter";
 import { setToken, getToken } from "./api";
 import { applyProfileLocale } from "./i18n";
+import { ROLE_HOMES } from "./role-homes";
 import { Spinner } from "@/components/ui/spinner";
 
 type AuthContextValue = {
@@ -84,13 +85,6 @@ export function useAuth(): AuthContextValue {
   if (!ctx) throw new Error("useAuth must be used within AuthProvider");
   return ctx;
 }
-
-export const ROLE_HOMES: Record<UserRole, string> = {
-  admin: "/admin",
-  coordinator: "/coordinator",
-  rider: "/rider",
-  restaurant_staff: "/restaurant",
-};
 
 export function FullScreenLoader() {
   return (

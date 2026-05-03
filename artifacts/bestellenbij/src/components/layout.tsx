@@ -10,7 +10,8 @@ import {
   LogOut,
 } from "lucide-react";
 import type { UserRole } from "@workspace/api-client-react";
-import { useAuth, ROLE_HOMES } from "@/lib/auth";
+import { useAuth } from "@/lib/auth";
+import { ROLE_HOMES } from "@/lib/role-homes";
 import { LocaleSwitch } from "./locale-switch";
 import { PushOptInPrompt } from "./push-opt-in";
 import { Button } from "@/components/ui/button";
