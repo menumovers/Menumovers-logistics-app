@@ -49,7 +49,7 @@ The structure for each entry: **Name**, **Location**, **What it does**, **Formul
 ### Order status state machine
 - **Location**: `artifacts/api-server/src/lib/state-machine.ts` → `isValidTransition`, `assertValidTransition`
 - **What it does**: The authoritative legal-transition graph for `OrderStatus`.
-- **Logic**: Pipeline transitions are `pending → driver_assigned → en_route_to_restaurant → picked_up → en_route_to_customer → delivered`. `postponed` is reachable from `driver_assigned`, `en_route_to_restaurant`, and `en_route_to_customer`, and resumes back to either `en_route_to_restaurant` or `en_route_to_customer` (rider chooses). `failed` is reachable from any non-failed state including `postponed`. No same-state transitions. No transitions out of terminal states.
+- **Logic**: Pipeline transitions are `pending → driver_assigned → en_route_to_restaurant → picked_up → en_route_to_customer → delivered`. `postponed` is reachable from `en_route_to_restaurant` and `en_route_to_customer` (postpone is en-route only) and resumes back to either `en_route_to_restaurant` or `en_route_to_customer` (rider chooses). `failed` is reachable from any non-failed state including `postponed`. No same-state transitions. No transitions out of terminal states.
 - **Callers**: `routes/orders.ts` on every status-changing endpoint; `routes/trips.ts` for trip-driven postpone/resume.
 - **Do not**: implement a parallel "can the rider do X here" check in the frontend. The frontend may hide buttons, but the server is the only authority.
 
