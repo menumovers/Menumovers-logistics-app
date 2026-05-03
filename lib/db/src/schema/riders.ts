@@ -1,10 +1,12 @@
-import { pgTable, uuid, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
+import { pgTable, pgEnum, uuid, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { usersTable } from "./users";
 
 export const RIDER_AVAILABILITY = ["offline", "online", "backup"] as const;
 export type RiderAvailability = (typeof RIDER_AVAILABILITY)[number];
+
+export const riderAvailabilityEnum = pgEnum("rider_availability", RIDER_AVAILABILITY);
 
 export const ridersTable = pgTable(
   "riders",
@@ -13,10 +15,9 @@ export const ridersTable = pgTable(
     userId: uuid("user_id")
       .notNull()
       .references(() => usersTable.id, { onDelete: "cascade" }),
-    availabilityStatus: text("availability_status")
+    availabilityStatus: riderAvailabilityEnum("availability_status")
       .notNull()
-      .default("offline")
-      .$type<RiderAvailability>(),
+      .default("offline"),
     phone: text("phone"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true })

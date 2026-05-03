@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
+import { pgTable, pgEnum, uuid, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { restaurantsTable } from "./restaurants";
@@ -9,6 +9,9 @@ export type UserRole = (typeof USER_ROLES)[number];
 export const ACCOUNT_STATUSES = ["active", "suspended"] as const;
 export type AccountStatus = (typeof ACCOUNT_STATUSES)[number];
 
+export const userRoleEnum = pgEnum("user_role", USER_ROLES);
+export const accountStatusEnum = pgEnum("account_status", ACCOUNT_STATUSES);
+
 export const usersTable = pgTable(
   "users",
   {
@@ -16,11 +19,11 @@ export const usersTable = pgTable(
     email: text("email").notNull(),
     passwordHash: text("password_hash").notNull(),
     name: text("name").notNull(),
-    role: text("role").notNull().$type<UserRole>(),
+    role: userRoleEnum("role").notNull(),
     restaurantId: uuid("restaurant_id").references(() => restaurantsTable.id, {
       onDelete: "set null",
     }),
-    accountStatus: text("account_status").notNull().default("active").$type<AccountStatus>(),
+    accountStatus: accountStatusEnum("account_status").notNull().default("active"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true })
       .notNull()

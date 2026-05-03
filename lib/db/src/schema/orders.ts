@@ -1,5 +1,6 @@
 import {
   pgTable,
+  pgEnum,
   uuid,
   text,
   timestamp,
@@ -24,6 +25,8 @@ export const ORDER_STATUSES = [
 ] as const;
 export type OrderStatus = (typeof ORDER_STATUSES)[number];
 
+export const orderStatusEnum = pgEnum("order_status", ORDER_STATUSES);
+
 export type OrderItem = {
   name: string;
   quantity: number;
@@ -43,7 +46,7 @@ export const ordersTable = pgTable(
     riderId: uuid("rider_id").references(() => ridersTable.id, {
       onDelete: "set null",
     }),
-    status: text("status").notNull().default("pending").$type<OrderStatus>(),
+    status: orderStatusEnum("status").notNull().default("pending"),
     // Customer info (may be overridden by coordinators; stored here as the live values).
     customerName: text("customer_name").notNull(),
     customerPhone: text("customer_phone").notNull(),
