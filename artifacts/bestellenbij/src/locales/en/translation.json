@@ -39,7 +39,13 @@
     "minutes": "min",
     "now": "now",
     "dismiss": "Dismiss",
-    "loadError": "Failed to load"
+    "loadError": "Failed to load",
+    "previous": "Previous",
+    "next": "Next",
+    "previousPage": "Go to previous page",
+    "nextPage": "Go to next page",
+    "more": "More",
+    "morePages": "More pages"
   },
   "login": {
     "heading": "Welcome back",
@@ -175,6 +181,7 @@
     "newRider": "Add rider",
     "minDeliveryTime": "Min prep time (minutes)",
     "outboundWebhook": "Outbound webhook URL",
+    "outboundWebhookPlaceholder": "https://example.com/webhook",
     "outboundWebhookHelp": "Status updates POST to this URL",
     "vapidConfigured": "Web push configured",
     "inboundConfigured": "Inbound webhook configured",

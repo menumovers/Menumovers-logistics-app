@@ -1,15 +1,14 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Clock, AlertTriangle } from "lucide-react";
-import { effectivePickup, formatTime, minutesUntil, urgencyFor, type AnyOrder } from "@/lib/format";
+import {
+  effectivePickup,
+  pickupCountdownLabel,
+  urgencyFor,
+  type AnyOrder,
+} from "@/lib/format";
+import { URGENCY_CLASS } from "@/lib/status";
 import { cn } from "@/lib/utils";
-
-const URGENCY_CLASSES: Record<string, string> = {
-  neutral: "bg-muted text-foreground",
-  warn: "bg-accent/15 text-accent-foreground border border-accent/40",
-  danger: "bg-destructive/15 text-destructive border border-destructive/40",
-  late: "bg-destructive text-destructive-foreground",
-};
 
 function useNow(everyMs = 30_000) {
   const [now, setNow] = useState(() => new Date());
@@ -31,20 +30,14 @@ export function PickupCountdown({
   const lang = i18n.resolvedLanguage ?? "nl";
   const now = useNow(15_000);
   const eff = effectivePickup(order);
-  const m = minutesUntil(eff.iso, now);
   const urgency = urgencyFor(eff.iso, now);
-  const absM = Math.abs(m);
-
-  let label: string;
-  if (absM > 30) {
-    label = formatTime(eff.iso, lang);
-  } else if (m < 0) {
-    label = t("pickup.late", { minutes: absM });
-  } else if (m === 0) {
-    label = t("common.now");
-  } else {
-    label = t("pickup.in", { minutes: m });
-  }
+  const desc = pickupCountdownLabel(eff.iso, lang, now);
+  const label =
+    desc.kind === "literal"
+      ? desc.text
+      : "values" in desc
+        ? t(desc.key, desc.values)
+        : t(desc.key);
 
   const sizeCls =
     size === "lg"
@@ -57,7 +50,7 @@ export function PickupCountdown({
     <span
       className={cn(
         "inline-flex items-center gap-1.5 rounded-full",
-        URGENCY_CLASSES[urgency],
+        URGENCY_CLASS[urgency],
         sizeCls,
       )}
       data-testid="badge-pickup-countdown"

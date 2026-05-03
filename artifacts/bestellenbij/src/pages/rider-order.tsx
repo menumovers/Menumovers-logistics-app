@@ -98,9 +98,6 @@ export default function RiderOrderPage() {
           </div>
           <div className="space-y-2 text-sm">
             <div className="flex items-start gap-2"><Store className="size-4 mt-0.5 text-muted-foreground" /><span className="font-medium">{o.restaurantName}</span></div>
-            <div className="space-y-1 pl-6">
-              <div className="flex items-center gap-2 text-muted-foreground"><MapPin className="size-3.5" /><span>{(o as unknown as { restaurantAddress?: string }).restaurantAddress ?? ""}</span></div>
-            </div>
             <div className="border-t border-border pt-2">
               <div className="font-medium">{o.customerName}</div>
               <div className="flex items-start gap-2 text-muted-foreground"><MapPin className="size-3.5 mt-0.5" /><span>{o.deliveryAddress}</span></div>

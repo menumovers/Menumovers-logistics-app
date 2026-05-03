@@ -3,9 +3,11 @@ import { Link } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   useListOrders,
+  useListRiders,
   useSetOwnAvailability,
   useAssignOrder,
   getListOrdersQueryKey,
+  getListRidersQueryKey,
   getGetCurrentUserQueryKey,
   RiderAvailability,
   type OrderListItem,
@@ -146,7 +148,17 @@ function AvailabilityCard() {
   const qc = useQueryClient();
   const { toast } = useToast();
   const { user } = useAuth();
-  const current = (user as unknown as { availabilityStatus?: RiderAvailabilityType })?.availabilityStatus;
+  const riderId = user?.riderId ?? undefined;
+  const ridersQuery = useListRiders({
+    query: {
+      queryKey: getListRidersQueryKey(),
+      enabled: !!riderId,
+      refetchInterval: 30_000,
+    },
+  });
+  const current: RiderAvailabilityType | undefined = riderId
+    ? ridersQuery.data?.find((r) => r.id === riderId)?.availabilityStatus
+    : undefined;
 
   function setAvail(a: RiderAvailabilityType) {
     set.mutate(

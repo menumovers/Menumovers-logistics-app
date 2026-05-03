@@ -39,7 +39,13 @@
     "minutes": "min",
     "now": "nu",
     "dismiss": "Sluiten",
-    "loadError": "Laden mislukt"
+    "loadError": "Laden mislukt",
+    "previous": "Vorige",
+    "next": "Volgende",
+    "previousPage": "Vorige pagina",
+    "nextPage": "Volgende pagina",
+    "more": "Meer",
+    "morePages": "Meer pagina's"
   },
   "login": {
     "heading": "Welkom terug",
@@ -175,6 +181,7 @@
     "newRider": "Rijder toevoegen",
     "minDeliveryTime": "Minimale bereidingstijd (minuten)",
     "outboundWebhook": "Uitgaande webhook URL",
+    "outboundWebhookPlaceholder": "https://voorbeeld.nl/webhook",
     "outboundWebhookHelp": "Status-updates worden naar deze URL gepost",
     "vapidConfigured": "Web push geconfigureerd",
     "inboundConfigured": "Inkomende webhook geconfigureerd",

@@ -336,7 +336,7 @@ function SettingsPanel() {
           <Input
             value={value}
             onChange={(e) => { setTouched(true); setUrl(e.target.value); }}
-            placeholder="https://example.com/webhook"
+            placeholder={t("admin.outboundWebhookPlaceholder")}
             data-testid="input-outbound-webhook"
           />
           <p className="text-xs text-muted-foreground">{t("admin.outboundWebhookHelp")}</p>
