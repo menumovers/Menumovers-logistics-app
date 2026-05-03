@@ -12,6 +12,7 @@ import {
 import type { UserRole } from "@workspace/api-client-react";
 import { useAuth, ROLE_HOMES } from "@/lib/auth";
 import { LocaleSwitch } from "./locale-switch";
+import { PushOptInPrompt } from "./push-opt-in";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -93,6 +94,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         </div>
       </header>
       <main className="flex-1 mx-auto max-w-[1600px] w-full px-4 py-6">{children}</main>
+      <PushOptInPrompt />
     </div>
   );
 }

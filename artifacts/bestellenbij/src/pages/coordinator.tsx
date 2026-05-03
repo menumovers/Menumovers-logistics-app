@@ -11,7 +11,7 @@ import {
   OrderStatus,
   type OrderListItem,
 } from "@workspace/api-client-react";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -51,7 +51,7 @@ export default function CoordinatorPage() {
     query: { queryKey: getListOrdersQueryKey(params), refetchInterval: 30_000 },
   });
   const restaurants = useListRestaurants({ query: { queryKey: getListRestaurantsQueryKey() } });
-  const riders = useListRiders({ query: { queryKey: getListRidersQueryKey() } });
+  const riders = useListRiders({ query: { queryKey: getListRidersQueryKey(), refetchInterval: 30_000 } });
 
   const list = orders.data ?? [];
 
@@ -117,6 +117,8 @@ export default function CoordinatorPage() {
         </CardContent>
       </Card>
 
+      <WorkloadPanel riders={riders.data ?? []} />
+
       {orders.isLoading ? (
         <div className="grid place-items-center py-20"><Spinner className="size-6 text-primary" /></div>
       ) : list.length === 0 ? (
@@ -129,6 +131,68 @@ export default function CoordinatorPage() {
         </motion.div>
       )}
     </div>
+  );
+}
+
+function WorkloadPanel({ riders }: { riders: ReadonlyArray<{ id: string; name: string; availabilityStatus: "online" | "backup" | "offline"; activeOrderCount: number; queuedOrderCount: number }> }) {
+  const { t } = useTranslation();
+  const sorted = [...riders].sort((a, b) => {
+    const order = { online: 0, backup: 1, offline: 2 } as const;
+    if (order[a.availabilityStatus] !== order[b.availabilityStatus])
+      return order[a.availabilityStatus] - order[b.availabilityStatus];
+    return a.name.localeCompare(b.name);
+  });
+  return (
+    <Card data-testid="card-workload-panel">
+      <CardHeader className="pb-3">
+        <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-2">
+          <Bike className="size-4" /> {t("coordinator.workload")}
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        {sorted.length === 0 ? (
+          <p className="text-sm text-muted-foreground">{t("coordinator.workloadEmpty")}</p>
+        ) : (
+          <ul className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+            {sorted.map((r) => {
+              const isOffline = r.availabilityStatus === "offline";
+              return (
+                <li
+                  key={r.id}
+                  className="flex items-center justify-between gap-3 rounded-md border border-border px-3 py-2"
+                  data-testid={`workload-row-${r.id}`}
+                >
+                  <div className="min-w-0">
+                    <div className="font-medium truncate">{r.name}</div>
+                    <div className={`text-xs ${isOffline ? "text-muted-foreground" : "text-chart-5"}`}>
+                      {t(`availability.${r.availabilityStatus}`)}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3 text-xs tabular-nums">
+                    <div className="text-right">
+                      <div className="text-muted-foreground uppercase tracking-wide text-[10px]">
+                        {t("coordinator.workloadActive")}
+                      </div>
+                      <div className="font-semibold text-base text-foreground" data-testid={`workload-active-${r.id}`}>
+                        {r.activeOrderCount}
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-muted-foreground uppercase tracking-wide text-[10px]">
+                        {t("coordinator.workloadQueued")}
+                      </div>
+                      <div className="font-semibold text-base text-foreground" data-testid={`workload-queued-${r.id}`}>
+                        {r.queuedOrderCount}
+                      </div>
+                    </div>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 

@@ -5,9 +5,12 @@ import {
   useListOrders,
   useUpdatePickupTime,
   useListRestaurants,
+  useGetOrder,
   getListOrdersQueryKey,
   getListRestaurantsQueryKey,
+  getGetOrderQueryKey,
   type OrderListItem,
+  type OrderDetail,
 } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -18,6 +21,7 @@ import { PickupCountdown, PickupSourceBadge } from "@/components/pickup-countdow
 import { useAuth } from "@/lib/auth";
 import { effectivePickup, formatTime } from "@/lib/format";
 import { useToast } from "@/hooks/use-toast";
+import { CheckCircle2 } from "lucide-react";
 
 export default function RestaurantPage() {
   const { t, i18n } = useTranslation();
@@ -70,11 +74,33 @@ export default function RestaurantPage() {
 function RestaurantOrderCard({ order, lang }: { order: OrderListItem; lang: string }) {
   const { t } = useTranslation();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const update = useUpdatePickupTime();
+
+  // Detail fetch supplies item overrides (hidden + extras) for this card.
+  const detail = useGetOrder(order.id, {
+    query: {
+      queryKey: getGetOrderQueryKey(order.id),
+      refetchInterval: 30_000,
+      staleTime: 15_000,
+    },
+  });
+  const overrides = (detail.data as OrderDetail | undefined)?.itemOverrides ?? [];
+  const hidden = new Set(
+    overrides
+      .filter((o) => o.type === "hide" && o.itemIndex != null)
+      .map((o) => o.itemIndex as number),
+  );
+  const extras = overrides.filter((o) => o.type === "add").map((o) => o.addedItem!).filter(Boolean);
+
   const eff = effectivePickup(order);
   const [hh, setHh] = useState(() => formatTime(eff.iso, lang).split(":")[0] ?? "12");
   const [mm, setMm] = useState(() => formatTime(eff.iso, lang).split(":")[1] ?? "00");
-  const queryClient = useQueryClient();
-  const update = useUpdatePickupTime();
+
+  function invalidate() {
+    queryClient.invalidateQueries({ queryKey: getListOrdersQueryKey({ restaurantId: order.restaurantId }) });
+    queryClient.invalidateQueries({ queryKey: getGetOrderQueryKey(order.id) });
+  }
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -84,7 +110,6 @@ function RestaurantOrderCard({ order, lang }: { order: OrderListItem; lang: stri
     if (Number.isNaN(h) || Number.isNaN(m)) return;
     date.setHours(h, m, 0, 0);
     if (date.getTime() < Date.now() - 60_000) {
-      // assume tomorrow if past
       date.setDate(date.getDate() + 1);
     }
     update.mutate(
@@ -92,8 +117,22 @@ function RestaurantOrderCard({ order, lang }: { order: OrderListItem; lang: stri
       {
         onSuccess: () => {
           toast({ title: t("common.save") });
-          queryClient.invalidateQueries({ queryKey: getListOrdersQueryKey({ restaurantId: order.restaurantId }) });
+          invalidate();
         },
+        onError: () => toast({ title: t("errors.generic"), variant: "destructive" }),
+      },
+    );
+  }
+
+  function readyForPickup() {
+    update.mutate(
+      { id: order.id, data: { source: "restaurant", pickupTime: new Date().toISOString() } },
+      {
+        onSuccess: () => {
+          toast({ title: t("restaurant.readyForPickupSent") });
+          invalidate();
+        },
+        onError: () => toast({ title: t("errors.generic"), variant: "destructive" }),
       },
     );
   }
@@ -112,16 +151,56 @@ function RestaurantOrderCard({ order, lang }: { order: OrderListItem; lang: stri
           <PickupCountdown order={order} />
           <PickupSourceBadge source={eff.source} />
         </div>
+
+        <Button
+          type="button"
+          className="w-full h-12 text-base font-semibold"
+          disabled={update.isPending}
+          onClick={readyForPickup}
+          data-testid={`button-ready-${order.id}`}
+        >
+          <CheckCircle2 className="size-4 mr-2" />
+          {t("restaurant.readyForPickup")}
+        </Button>
+
         <ul className="text-sm space-y-1">
-          {order.items.map((it, i) => (
-            <li key={i} className="flex justify-between gap-2">
+          {order.items.map((it, i) => {
+            const isHidden = hidden.has(i);
+            return (
+              <li
+                key={i}
+                className="flex justify-between gap-2"
+                data-testid={`row-rest-item-${order.id}-${i}`}
+              >
+                <span className={isHidden ? "line-through text-muted-foreground" : ""}>
+                  <span className="text-muted-foreground tabular-nums">{it.quantity}× </span>
+                  {it.name}
+                  {isHidden ? (
+                    <span className="ml-2 text-[10px] uppercase tracking-wide text-muted-foreground italic">
+                      {t("restaurant.hiddenItem")}
+                    </span>
+                  ) : null}
+                </span>
+              </li>
+            );
+          })}
+          {extras.map((it, i) => (
+            <li
+              key={`x${i}`}
+              className="flex justify-between gap-2"
+              data-testid={`row-rest-extra-${order.id}-${i}`}
+            >
               <span>
+                <span className="inline-block rounded bg-accent/15 text-accent-foreground text-[10px] uppercase px-1.5 py-0.5 mr-2">
+                  {t("restaurant.extraItem")}
+                </span>
                 <span className="text-muted-foreground tabular-nums">{it.quantity}× </span>
                 {it.name}
               </span>
             </li>
           ))}
         </ul>
+
         <form onSubmit={submit} className="border-t border-border pt-3 space-y-2">
           <Label className="text-xs">{t("restaurant.suggestPickup")}</Label>
           <div className="flex items-center gap-2">
@@ -132,6 +211,7 @@ function RestaurantOrderCard({ order, lang }: { order: OrderListItem; lang: stri
               value={hh}
               onChange={(e) => setHh(e.target.value)}
               className="w-16 tabular-nums"
+              aria-label={t("coordinator.newPickupTime")}
               data-testid={`input-rest-pickup-hh-${order.id}`}
             />
             <span className="text-muted-foreground">:</span>
@@ -142,6 +222,7 @@ function RestaurantOrderCard({ order, lang }: { order: OrderListItem; lang: stri
               value={mm}
               onChange={(e) => setMm(e.target.value)}
               className="w-16 tabular-nums"
+              aria-label={t("coordinator.newPickupTime")}
               data-testid={`input-rest-pickup-mm-${order.id}`}
             />
             <Button type="submit" size="sm" disabled={update.isPending} data-testid={`button-rest-pickup-save-${order.id}`}>

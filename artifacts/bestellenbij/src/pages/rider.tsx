@@ -1,15 +1,16 @@
 import { useTranslation } from "react-i18next";
 import { Link } from "wouter";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   useListOrders,
   useSetOwnAvailability,
+  useAssignOrder,
   getListOrdersQueryKey,
   getGetCurrentUserQueryKey,
   RiderAvailability,
   type OrderListItem,
   type RiderAvailability as RiderAvailabilityType,
 } from "@workspace/api-client-react";
-import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/status-badge";
@@ -20,33 +21,122 @@ import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 
+const ACTIVE_STATUSES: ReadonlyArray<OrderListItem["status"]> = [
+  "en_route_to_restaurant",
+  "picked_up",
+  "en_route_to_customer",
+];
+
 export default function RiderPage() {
   const { t } = useTranslation();
   const { user } = useAuth();
   const riderId = user?.riderId ?? undefined;
+
   const orders = useListOrders(
-    { riderId },
-    { query: { queryKey: getListOrdersQueryKey({ riderId }), refetchInterval: 30_000, enabled: !!riderId } },
+    {},
+    {
+      query: {
+        queryKey: getListOrdersQueryKey({}),
+        refetchInterval: 30_000,
+        enabled: !!riderId,
+      },
+    },
   );
-  const list = (orders.data ?? []).filter((o) => o.status !== "delivered" && o.status !== "failed");
+
+  const all = orders.data ?? [];
+  const mine = all.filter((o) => o.riderId === riderId);
+  const active = mine.filter((o) => ACTIVE_STATUSES.includes(o.status));
+  const queue = mine.filter((o) => o.status === "driver_assigned");
+  const open = all.filter((o) => o.status === "pending" && !o.riderId);
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       <header>
         <h1 className="text-2xl font-bold tracking-tight">{t("rider.title")}</h1>
       </header>
       <AvailabilityCard />
-      <section>
-        <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-wide mb-3">{t("rider.myOrders")}</h2>
-        {list.length === 0 ? (
-          <Card><CardContent className="py-16 text-center text-muted-foreground">{t("rider.noOrders")}</CardContent></Card>
+
+      <Section title={t("rider.sectionActive")} count={active.length} testId="section-active">
+        {active.length === 0 ? (
+          <EmptyState text={t("rider.sectionActiveEmpty")} />
         ) : (
-          <motion.div initial="hidden" animate="show" variants={{ show: { transition: { staggerChildren: 0.05 } } }} className="grid gap-4 md:grid-cols-2">
-            {list.map((o) => <RiderOrderCard key={o.id} order={o} />)}
-          </motion.div>
+          <Grid>
+            {active.map((o) => (
+              <RiderOrderCard key={o.id} order={o} />
+            ))}
+          </Grid>
         )}
-      </section>
+      </Section>
+
+      <Section title={t("rider.sectionQueue")} count={queue.length} testId="section-queue">
+        {queue.length === 0 ? (
+          <EmptyState text={t("rider.sectionQueueEmpty")} />
+        ) : (
+          <Grid>
+            {queue.map((o) => (
+              <RiderOrderCard key={o.id} order={o} />
+            ))}
+          </Grid>
+        )}
+      </Section>
+
+      <Section title={t("rider.sectionOpen")} count={open.length} testId="section-open">
+        {open.length === 0 ? (
+          <EmptyState text={t("rider.sectionOpenEmpty")} />
+        ) : (
+          <Grid>
+            {open.map((o) => (
+              <OpenOrderCard key={o.id} order={o} riderId={riderId} />
+            ))}
+          </Grid>
+        )}
+      </Section>
     </div>
+  );
+}
+
+function Section({
+  title,
+  count,
+  testId,
+  children,
+}: {
+  title: string;
+  count: number;
+  testId: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section data-testid={testId}>
+      <div className="flex items-baseline justify-between mb-3">
+        <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">{title}</h2>
+        <span className="text-xs text-muted-foreground tabular-nums" data-testid={`${testId}-count`}>
+          {count}
+        </span>
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function Grid({ children }: { children: React.ReactNode }) {
+  return (
+    <motion.div
+      initial="hidden"
+      animate="show"
+      variants={{ show: { transition: { staggerChildren: 0.04 } } }}
+      className="grid gap-4 md:grid-cols-2"
+    >
+      {children}
+    </motion.div>
+  );
+}
+
+function EmptyState({ text }: { text: string }) {
+  return (
+    <Card>
+      <CardContent className="py-8 text-center text-sm text-muted-foreground">{text}</CardContent>
+    </Card>
   );
 }
 
@@ -66,6 +156,7 @@ function AvailabilityCard() {
           toast({ title: t(`availability.${a}`) });
           qc.invalidateQueries({ queryKey: getGetCurrentUserQueryKey() });
         },
+        onError: () => toast({ title: t("errors.generic"), variant: "destructive" }),
       },
     );
   }
@@ -87,7 +178,11 @@ function AvailabilityCard() {
                 onClick={() => setAvail(a)}
                 disabled={set.isPending}
                 variant={active ? "default" : "outline"}
-                className={cn("h-14 text-base font-semibold capitalize", active && a === "online" && "bg-chart-5 text-white hover:bg-chart-5", active && a === "backup" && "bg-accent text-accent-foreground hover:bg-accent")}
+                className={cn(
+                  "h-14 text-base font-semibold capitalize",
+                  active && a === "online" && "bg-chart-5 text-white hover:bg-chart-5",
+                  active && a === "backup" && "bg-accent text-accent-foreground hover:bg-accent",
+                )}
                 data-testid={`button-availability-${a}`}
               >
                 {t(`availability.${a}`)}
@@ -104,12 +199,18 @@ function RiderOrderCard({ order }: { order: OrderListItem }) {
   return (
     <motion.div variants={{ hidden: { opacity: 0, y: 8 }, show: { opacity: 1, y: 0 } }}>
       <Link href={`/rider/orders/${order.id}`}>
-        <Card className="hover:border-primary/40 hover:shadow-md transition cursor-pointer h-full" data-testid={`card-rider-order-${order.id}`}>
+        <Card
+          className="hover:border-primary/40 hover:shadow-md transition cursor-pointer h-full"
+          data-testid={`card-rider-order-${order.id}`}
+        >
           <CardHeader className="pb-3">
             <div className="flex items-start justify-between gap-2">
               <div>
                 <div className="text-xs text-muted-foreground tabular-nums">#{order.externalOrderId}</div>
-                <div className="font-semibold flex items-center gap-1.5"><Store className="size-3.5 text-muted-foreground" />{order.restaurantName}</div>
+                <div className="font-semibold flex items-center gap-1.5">
+                  <Store className="size-3.5 text-muted-foreground" />
+                  {order.restaurantName}
+                </div>
               </div>
               <StatusBadge status={order.status} />
             </div>
@@ -121,9 +222,18 @@ function RiderOrderCard({ order }: { order: OrderListItem }) {
             </div>
             <div className="text-sm space-y-1">
               <div className="font-medium">{order.customerName}</div>
-              <div className="flex items-start gap-1.5 text-muted-foreground"><MapPin className="size-3.5 mt-0.5" />{order.deliveryAddress}</div>
-              <div className="flex items-center gap-1.5 text-muted-foreground"><Phone className="size-3.5" /><span className="tabular-nums">{order.customerPhone}</span></div>
-              <div className="flex items-center gap-1.5 text-muted-foreground"><Bike className="size-3.5" />{order.items.length} ×</div>
+              <div className="flex items-start gap-1.5 text-muted-foreground">
+                <MapPin className="size-3.5 mt-0.5" />
+                {order.deliveryAddress}
+              </div>
+              <div className="flex items-center gap-1.5 text-muted-foreground">
+                <Phone className="size-3.5" />
+                <span className="tabular-nums">{order.customerPhone}</span>
+              </div>
+              <div className="flex items-center gap-1.5 text-muted-foreground">
+                <Bike className="size-3.5" />
+                {order.items.length} ×
+              </div>
             </div>
             {order.pendingRiderNotification ? (
               <div className="flex items-start gap-2 rounded-md bg-accent/15 border border-accent/40 p-2 text-sm text-accent-foreground">
@@ -134,6 +244,82 @@ function RiderOrderCard({ order }: { order: OrderListItem }) {
           </CardContent>
         </Card>
       </Link>
+    </motion.div>
+  );
+}
+
+function OpenOrderCard({
+  order,
+  riderId,
+}: {
+  order: OrderListItem;
+  riderId: string | undefined;
+}) {
+  const { t } = useTranslation();
+  const assign = useAssignOrder();
+  const qc = useQueryClient();
+  const { toast } = useToast();
+
+  function claim() {
+    if (!riderId) return;
+    assign.mutate(
+      { id: order.id, data: { riderId } },
+      {
+        onSuccess: () => {
+          toast({ title: t("rider.claim") });
+          qc.invalidateQueries({ queryKey: getListOrdersQueryKey({}) });
+        },
+        onError: (err: unknown) => {
+          const status =
+            typeof err === "object" && err !== null && "status" in err
+              ? (err as { status?: number }).status
+              : undefined;
+          const title = status === 403 ? t("rider.claimUnavailable") : t("errors.generic");
+          toast({ title, variant: "destructive" });
+        },
+      },
+    );
+  }
+
+  return (
+    <motion.div variants={{ hidden: { opacity: 0, y: 8 }, show: { opacity: 1, y: 0 } }}>
+      <Card
+        className="border-dashed h-full"
+        data-testid={`card-open-order-${order.id}`}
+      >
+        <CardHeader className="pb-3">
+          <div className="flex items-start justify-between gap-2">
+            <div>
+              <div className="text-xs text-muted-foreground tabular-nums">#{order.externalOrderId}</div>
+              <div className="font-semibold flex items-center gap-1.5">
+                <Store className="size-3.5 text-muted-foreground" />
+                {order.restaurantName}
+              </div>
+            </div>
+            <StatusBadge status={order.status} />
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex items-center justify-between">
+            <PickupCountdown order={order} size="lg" />
+          </div>
+          <div className="text-sm space-y-1">
+            <div className="font-medium">{order.customerName}</div>
+            <div className="flex items-start gap-1.5 text-muted-foreground">
+              <MapPin className="size-3.5 mt-0.5" />
+              {order.deliveryAddress}
+            </div>
+          </div>
+          <Button
+            className="w-full h-12 text-base font-semibold"
+            disabled={!riderId || assign.isPending}
+            onClick={claim}
+            data-testid={`button-claim-${order.id}`}
+          >
+            {assign.isPending ? t("rider.claimPending") : t("rider.claim")}
+          </Button>
+        </CardContent>
+      </Card>
     </motion.div>
   );
 }

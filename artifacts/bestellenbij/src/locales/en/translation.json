@@ -37,7 +37,9 @@
     "notes": "Notes",
     "optional": "optional",
     "minutes": "min",
-    "now": "now"
+    "now": "now",
+    "dismiss": "Dismiss",
+    "loadError": "Failed to load"
   },
   "login": {
     "heading": "Welcome back",
@@ -49,7 +51,8 @@
     "demo": "Demo accounts",
     "demoHint": "Tap a role to fill the form",
     "invalid": "Invalid credentials",
-    "footer": "All accounts use password 'password'"
+    "footer": "All accounts use password 'password'",
+    "logoLabel": "Bestellenbij logo"
   },
   "roles": {
     "admin": "Admin",
@@ -101,6 +104,7 @@
     "overrides": "Overrides",
     "addItem": "Add item",
     "hideItem": "Hide",
+    "hideItemLabel": "Hide item {{name}}",
     "hidden": "Hidden",
     "extra": "Extra",
     "notification": "Note to rider",
@@ -115,7 +119,12 @@
     "newItemName": "Name",
     "newItemQty": "Qty",
     "newItemPrice": "Price",
-    "newItemNotes": "Notes (optional)"
+    "newItemNotes": "Notes (optional)",
+    "workload": "Rider workload",
+    "workloadEmpty": "No riders available",
+    "workloadActive": "Active",
+    "workloadQueued": "Queued",
+    "workloadOffline": "Offline"
   },
   "rider": {
     "title": "My route",
@@ -134,13 +143,26 @@
     "pushUnsupported": "Push is not supported on this device",
     "pushNotConfigured": "Server has not configured push",
     "pushDenied": "Push is blocked in your browser settings",
-    "notification": "Note from dispatch"
+    "notification": "Note from dispatch",
+    "sectionActive": "Active deliveries",
+    "sectionQueue": "Queue",
+    "sectionOpen": "Open orders",
+    "sectionActiveEmpty": "No active deliveries",
+    "sectionQueueEmpty": "No queued orders",
+    "sectionOpenEmpty": "No open orders",
+    "claim": "Claim this delivery",
+    "claimPending": "Claiming...",
+    "claimUnavailable": "Ask the coordinator to assign you"
   },
   "restaurant": {
     "title": "Restaurant view",
     "noOrders": "No active orders for your restaurant",
     "suggestPickup": "Suggest a new pickup time",
-    "minDelivery": "Minimum prep time"
+    "minDelivery": "Minimum prep time",
+    "readyForPickup": "Ready for pickup",
+    "readyForPickupSent": "Restaurant marked the food ready",
+    "hiddenItem": "Hidden by coordinator",
+    "extraItem": "Added by coordinator"
   },
   "admin": {
     "title": "Admin",
@@ -173,6 +195,14 @@
     "appearance": "Appearance",
     "darkMode": "Dark mode",
     "logout": "Sign out"
+  },
+  "push": {
+    "promptTitle": "Get notified about new rides",
+    "promptBody": "Turn on push notifications so you don't miss an assignment or status update.",
+    "promptEnable": "Enable",
+    "promptLater": "Later",
+    "promptUnsupported": "Push notifications are not supported on this device",
+    "promptDenied": "Notifications are blocked in your browser settings"
   },
   "errors": {
     "generic": "Something went wrong. Try again.",

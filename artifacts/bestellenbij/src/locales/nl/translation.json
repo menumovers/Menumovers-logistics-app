@@ -37,7 +37,9 @@
     "notes": "Notities",
     "optional": "optioneel",
     "minutes": "min",
-    "now": "nu"
+    "now": "nu",
+    "dismiss": "Sluiten",
+    "loadError": "Laden mislukt"
   },
   "login": {
     "heading": "Welkom terug",
@@ -49,7 +51,8 @@
     "demo": "Demo-accounts",
     "demoHint": "Klik op een rol om de velden in te vullen",
     "invalid": "Ongeldige inloggegevens",
-    "footer": "Alle accounts gebruiken het wachtwoord 'password'"
+    "footer": "Alle accounts gebruiken het wachtwoord 'password'",
+    "logoLabel": "Bestellenbij-logo"
   },
   "roles": {
     "admin": "Beheerder",
@@ -101,6 +104,7 @@
     "overrides": "Aanpassingen",
     "addItem": "Artikel toevoegen",
     "hideItem": "Verbergen",
+    "hideItemLabel": "Verberg artikel {{name}}",
     "hidden": "Verborgen",
     "extra": "Extra",
     "notification": "Bericht voor rijder",
@@ -115,7 +119,12 @@
     "newItemName": "Naam",
     "newItemQty": "Aantal",
     "newItemPrice": "Prijs",
-    "newItemNotes": "Notities (optioneel)"
+    "newItemNotes": "Notities (optioneel)",
+    "workload": "Werkdruk rijders",
+    "workloadEmpty": "Geen rijders beschikbaar",
+    "workloadActive": "Actief",
+    "workloadQueued": "Wachtrij",
+    "workloadOffline": "Offline"
   },
   "rider": {
     "title": "Mijn route",
@@ -134,13 +143,26 @@
     "pushUnsupported": "Pushmeldingen worden niet ondersteund op dit apparaat",
     "pushNotConfigured": "De server heeft pushmeldingen niet geconfigureerd",
     "pushDenied": "Pushmeldingen zijn geblokkeerd in je browserinstellingen",
-    "notification": "Bericht van de coördinator"
+    "notification": "Bericht van de coördinator",
+    "sectionActive": "Actieve bezorgingen",
+    "sectionQueue": "Wachtrij",
+    "sectionOpen": "Open orders",
+    "sectionActiveEmpty": "Geen lopende bezorging",
+    "sectionQueueEmpty": "Geen orders in wachtrij",
+    "sectionOpenEmpty": "Geen open orders",
+    "claim": "Aanmelden voor deze rit",
+    "claimPending": "Bezig...",
+    "claimUnavailable": "Vraag de coördinator om je toe te wijzen"
   },
   "restaurant": {
     "title": "Restaurantweergave",
     "noOrders": "Geen actieve orders voor jouw restaurant",
     "suggestPickup": "Geef nieuwe ophaaltijd door",
-    "minDelivery": "Minimale bereidingstijd"
+    "minDelivery": "Minimale bereidingstijd",
+    "readyForPickup": "Gereed voor ophalen",
+    "readyForPickupSent": "Restaurant heeft eten gereed gemeld",
+    "hiddenItem": "Verborgen door coördinator",
+    "extraItem": "Toegevoegd door coördinator"
   },
   "admin": {
     "title": "Beheer",
@@ -173,6 +195,14 @@
     "appearance": "Weergave",
     "darkMode": "Donkere modus",
     "logout": "Afmelden"
+  },
+  "push": {
+    "promptTitle": "Krijg meldingen voor nieuwe ritten",
+    "promptBody": "Zet pushmeldingen aan zodat je geen toewijzing of statusupdate mist.",
+    "promptEnable": "Inschakelen",
+    "promptLater": "Later",
+    "promptUnsupported": "Pushmeldingen worden niet ondersteund op dit apparaat",
+    "promptDenied": "Meldingen zijn geblokkeerd in je browserinstellingen"
   },
   "errors": {
     "generic": "Er ging iets mis. Probeer het opnieuw.",

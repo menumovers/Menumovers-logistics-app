@@ -1,10 +1,31 @@
-// Minimal PWA service worker for Bestellenbij.
-// Handles install/activate, basic same-origin GET caching, and Web Push display.
+// Bestellenbij service worker.
+// Handles install/activate, basic same-origin GET caching, Web Push display,
+// and integrates with vite-plugin-pwa's injectManifest precache list when built.
+// In dev (no plugin), self.__WB_MANIFEST is undefined and precaching is a no-op.
 
 const CACHE_VERSION = "bb-v1";
 
+// vite-plugin-pwa replaces __WB_MANIFEST at build time. Reference it so the
+// build-time injection point is satisfied, but we precache lazily on first use.
+const PRECACHE_MANIFEST = self.__WB_MANIFEST || [];
+
 self.addEventListener("install", (event) => {
-  self.skipWaiting();
+  event.waitUntil(
+    (async () => {
+      try {
+        if (PRECACHE_MANIFEST.length > 0) {
+          const cache = await caches.open(CACHE_VERSION);
+          const urls = PRECACHE_MANIFEST.map((entry) =>
+            typeof entry === "string" ? entry : entry.url,
+          ).filter(Boolean);
+          await cache.addAll(urls).catch(() => {});
+        }
+      } catch {
+        // ignore — precache failures should not block activation
+      }
+      self.skipWaiting();
+    })(),
+  );
 });
 
 self.addEventListener("activate", (event) => {
@@ -40,7 +61,6 @@ self.addEventListener("fetch", (event) => {
         }
       })(),
     );
-    return;
   }
 });
 
