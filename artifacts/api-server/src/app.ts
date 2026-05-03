@@ -12,6 +12,17 @@ const app: Express = express();
 app.use(
   pinoHttp({
     logger,
+    customProps(req, _res) {
+      const r = req as typeof req & {
+        auth?: { sub?: string; role?: string };
+        id?: unknown;
+      };
+      return {
+        requestId: r.id != null ? String(r.id) : undefined,
+        userId: r.auth?.sub,
+        role: r.auth?.role,
+      };
+    },
     serializers: {
       req(req) {
         return {

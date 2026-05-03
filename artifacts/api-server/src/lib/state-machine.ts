@@ -1,17 +1,20 @@
 import type { OrderStatus } from "@workspace/db";
 
-const TRANSITIONS: Record<OrderStatus, ReadonlyArray<OrderStatus>> = {
-  pending: ["driver_assigned", "failed"],
-  driver_assigned: ["en_route_to_restaurant", "failed"],
-  en_route_to_restaurant: ["picked_up", "failed"],
-  picked_up: ["en_route_to_customer", "failed"],
-  en_route_to_customer: ["delivered", "failed"],
+const PIPELINE_TRANSITIONS: Record<OrderStatus, ReadonlyArray<OrderStatus>> = {
+  pending: ["driver_assigned"],
+  driver_assigned: ["en_route_to_restaurant"],
+  en_route_to_restaurant: ["picked_up"],
+  picked_up: ["en_route_to_customer"],
+  en_route_to_customer: ["delivered"],
   delivered: [],
   failed: [],
 };
 
 export function isValidTransition(from: OrderStatus, to: OrderStatus): boolean {
-  return TRANSITIONS[from]?.includes(to) ?? false;
+  if (from === to) return false;
+  // Failure terminal: reachable from any non-failed state (incl. delivered).
+  if (to === "failed") return from !== "failed";
+  return PIPELINE_TRANSITIONS[from]?.includes(to) ?? false;
 }
 
 export function assertValidTransition(from: OrderStatus, to: OrderStatus): void {
@@ -26,5 +29,7 @@ export function assertValidTransition(from: OrderStatus, to: OrderStatus): void 
 }
 
 export function nextStatusesFor(from: OrderStatus): ReadonlyArray<OrderStatus> {
-  return TRANSITIONS[from] ?? [];
+  const pipeline = PIPELINE_TRANSITIONS[from] ?? [];
+  if (from === "failed") return pipeline;
+  return [...pipeline, "failed" as OrderStatus];
 }

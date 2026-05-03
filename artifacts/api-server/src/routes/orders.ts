@@ -58,7 +58,10 @@ async function loadOrderOr404(id: string) {
   return order;
 }
 
-function assertOrderVisible(order: { restaurantId: string; riderId: string | null }, req: Request): void {
+function assertOrderVisible(
+  order: { restaurantId: string; riderId: string | null; status: string },
+  req: Request,
+): void {
   const auth = req.auth!;
   if (auth.role === "admin" || auth.role === "coordinator") return;
   if (auth.role === "restaurant_staff") {
@@ -66,8 +69,8 @@ function assertOrderVisible(order: { restaurantId: string; riderId: string | nul
     throw httpError(403, "FORBIDDEN", "Forbidden");
   }
   if (auth.role === "rider") {
-    // Rider can read pending (queue visibility) or orders assigned to them.
-    if (order.riderId === null) return;
+    // Pending queue (any unassigned pending order) or self-assigned orders only.
+    if (order.status === "pending" && order.riderId === null) return;
     if (auth.riderId && order.riderId === auth.riderId) return;
     throw httpError(403, "FORBIDDEN", "Forbidden");
   }
@@ -160,25 +163,33 @@ router.post(
         note: "Ingested from upstream",
       });
       const audience = audienceForNewOrder();
-      await Promise.all([
-        sendPushToRoles(audience.roles, {
-          title: "Nieuwe bestelling",
-          body: `${row.customerName} — ${restaurant.name}`,
-          data: { orderId: row.id, type: "order.created" },
-        }),
-        audience.notifyOrderRestaurantStaff
-          ? sendPushToRestaurantStaff(row.restaurantId, {
+      // Fire-and-forget: do not block the inbound response on push/webhook IO.
+      const fireAndForget = async () => {
+        try {
+          await Promise.all([
+            sendPushToRoles(audience.roles, {
               title: "Nieuwe bestelling",
-              body: `${row.customerName}`,
-              data: { orderId: row.id, type: "order.created" },
-            })
-          : Promise.resolve(),
-        enqueueOutboundEvent({
-          eventType: "order.created",
-          orderId: row.id,
-          payload: { externalOrderId: row.externalOrderId, status: row.status },
-        }),
-      ]);
+              body: `${row!.customerName} — ${restaurant.name}`,
+              data: { orderId: row!.id, type: "order.created" },
+            }),
+            audience.notifyOrderRestaurantStaff
+              ? sendPushToRestaurantStaff(row!.restaurantId, {
+                  title: "Nieuwe bestelling",
+                  body: `${row!.customerName}`,
+                  data: { orderId: row!.id, type: "order.created" },
+                })
+              : Promise.resolve(),
+            enqueueOutboundEvent({
+              eventType: "order.created",
+              orderId: row!.id,
+              payload: { externalOrderId: row!.externalOrderId, status: row!.status },
+            }),
+          ]);
+        } catch (err) {
+          req.log.error({ err, orderId: row!.id }, "Inbound side effects failed");
+        }
+      };
+      void fireAndForget();
     }
 
     const detail = await serializeOrderDetail(row.id);
@@ -659,6 +670,5 @@ router.post(
 );
 
 // Avoid unused import warnings.
-void asc;
 
 export default router;

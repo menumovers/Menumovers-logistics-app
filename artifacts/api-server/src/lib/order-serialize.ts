@@ -1,4 +1,4 @@
-import { and, asc, eq } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 import {
   db,
   itemOverridesTable,
@@ -213,9 +213,3 @@ export async function serializeOrderDetail(orderId: string) {
 }
 
 export type StatusLogEntry = OrderStatusLog & { actorName?: string | null };
-
-// Reduce false-positive unused export for downstream consumers.
-export const _typesUsed: SerializedOrderItem | null = null;
-
-// Avoid unused import warning if `and` is later needed.
-void and;

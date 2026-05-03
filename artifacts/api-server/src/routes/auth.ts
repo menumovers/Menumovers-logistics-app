@@ -8,14 +8,15 @@ import {
   requireAuth,
   revokeJti,
 } from "../lib/auth";
+import { AppError } from "../lib/errors";
 
 const router: IRouter = Router();
 
-router.post("/auth/login", async (req, res): Promise<void> => {
+router.post("/auth/login", async (req, res, next): Promise<void> => {
+  try {
   const parsed = LoginBody.safeParse(req.body);
   if (!parsed.success) {
-    res.status(400).json({ error: parsed.error.message });
-    return;
+    throw new AppError(400, "VALIDATION_ERROR", parsed.error.message);
   }
 
   const { email, password } = parsed.data;
@@ -26,20 +27,17 @@ router.post("/auth/login", async (req, res): Promise<void> => {
 
   if (!user) {
     req.log.warn({ email }, "Login: unknown email");
-    res.status(401).json({ error: "Invalid credentials" });
-    return;
+    throw new AppError(401, "INVALID_CREDENTIALS", "Invalid credentials");
   }
 
   if (user.accountStatus !== "active") {
-    res.status(403).json({ error: "Account is suspended" });
-    return;
+    throw new AppError(403, "ACCOUNT_SUSPENDED", "Account is suspended");
   }
 
   const ok = await verifyPassword(password, user.passwordHash);
   if (!ok) {
     req.log.warn({ userId: user.id }, "Login: bad password");
-    res.status(401).json({ error: "Invalid credentials" });
-    return;
+    throw new AppError(401, "INVALID_CREDENTIALS", "Invalid credentials");
   }
 
   const { token } = signToken({
@@ -77,6 +75,7 @@ router.post("/auth/login", async (req, res): Promise<void> => {
     path: "/",
   });
   res.json(body);
+  } catch (err) { next(err); }
 });
 
 router.post("/auth/logout", requireAuth, async (req, res): Promise<void> => {

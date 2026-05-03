@@ -101,10 +101,7 @@ export async function sendPushToRestaurantStaff(
     .select({ id: usersTable.id })
     .from(usersTable)
     .where(eq(usersTable.restaurantId, restaurantId));
-  await sendToUsers(
-    users.filter(() => true).map((u) => u.id),
-    payload,
-  );
+  await sendToUsers(users.map((u) => u.id), payload);
 }
 
 export function isVapidConfigured(): boolean {

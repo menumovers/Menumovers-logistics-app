@@ -11,6 +11,7 @@ import {
   type User,
   type UserRole,
 } from "@workspace/db";
+import { AppError } from "./errors";
 
 const JWT_ALGO = "HS256";
 const JWT_TTL_SECONDS = 60 * 60 * 24 * 7; // 7 days
@@ -128,25 +129,25 @@ export async function requireAuth(
 ): Promise<void> {
   const token = extractToken(req);
   if (!token) {
-    res.status(401).json({ error: "Authentication required" });
+    next(new AppError(401, "AUTH_REQUIRED", "Authentication required"));
     return;
   }
   const claims = verifyToken(token);
   if (!claims) {
-    res.status(401).json({ error: "Invalid or expired token" });
+    next(new AppError(401, "AUTH_INVALID", "Invalid or expired token"));
     return;
   }
   if (await isJtiRevoked(claims.jti)) {
-    res.status(401).json({ error: "Session has been revoked" });
+    next(new AppError(401, "AUTH_REVOKED", "Session has been revoked"));
     return;
   }
   const [user] = await db.select().from(usersTable).where(eq(usersTable.id, claims.sub));
   if (!user) {
-    res.status(401).json({ error: "User no longer exists" });
+    next(new AppError(401, "AUTH_USER_MISSING", "User no longer exists"));
     return;
   }
   if (user.accountStatus !== "active") {
-    res.status(403).json({ error: "Account is suspended" });
+    next(new AppError(403, "ACCOUNT_SUSPENDED", "Account is suspended"));
     return;
   }
   let riderId: string | null = null;
@@ -170,13 +171,13 @@ export async function requireAuth(
 }
 
 export function requireRole(...roles: UserRole[]) {
-  return (req: Request, res: Response, next: NextFunction): void => {
+  return (req: Request, _res: Response, next: NextFunction): void => {
     if (!req.user) {
-      res.status(401).json({ error: "Authentication required" });
+      next(new AppError(401, "AUTH_REQUIRED", "Authentication required"));
       return;
     }
     if (!roles.includes(req.user.role)) {
-      res.status(403).json({ error: "Forbidden" });
+      next(new AppError(403, "FORBIDDEN", "Forbidden"));
       return;
     }
     next();
@@ -185,17 +186,17 @@ export function requireRole(...roles: UserRole[]) {
 
 export function requireInboundSecret(
   req: Request,
-  res: Response,
+  _res: Response,
   next: NextFunction,
 ): void {
   const expected = process.env["INBOUND_SHARED_SECRET"];
   if (!expected) {
-    res.status(503).json({ error: "Inbound endpoint not configured" });
+    next(new AppError(503, "INBOUND_NOT_CONFIGURED", "Inbound endpoint not configured"));
     return;
   }
   const provided = req.header("x-inbound-secret");
   if (provided !== expected) {
-    res.status(401).json({ error: "Invalid inbound secret" });
+    next(new AppError(401, "INBOUND_INVALID_SECRET", "Invalid inbound secret"));
     return;
   }
   next();

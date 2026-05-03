@@ -183,6 +183,5 @@ router.post(
   }),
 );
 
-void and;
 
 export default router;
