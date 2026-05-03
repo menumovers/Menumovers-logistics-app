@@ -86,7 +86,7 @@ export function urgencyFor(iso: string, now: Date = new Date()): Urgency {
  */
 export type PickupLabelDescriptor =
   | { kind: "key"; key: "common.now" }
-  | { kind: "key"; key: "pickup.in" | "pickup.ago"; values: { minutes: number } }
+  | { kind: "key"; key: "pickup.in" | "pickup.late"; values: { minutes: number } }
   | { kind: "literal"; text: string };
 
 export function pickupCountdownLabel(
@@ -98,6 +98,6 @@ export function pickupCountdownLabel(
   const absM = Math.abs(m);
   if (absM > 30) return { kind: "literal", text: formatTime(iso, lang) };
   if (m === 0) return { kind: "key", key: "common.now" };
-  if (m < 0) return { kind: "key", key: "pickup.ago", values: { minutes: absM } };
+  if (m < 0) return { kind: "key", key: "pickup.late", values: { minutes: absM } };
   return { kind: "key", key: "pickup.in", values: { minutes: m } };
 }

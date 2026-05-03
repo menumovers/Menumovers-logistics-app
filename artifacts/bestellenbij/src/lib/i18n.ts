@@ -1,25 +1,34 @@
 import i18n from "i18next";
 import { initReactI18next } from "react-i18next";
-import LanguageDetector from "i18next-browser-languagedetector";
 import nl from "../locales/nl/translation.json";
 import en from "../locales/en/translation.json";
 
-i18n
-  .use(LanguageDetector)
-  .use(initReactI18next)
-  .init({
-    resources: {
-      nl: { translation: nl },
-      en: { translation: en },
-    },
-    fallbackLng: "nl",
-    supportedLngs: ["nl", "en"],
-    interpolation: { escapeValue: false },
-    detection: {
-      order: ["localStorage", "navigator"],
-      lookupLocalStorage: "bb_locale",
-      caches: ["localStorage"],
-    },
+const STORAGE_KEY = "bb_locale";
+
+function initialLng(): "nl" | "en" {
+  if (typeof window === "undefined") return "nl";
+  const stored = window.localStorage.getItem(STORAGE_KEY);
+  if (stored === "nl" || stored === "en") return stored;
+  return "nl";
+}
+
+i18n.use(initReactI18next).init({
+  resources: {
+    nl: { translation: nl },
+    en: { translation: en },
+  },
+  lng: initialLng(),
+  fallbackLng: "nl",
+  supportedLngs: ["nl", "en"],
+  interpolation: { escapeValue: false },
+});
+
+if (typeof window !== "undefined") {
+  i18n.on("languageChanged", (lng) => {
+    if (lng === "nl" || lng === "en") {
+      window.localStorage.setItem(STORAGE_KEY, lng);
+    }
   });
+}
 
 export default i18n;

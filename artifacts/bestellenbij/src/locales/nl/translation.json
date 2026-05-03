@@ -45,7 +45,10 @@
     "previousPage": "Vorige pagina",
     "nextPage": "Volgende pagina",
     "more": "Meer",
-    "morePages": "Meer pagina's"
+    "morePages": "Meer pagina's",
+    "previousSlide": "Vorige dia",
+    "nextSlide": "Volgende dia",
+    "toggleSidebar": "Zijbalk wisselen"
   },
   "login": {
     "heading": "Welkom terug",

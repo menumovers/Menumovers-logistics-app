@@ -45,7 +45,10 @@
     "previousPage": "Go to previous page",
     "nextPage": "Go to next page",
     "more": "More",
-    "morePages": "More pages"
+    "morePages": "More pages",
+    "previousSlide": "Previous slide",
+    "nextSlide": "Next slide",
+    "toggleSidebar": "Toggle sidebar"
   },
   "login": {
     "heading": "Welcome back",
