@@ -3,7 +3,6 @@ import { eq } from "drizzle-orm";
 import { db, usersTable, ridersTable } from "@workspace/db";
 import { LoginBody, LoginResponse as LoginResponseZod, GetCurrentUserResponse } from "@workspace/api-zod";
 import {
-  hashPassword as _hashPassword,
   verifyPassword,
   signToken,
   requireAuth,
@@ -11,10 +10,6 @@ import {
 } from "../lib/auth";
 
 const router: IRouter = Router();
-
-// Avoid an "unused" lint complaint while still re-exporting via the lib for
-// other route modules. (`hashPassword` is used in user/rider creation routes.)
-void _hashPassword;
 
 router.post("/auth/login", async (req, res): Promise<void> => {
   const parsed = LoginBody.safeParse(req.body);

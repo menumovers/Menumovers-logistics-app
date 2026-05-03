@@ -8,7 +8,7 @@ import type { UserRole } from "./users";
 export const PICKUP_TIME_SOURCES = [
   "rider",
   "restaurant",
-  "coordinator_override",
+  "override",
 ] as const;
 export type PickupTimeSource = (typeof PICKUP_TIME_SOURCES)[number];
 
