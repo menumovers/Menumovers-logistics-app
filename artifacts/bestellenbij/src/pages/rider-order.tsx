@@ -34,7 +34,6 @@ const NEXT: Partial<Record<OrderStatusType, OrderStatusType>> = {
 };
 
 const CAN_POSTPONE: OrderStatusType[] = [
-  "driver_assigned",
   "en_route_to_restaurant",
   "en_route_to_customer",
 ];

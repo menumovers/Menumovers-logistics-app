@@ -13,6 +13,7 @@ import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { restaurantsTable } from "./restaurants";
 import { ridersTable } from "./riders";
+import { tripsTable } from "./trips";
 
 export const ORDER_STATUSES = [
   "pending",
@@ -70,7 +71,9 @@ export const ordersTable = pgTable(
     // Trip bundling: when set, the order is part of a coordinator-built trip
     // executed alongside other orders by a single rider. Trip is layered
     // above order status — clearing this column does not change `status`.
-    tripId: uuid("trip_id"),
+    tripId: uuid("trip_id").references(() => tripsTable.id, {
+      onDelete: "set null",
+    }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true })
       .notNull()

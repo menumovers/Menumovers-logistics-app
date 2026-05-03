@@ -2,7 +2,7 @@ import type { OrderStatus } from "@workspace/db";
 
 const PIPELINE_TRANSITIONS: Record<OrderStatus, ReadonlyArray<OrderStatus>> = {
   pending: ["driver_assigned"],
-  driver_assigned: ["en_route_to_restaurant", "postponed"],
+  driver_assigned: ["en_route_to_restaurant"],
   en_route_to_restaurant: ["picked_up", "postponed"],
   picked_up: ["en_route_to_customer"],
   en_route_to_customer: ["delivered", "postponed"],
