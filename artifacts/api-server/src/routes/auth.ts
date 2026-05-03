@@ -12,6 +12,11 @@ import { AppError } from "../lib/errors";
 
 const router: IRouter = Router();
 
+function normalizeLocale(value: string | null): "nl" | "en" | null {
+  if (value === "nl" || value === "en") return value;
+  return null;
+}
+
 router.post("/auth/login", async (req, res, next): Promise<void> => {
   try {
   const parsed = LoginBody.safeParse(req.body);
@@ -65,6 +70,7 @@ router.post("/auth/login", async (req, res, next): Promise<void> => {
       accountStatus: user.accountStatus,
       restaurantId: user.restaurantId,
       riderId,
+      preferredLocale: normalizeLocale(user.preferredLocale),
     },
   });
   res.cookie("auth_token", token, {
@@ -104,6 +110,7 @@ router.get("/auth/me", requireAuth, async (req, res): Promise<void> => {
       accountStatus: user.accountStatus,
       restaurantId: user.restaurantId,
       riderId,
+      preferredLocale: normalizeLocale(user.preferredLocale),
     }),
   );
 });

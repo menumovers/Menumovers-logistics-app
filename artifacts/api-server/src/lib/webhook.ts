@@ -11,14 +11,25 @@ import { logger } from "./logger";
 const RETRY_DELAYS_MS = [30_000, 120_000, 300_000];
 const MAX_ATTEMPTS = 4;
 
+/**
+ * Resolve the outbound webhook URL.
+ *
+ * Precedence (admin-configured wins):
+ *   1. system_settings.outbound_webhook_url (the admin Settings UI writes here)
+ *   2. process.env.WEBHOOK_URL (boot-time fallback for fresh installs)
+ *
+ * Rationale: operator configuration is runtime, not env. Inverting precedence
+ * (admin > env) means an operator can override a misconfigured env var at
+ * runtime without redeploying. The Settings page surfaces which source won so
+ * the admin can never wonder whether their UI change took effect.
+ */
 export async function getOutboundWebhookUrl(): Promise<string | null> {
-  const fromEnv = process.env["WEBHOOK_URL"];
-  if (fromEnv) return fromEnv;
   const [row] = await db
     .select()
     .from(systemSettingsTable)
     .where(eq(systemSettingsTable.key, SETTING_KEYS.OUTBOUND_WEBHOOK_URL));
-  return row?.value ?? null;
+  if (row?.value) return row.value;
+  return process.env["WEBHOOK_URL"] ?? null;
 }
 
 export type OutboundEventType =
@@ -31,6 +42,8 @@ export type OutboundEvent = {
   eventType: OutboundEventType;
   orderId: string;
   payload: Record<string, unknown>;
+  /** Optional request id (or other correlation id) threaded through from the originating action. */
+  correlationId?: string | null;
 };
 
 async function attemptDelivery(
@@ -65,8 +78,9 @@ async function attemptDelivery(
  */
 export async function enqueueOutboundEvent(event: OutboundEvent): Promise<void> {
   const url = await getOutboundWebhookUrl();
+  const correlationId = event.correlationId ?? null;
   if (!url) {
-    logger.debug({ eventType: event.eventType }, "No outbound webhook configured");
+    logger.debug({ eventType: event.eventType, correlationId }, "No outbound webhook configured");
     return;
   }
   const body = {
@@ -76,11 +90,17 @@ export async function enqueueOutboundEvent(event: OutboundEvent): Promise<void> 
     data: event.payload,
   };
   const result = await attemptDelivery(url, body);
-  if (result.ok) return;
+  if (result.ok) {
+    logger.info(
+      { eventType: event.eventType, orderId: event.orderId, correlationId, status: result.status, attempt: 1 },
+      "Outbound webhook delivered",
+    );
+    return;
+  }
 
   if (!result.retryable) {
     logger.warn(
-      { status: result.status, eventType: event.eventType },
+      { status: result.status, eventType: event.eventType, orderId: event.orderId, correlationId },
       "Outbound webhook 4xx; not retrying",
     );
     await db.insert(webhookRetryQueueTable).values({
@@ -88,6 +108,7 @@ export async function enqueueOutboundEvent(event: OutboundEvent): Promise<void> 
       eventType: event.eventType,
       targetUrl: url,
       payload: body,
+      correlationId,
       attemptCount: 1,
       nextRetryAt: new Date(),
       lastError: result.error ?? null,
@@ -98,11 +119,24 @@ export async function enqueueOutboundEvent(event: OutboundEvent): Promise<void> 
   }
 
   const nextRetryAt = new Date(Date.now() + RETRY_DELAYS_MS[0]);
+  logger.warn(
+    {
+      eventType: event.eventType,
+      orderId: event.orderId,
+      correlationId,
+      status: result.status,
+      error: result.error,
+      attempt: 1,
+      nextRetryAt: nextRetryAt.toISOString(),
+    },
+    "Outbound webhook failed; retrying",
+  );
   await db.insert(webhookRetryQueueTable).values({
     orderId: event.orderId,
     eventType: event.eventType,
     targetUrl: url,
     payload: body,
+    correlationId,
     attemptCount: 1,
     nextRetryAt,
     lastError: result.error ?? null,
@@ -117,7 +151,15 @@ async function processOne(row: WebhookRetry): Promise<void> {
     row.payload as Record<string, unknown>,
   );
   const attempt = row.attemptCount + 1;
+  const logCtx = {
+    id: row.id,
+    eventType: row.eventType,
+    orderId: row.orderId,
+    correlationId: row.correlationId,
+    attempt,
+  };
   if (result.ok) {
+    logger.info({ ...logCtx, status: result.status }, "Webhook retry succeeded");
     await db
       .update(webhookRetryQueueTable)
       .set({
@@ -130,6 +172,10 @@ async function processOne(row: WebhookRetry): Promise<void> {
     return;
   }
   if (!result.retryable || attempt >= MAX_ATTEMPTS) {
+    logger.warn(
+      { ...logCtx, status: result.status, error: result.error, terminal: true },
+      "Webhook retry terminal failure",
+    );
     await db
       .update(webhookRetryQueueTable)
       .set({
@@ -144,11 +190,21 @@ async function processOne(row: WebhookRetry): Promise<void> {
   // attempt is 1-based after the initial sync send; queue index = attempt - 1.
   const delayIdx = Math.min(attempt - 1, RETRY_DELAYS_MS.length - 1);
   const delay = RETRY_DELAYS_MS[delayIdx]!;
+  const nextRetryAt = new Date(Date.now() + delay);
+  logger.warn(
+    {
+      ...logCtx,
+      status: result.status,
+      error: result.error,
+      nextRetryAt: nextRetryAt.toISOString(),
+    },
+    "Webhook retry scheduled",
+  );
   await db
     .update(webhookRetryQueueTable)
     .set({
       attemptCount: attempt,
-      nextRetryAt: new Date(Date.now() + delay),
+      nextRetryAt,
       lastStatusCode: result.status,
       lastError: result.error ?? `HTTP ${result.status}`,
     })
@@ -175,7 +231,10 @@ export async function processRetryQueueOnce(): Promise<void> {
       try {
         await processOne(row);
       } catch (err) {
-        logger.error({ err, id: row.id }, "Webhook retry processing failed");
+        logger.error(
+          { err, id: row.id, correlationId: row.correlationId },
+          "Webhook retry processing failed",
+        );
       }
     }
   } finally {

@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { AccountStatus } from "./accountStatus";
+import type { CurrentUserPreferredLocale } from "./currentUserPreferredLocale";
 import type { UserRole } from "./userRole";
 
 export interface CurrentUser {
@@ -18,4 +19,6 @@ export interface CurrentUser {
   restaurantId?: string | null;
   /** @nullable */
   riderId?: string | null;
+  /** @nullable */
+  preferredLocale?: CurrentUserPreferredLocale;
 }

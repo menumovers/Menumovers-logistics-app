@@ -1,6 +1,7 @@
 import app from "./app";
 import { logger } from "./lib/logger";
 import { startRetryLoop } from "./lib/webhook";
+import { startJanitor } from "./lib/janitor";
 
 const rawPort = process.env["PORT"];
 
@@ -25,4 +26,6 @@ app.listen(port, (err) => {
   logger.info({ port }, "Server listening");
   // Background loop polling webhook_retry_queue every 10s.
   startRetryLoop();
+  // Background cleanup loop (revoked tokens, etc.) every 5 minutes.
+  startJanitor();
 });

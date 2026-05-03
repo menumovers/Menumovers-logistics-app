@@ -20,4 +20,5 @@ export type SystemSetting = typeof systemSettingsTable.$inferSelect;
 
 export const SETTING_KEYS = {
   OUTBOUND_WEBHOOK_URL: "outbound_webhook_url",
+  ALLOW_RIDER_SELF_CLAIM: "allow_rider_self_claim",
 } as const;

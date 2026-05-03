@@ -13,24 +13,46 @@ const wrap =
     fn(req, res).catch(next);
   };
 
+/**
+ * Outbound webhook URL precedence (admin-configured wins):
+ *   1. system_settings.outbound_webhook_url
+ *   2. process.env.WEBHOOK_URL (fallback for fresh installs)
+ * Mirrors `getOutboundWebhookUrl` in lib/webhook.ts.
+ */
 async function readWebhookUrl(): Promise<{
   url: string | null;
   source: "env" | "settings" | "unset";
 }> {
-  const fromEnv = process.env["WEBHOOK_URL"];
-  if (fromEnv) return { url: fromEnv, source: "env" };
   const [row] = await db
     .select()
     .from(systemSettingsTable)
     .where(eq(systemSettingsTable.key, SETTING_KEYS.OUTBOUND_WEBHOOK_URL));
   if (row?.value) return { url: row.value, source: "settings" };
+  const fromEnv = process.env["WEBHOOK_URL"];
+  if (fromEnv) return { url: fromEnv, source: "env" };
   return { url: null, source: "unset" };
 }
 
-function buildSettings(url: string | null, source: "env" | "settings" | "unset") {
+async function readAllowRiderSelfClaim(): Promise<boolean> {
+  const [row] = await db
+    .select()
+    .from(systemSettingsTable)
+    .where(eq(systemSettingsTable.key, SETTING_KEYS.ALLOW_RIDER_SELF_CLAIM));
+  // Default ON: matches the original product spec where riders can claim
+  // unassigned orders. Operators flip this OFF to require coordinator dispatch.
+  if (!row?.value) return true;
+  return row.value === "true";
+}
+
+function buildSettings(
+  url: string | null,
+  source: "env" | "settings" | "unset",
+  allowRiderSelfClaim: boolean,
+) {
   return {
     outboundWebhookUrl: url,
     outboundWebhookUrlSource: source,
+    allowRiderSelfClaim,
     vapidConfigured: Boolean(
       process.env["VAPID_PUBLIC_KEY"] && process.env["VAPID_PRIVATE_KEY"],
     ),
@@ -38,13 +60,28 @@ function buildSettings(url: string | null, source: "env" | "settings" | "unset")
   };
 }
 
+// Auth-only (any role) read of operational flags. Riders need to know whether
+// self-claim is permitted in order to render the claim button; full /settings
+// is admin-only because it includes the outbound webhook URL.
+router.get(
+  "/settings/flags",
+  requireAuth,
+  wrap(async (_req, res) => {
+    const allowRiderSelfClaim = await readAllowRiderSelfClaim();
+    res.json({ allowRiderSelfClaim });
+  }),
+);
+
 router.get(
   "/settings",
   requireAuth,
   requireRole("admin"),
   wrap(async (_req, res) => {
-    const { url, source } = await readWebhookUrl();
-    res.json(buildSettings(url, source));
+    const [{ url, source }, allowRiderSelfClaim] = await Promise.all([
+      readWebhookUrl(),
+      readAllowRiderSelfClaim(),
+    ]);
+    res.json(buildSettings(url, source, allowRiderSelfClaim));
   }),
 );
 
@@ -63,7 +100,6 @@ router.patch(
           .delete(systemSettingsTable)
           .where(eq(systemSettingsTable.key, SETTING_KEYS.OUTBOUND_WEBHOOK_URL));
       } else {
-        // Sanity check: must be a valid URL.
         try {
           new URL(value);
         } catch {
@@ -78,8 +114,23 @@ router.patch(
           });
       }
     }
-    const { url, source } = await readWebhookUrl();
-    res.json(buildSettings(url, source));
+
+    if (parsed.data.allowRiderSelfClaim !== undefined) {
+      const value = parsed.data.allowRiderSelfClaim ? "true" : "false";
+      await db
+        .insert(systemSettingsTable)
+        .values({ key: SETTING_KEYS.ALLOW_RIDER_SELF_CLAIM, value })
+        .onConflictDoUpdate({
+          target: systemSettingsTable.key,
+          set: { value },
+        });
+    }
+
+    const [{ url, source }, allowRiderSelfClaim] = await Promise.all([
+      readWebhookUrl(),
+      readAllowRiderSelfClaim(),
+    ]);
+    res.json(buildSettings(url, source, allowRiderSelfClaim));
   }),
 );
 

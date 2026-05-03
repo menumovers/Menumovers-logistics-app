@@ -496,6 +496,24 @@ paths:
       responses:
         "204":
           description: Deleted
+  /users/me/locale:
+    patch:
+      operationId: updateMyLocale
+      tags: [users]
+      summary: Update the calling user's preferred locale
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateLocaleRequest"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UpdateLocaleResponse"
   /users:
     get:
       operationId: listUsers
@@ -587,6 +605,18 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Settings"
+  /settings/flags:
+    get:
+      operationId: getSettingsFlags
+      tags: [settings]
+      summary: Public-ish operational flags any authenticated user (rider/coordinator/restaurant/admin) may read
+      responses:
+        "200":
+          description: Flags
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SettingsFlags"
   /push/vapid-public-key:
     get:
       operationId: getVapidPublicKey
@@ -711,6 +741,23 @@ components:
           type: ["string", "null"]
         riderId:
           type: ["string", "null"]
+        preferredLocale:
+          type: ["string", "null"]
+          enum: [nl, en, null]
+    UpdateLocaleRequest:
+      type: object
+      required: [preferredLocale]
+      properties:
+        preferredLocale:
+          type: ["string", "null"]
+          enum: [nl, en, null]
+    UpdateLocaleResponse:
+      type: object
+      required: [preferredLocale]
+      properties:
+        preferredLocale:
+          type: ["string", "null"]
+          enum: [nl, en, null]
     User:
       type: object
       required: [id, email, name, role, accountStatus, createdAt]
@@ -1100,22 +1147,33 @@ components:
           $ref: "#/components/schemas/RiderAvailability"
     Settings:
       type: object
-      required: [outboundWebhookUrl, outboundWebhookUrlSource, vapidConfigured]
+      required:
+        [outboundWebhookUrl, outboundWebhookUrlSource, allowRiderSelfClaim, vapidConfigured]
       properties:
         outboundWebhookUrl:
           type: ["string", "null"]
         outboundWebhookUrlSource:
           type: string
           enum: [env, settings, unset]
+        allowRiderSelfClaim:
+          type: boolean
         vapidConfigured:
           type: boolean
         inboundSecretConfigured:
+          type: boolean
+    SettingsFlags:
+      type: object
+      required: [allowRiderSelfClaim]
+      properties:
+        allowRiderSelfClaim:
           type: boolean
     UpdateSettingsRequest:
       type: object
       properties:
         outboundWebhookUrl:
           type: ["string", "null"]
+        allowRiderSelfClaim:
+          type: boolean
     VapidPublicKey:
       type: object
       required: [publicKey, configured]

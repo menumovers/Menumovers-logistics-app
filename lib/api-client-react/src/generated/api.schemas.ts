@@ -66,6 +66,18 @@ export interface LoginRequest {
   password: string;
 }
 
+/**
+ * @nullable
+ */
+export type CurrentUserPreferredLocale =
+  | (typeof CurrentUserPreferredLocale)[keyof typeof CurrentUserPreferredLocale]
+  | null;
+
+export const CurrentUserPreferredLocale = {
+  nl: "nl",
+  en: "en",
+} as const;
+
 export interface CurrentUser {
   id: string;
   email: string;
@@ -76,11 +88,47 @@ export interface CurrentUser {
   restaurantId?: string | null;
   /** @nullable */
   riderId?: string | null;
+  /** @nullable */
+  preferredLocale?: CurrentUserPreferredLocale;
 }
 
 export interface AuthSession {
   token: string;
   user: CurrentUser;
+}
+
+/**
+ * @nullable
+ */
+export type UpdateLocaleRequestPreferredLocale =
+  | (typeof UpdateLocaleRequestPreferredLocale)[keyof typeof UpdateLocaleRequestPreferredLocale]
+  | null;
+
+export const UpdateLocaleRequestPreferredLocale = {
+  nl: "nl",
+  en: "en",
+} as const;
+
+export interface UpdateLocaleRequest {
+  /** @nullable */
+  preferredLocale: UpdateLocaleRequestPreferredLocale;
+}
+
+/**
+ * @nullable
+ */
+export type UpdateLocaleResponsePreferredLocale =
+  | (typeof UpdateLocaleResponsePreferredLocale)[keyof typeof UpdateLocaleResponsePreferredLocale]
+  | null;
+
+export const UpdateLocaleResponsePreferredLocale = {
+  nl: "nl",
+  en: "en",
+} as const;
+
+export interface UpdateLocaleResponse {
+  /** @nullable */
+  preferredLocale: UpdateLocaleResponsePreferredLocale;
 }
 
 export interface User {
@@ -329,13 +377,19 @@ export interface Settings {
   /** @nullable */
   outboundWebhookUrl: string | null;
   outboundWebhookUrlSource: SettingsOutboundWebhookUrlSource;
+  allowRiderSelfClaim: boolean;
   vapidConfigured: boolean;
   inboundSecretConfigured?: boolean;
+}
+
+export interface SettingsFlags {
+  allowRiderSelfClaim: boolean;
 }
 
 export interface UpdateSettingsRequest {
   /** @nullable */
   outboundWebhookUrl?: string | null;
+  allowRiderSelfClaim?: boolean;
 }
 
 export interface VapidPublicKey {

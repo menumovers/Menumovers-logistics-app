@@ -161,6 +161,7 @@
     "sectionOpenEmpty": "No open orders",
     "claim": "Claim this delivery",
     "claimPending": "Claiming...",
+    "claimDisabled": "Waiting for coordinator to assign",
     "claimUnavailable": "Ask the coordinator to assign you"
   },
   "restaurant": {
@@ -191,13 +192,19 @@
     "outboundSource": "Source",
     "outboundSource_env": "Environment variable",
     "outboundSource_settings": "Setting",
-    "outboundSource_unset": "Not set"
+    "outboundSource_unset": "Not set",
+    "settingsSaved": "Settings updated",
+    "dispatchPolicy": "Dispatch policy",
+    "allowRiderSelfClaim": "Riders may self-claim orders",
+    "allowRiderSelfClaimHelp": "When off, only a coordinator can assign a rider to an order"
   },
   "settings": {
     "title": "Settings",
     "language": "Language",
     "languageNl": "Dutch",
     "languageEn": "English",
+    "languageSaved": "Language saved",
+    "languageSaveFailed": "Could not save language",
     "account": "Account",
     "changePassword": "Change password",
     "newPassword": "New password",

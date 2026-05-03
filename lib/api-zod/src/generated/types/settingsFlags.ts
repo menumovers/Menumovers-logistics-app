@@ -6,8 +6,6 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface UpdateSettingsRequest {
-  /** @nullable */
-  outboundWebhookUrl?: string | null;
-  allowRiderSelfClaim?: boolean;
+export interface SettingsFlags {
+  allowRiderSelfClaim: boolean;
 }

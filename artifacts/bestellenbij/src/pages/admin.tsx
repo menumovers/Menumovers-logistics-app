@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { Plus, Trash2, CheckCircle2, AlertCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -351,10 +352,10 @@ function SettingsPanel() {
               update.mutate(
                 { data: { outboundWebhookUrl: url || null } },
                 {
-                  onSuccess: () => {
+                  onSuccess: (data) => {
                     setTouched(false);
-                    toast({ title: t("common.save") });
-                    qc.invalidateQueries({ queryKey: getGetSettingsQueryKey() });
+                    toast({ title: t("admin.settingsSaved") });
+                    qc.setQueryData(getGetSettingsQueryKey(), data);
                   },
                 },
               )
@@ -365,6 +366,42 @@ function SettingsPanel() {
           </Button>
         </CardContent>
       </Card>
+      {settings.data ? (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">{t("admin.dispatchPolicy")}</CardTitle>
+          </CardHeader>
+          <CardContent className="py-2 space-y-3 text-sm">
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <Label htmlFor="allow-rider-self-claim" className="text-sm">
+                  {t("admin.allowRiderSelfClaim")}
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  {t("admin.allowRiderSelfClaimHelp")}
+                </p>
+              </div>
+              <Switch
+                id="allow-rider-self-claim"
+                checked={settings.data.allowRiderSelfClaim}
+                disabled={update.isPending}
+                onCheckedChange={(checked) =>
+                  update.mutate(
+                    { data: { allowRiderSelfClaim: checked } },
+                    {
+                      onSuccess: (data) => {
+                        toast({ title: t("admin.settingsSaved") });
+                        qc.setQueryData(getGetSettingsQueryKey(), data);
+                      },
+                    },
+                  )
+                }
+                data-testid="switch-allow-rider-self-claim"
+              />
+            </div>
+          </CardContent>
+        </Card>
+      ) : null}
       {settings.data ? (
         <Card>
           <CardContent className="py-4 space-y-2 text-sm">

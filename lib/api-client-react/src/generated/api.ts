@@ -40,8 +40,11 @@ import type {
   SetAvailabilityRequest,
   SetRiderNotificationRequest,
   Settings,
+  SettingsFlags,
   TransitionStatusRequest,
   UnsubscribePushRequest,
+  UpdateLocaleRequest,
+  UpdateLocaleResponse,
   UpdateOrderContactRequest,
   UpdatePickupTimeRequest,
   UpdateRestaurantRequest,
@@ -1897,6 +1900,92 @@ export const useDeleteRestaurant = <
   return useMutation(getDeleteRestaurantMutationOptions(options));
 };
 
+/**
+ * @summary Update the calling user's preferred locale
+ */
+export const getUpdateMyLocaleUrl = () => {
+  return `/api/users/me/locale`;
+};
+
+export const updateMyLocale = async (
+  updateLocaleRequest: UpdateLocaleRequest,
+  options?: RequestInit,
+): Promise<UpdateLocaleResponse> => {
+  return customFetch<UpdateLocaleResponse>(getUpdateMyLocaleUrl(), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(updateLocaleRequest),
+  });
+};
+
+export const getUpdateMyLocaleMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateMyLocale>>,
+    TError,
+    { data: BodyType<UpdateLocaleRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateMyLocale>>,
+  TError,
+  { data: BodyType<UpdateLocaleRequest> },
+  TContext
+> => {
+  const mutationKey = ["updateMyLocale"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateMyLocale>>,
+    { data: BodyType<UpdateLocaleRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return updateMyLocale(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateMyLocaleMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateMyLocale>>
+>;
+export type UpdateMyLocaleMutationBody = BodyType<UpdateLocaleRequest>;
+export type UpdateMyLocaleMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update the calling user's preferred locale
+ */
+export const useUpdateMyLocale = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateMyLocale>>,
+    TError,
+    { data: BodyType<UpdateLocaleRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateMyLocale>>,
+  TError,
+  { data: BodyType<UpdateLocaleRequest> },
+  TContext
+> => {
+  return useMutation(getUpdateMyLocaleMutationOptions(options));
+};
+
 export const getListUsersUrl = () => {
   return `/api/users`;
 };
@@ -2339,6 +2428,81 @@ export const useUpdateSettings = <
 > => {
   return useMutation(getUpdateSettingsMutationOptions(options));
 };
+
+/**
+ * @summary Public-ish operational flags any authenticated user (rider/coordinator/restaurant/admin) may read
+ */
+export const getGetSettingsFlagsUrl = () => {
+  return `/api/settings/flags`;
+};
+
+export const getSettingsFlags = async (
+  options?: RequestInit,
+): Promise<SettingsFlags> => {
+  return customFetch<SettingsFlags>(getGetSettingsFlagsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetSettingsFlagsQueryKey = () => {
+  return [`/api/settings/flags`] as const;
+};
+
+export const getGetSettingsFlagsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getSettingsFlags>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getSettingsFlags>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetSettingsFlagsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getSettingsFlags>>
+  > = ({ signal }) => getSettingsFlags({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getSettingsFlags>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetSettingsFlagsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getSettingsFlags>>
+>;
+export type GetSettingsFlagsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Public-ish operational flags any authenticated user (rider/coordinator/restaurant/admin) may read
+ */
+
+export function useGetSettingsFlags<
+  TData = Awaited<ReturnType<typeof getSettingsFlags>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getSettingsFlags>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetSettingsFlagsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
 
 /**
  * @summary Returns the VAPID public key for push subscription registration

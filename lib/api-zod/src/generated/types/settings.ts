@@ -11,6 +11,7 @@ export interface Settings {
   /** @nullable */
   outboundWebhookUrl: string | null;
   outboundWebhookUrlSource: SettingsOutboundWebhookUrlSource;
+  allowRiderSelfClaim: boolean;
   vapidConfigured: boolean;
   inboundSecretConfigured?: boolean;
 }

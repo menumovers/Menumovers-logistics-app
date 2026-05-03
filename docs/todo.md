@@ -8,9 +8,9 @@ For each item: what it is, what investigation is already done, priority.
 
 ## High
 
-### H1. Rider self-assign authorization on `POST /api/orders/:id/assign`
+### H1. Rider self-assign authorization on `POST /api/orders/:id/assign` — DONE (2026-05-03)
 
-The endpoint accepts a target `riderId` and expects coordinators and admins to call it. A rider self-claiming an unassigned order is allowed by the product spec but the route currently authorizes only coordinator/admin. Either add a rider branch (where `riderId` must equal `req.auth.riderId` and the order is `pending`) or split into a separate `/api/orders/:id/claim` endpoint for riders. Investigation: see `routes/orders.ts` around the assign handler — the atomic update already enforces the `status='pending'` invariant, so the missing piece is just the role gate. Priority: high (frontend currently exposes a self-claim button that may 403).
+The route now allows a rider caller iff `system_settings.allow_rider_self_claim` is on, `body.riderId === req.auth.riderId`, and the order is `pending`. The atomic `UPDATE ... WHERE status='pending'` invariant is unchanged. Admin UI exposes the toggle on the Settings tab. Note: the rider self-claim button is not currently hidden when the flag is off — the server returns 403 and the frontend renders a `claimUnavailable` toast. If we ever want pre-emptive UI hiding we'd need a public flags endpoint.
 
 ### H2. Frontend `RequireRole` cross-role direct navigation
 
@@ -26,9 +26,9 @@ Already captured as `FUTURE_WORK.md` item 1, but worth listing here too because 
 
 `artifacts/bestellenbij/vite.config.ts` and `artifacts/mockup-sandbox/vite.config.ts` read `process.env.PORT` and `process.env.BASE_PATH` and throw if absent. This is correct in the Replit workspace but breaks `vite build` in vanilla CI. Add safe defaults gated on `NODE_ENV !== 'production'` (or accept a missing PORT in build mode, which doesn't bind a server). Investigation: see `rawPort` handling at the top of both vite configs. Priority: medium.
 
-### M2. Expand structured logging coverage
+### M2. Expand structured logging coverage — PARTIALLY DONE (2026-05-03)
 
-`pino-http` is wired and adds `requestId`, `userId`, `role` to every HTTP log. Some application code paths that fire outside an HTTP request (the webhook retry loop, push delivery) use the module-level `logger` and do not log a correlation id. Add an `eventId` (or pass the `requestId` from the originating request through into the queued retry row) so a webhook delivery can be traced back to the originating action. Investigation: `webhook.ts` `runRetryLoopOnce` and `push.ts` `sendToUsers` are the call sites. Priority: medium.
+Webhook retry path now propagates a `correlationId` (the originating `req.id`) end-to-end: stored on `webhook_retry_queue.correlation_id` and emitted in retry logs. `routes/orders.ts` threads `String(req.id)` to every `enqueueOutboundEvent` call. Remaining: `push.ts` `sendToUsers` does not yet carry a correlation id; add the same field there if/when push reliability becomes a debugging concern. Priority: low (down from medium).
 
 ### M3. Error handler: tighten the "unknown error" path
 
@@ -38,9 +38,9 @@ Already captured as `FUTURE_WORK.md` item 1, but worth listing here too because 
 
 `app.ts` reflects any origin when `NODE_ENV !== 'production'`. This is convenient locally but means a misconfigured staging deploy is wide open. Make the staging behavior explicit (require `CORS_ALLOWED_ORIGINS` set in any environment that calls itself production-like). Priority: medium.
 
-### M5. `system_settings.outbound_webhook_url` and env precedence
+### M5. `system_settings.outbound_webhook_url` and env precedence — DONE (2026-05-03)
 
-`getOutboundWebhookUrl` prefers `WEBHOOK_URL` env over the database setting. This is fine, but the admin settings UI lets you set the database value while it is being silently overridden by env. Surface the precedence in the admin UI or invert the precedence so the admin-configurable value wins. Investigation: `webhook.ts` `getOutboundWebhookUrl` and `routes/settings.ts`. Priority: medium.
+Precedence inverted: the admin-configurable `system_settings.outbound_webhook_url` now wins; `WEBHOOK_URL` is the fallback. `routes/settings.ts` returns a `source` discriminator (`settings` | `env` | `unset`) and the admin UI surfaces it.
 
 ## Low
 
@@ -48,9 +48,9 @@ Already captured as `FUTURE_WORK.md` item 1, but worth listing here too because 
 
 `audienceForAssignment` and `audienceForStatus` use `notifyAssignedRider` to target the rider for an order. There is no graceful path for "an order failed before assignment". Today this is implicitly fine (failed pre-assignment notifies coordinators and admins only), but worth an explicit comment in `push-triggers.ts` so a future contributor doesn't add a confused branch. Priority: low.
 
-### L2. `revoked_tokens` cleanup
+### L2. `revoked_tokens` cleanup — DONE (2026-05-03)
 
-Logout inserts JTIs with their `expiresAt`. There is no janitor that prunes rows after they expire. The table grows linearly. A weekly `DELETE FROM revoked_tokens WHERE expires_at < now()` job (or a deferred cleanup at startup) would keep it bounded. Priority: low.
+`artifacts/api-server/src/lib/janitor.ts` `startJanitor` runs every 5 minutes and deletes rows where `expiresAt < now()`. Wired in `index.ts` next to `startRetryLoop`.
 
 ### L3. Web Push payload shape is implicit
 
@@ -60,10 +60,6 @@ Logout inserts JTIs with their `expiresAt`. There is no janitor that prunes rows
 
 The locale dropdown writes to `bb_locale` and i18next reflects the change. Verify there is no path that resets it to `nl` on next mount (we removed `i18next-browser-languagedetector` but the dependency remains in `package.json`). Investigation: search for `LanguageDetector` usage. Priority: low.
 
-### L5. The bootstrap demo seed in api-server
-
-The API-server image, on first run with an empty DB, seeds demo accounts (`admin@`, `coordinator@`, `rider1/2/3@bestellenbij.nl`, `marco@damarco.nl`, `yuki@sushiyama.nl`) all with password `password`. This is convenient for development, dangerous in production. Either gate on `NODE_ENV !== 'production'` or move the seed into `scripts/` and out of the boot path. Priority: low (real production should set `JWT_SECRET` to something else and rotate the demo passwords first anyway, but the seed should not run unconditionally).
-
-### L6. `as unknown as` audit
+### L5. `as unknown as` audit
 
 We removed the casts during the Task #3 review rounds, but the rule is enforced by code review, not by lint. Add an ESLint rule (`@typescript-eslint/consistent-type-assertions` with `assertionStyle: "as"` and `objectLiteralTypeAssertions: "never"`, plus a custom rule for double-`as`) so a future PR can't sneak one in. Priority: low.

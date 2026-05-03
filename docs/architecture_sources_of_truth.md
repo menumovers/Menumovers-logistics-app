@@ -106,9 +106,9 @@ The structure for each entry: **Name**, **Location**, **What it does**, **Formul
 ## Time / Locale
 
 ### Active locale
-- **Location**: `artifacts/bestellenbij/src/lib/i18n.ts`
-- **What it does**: Initializes i18next with `lng = localStorage.getItem("bb_locale") || "nl"`. Persists on `languageChanged`.
-- **Do not**: introduce browser-language detection. Do not read `navigator.language` in product code.
+- **Location**: `artifacts/bestellenbij/src/lib/i18n.ts` → init + `applyProfileLocale`
+- **What it does**: Initializes i18next using a priority chain: authenticated `user.preferredLocale` (server-persisted) > `localStorage.bb_locale` > `navigator.language` mapped to `nl` or `en` > `nl`. The `AuthProvider` calls `applyProfileLocale(user.preferredLocale)` after sign-in/refresh; profile is canonical and is not mirrored back to `localStorage`. `locale-switch.tsx` writes localStorage for unauthed users and additionally `PATCH /users/me/locale` when authed.
+- **Do not**: read `navigator.language` directly in components. Do not write `bb_locale` from the AuthProvider path.
 
 ### Locale-aware UI mapping
 - **Location**: `artifacts/bestellenbij/src/lib/format.ts` → `uiLocale(lang)` (`nl` → `nl-NL`, `en` → `en-GB`)
@@ -119,11 +119,23 @@ The structure for each entry: **Name**, **Location**, **What it does**, **Formul
 ## External Services
 
 ### Outbound webhook dispatch + retry
-- **Location**: `artifacts/api-server/src/lib/webhook.ts` → `enqueueOutbound`, `startRetryLoop`, `getOutboundWebhookUrl`
-- **What it does**: Persists outbound events to `webhook_retry_queue`, attempts immediate delivery, schedules retries with exponential backoff (`30 s → 2 min → 5 min`, max 4 attempts), retries on 5xx / 408 / 429 / network error, gives up on other 4xx.
-- **Resolution order for the URL**: `process.env.WEBHOOK_URL` first, then `system_settings.outbound_webhook_url`.
-- **Callers**: `routes/orders.ts` on creation, assignment, status changes, pickup-time updates.
-- **Do not**: `fetch` upstream from a route handler. Do not bypass the queue "just for this one event".
+- **Location**: `artifacts/api-server/src/lib/webhook.ts` → `enqueueOutboundEvent`, `startRetryLoop`, `getOutboundWebhookUrl`
+- **What it does**: Persists outbound events to `webhook_retry_queue` (with optional `correlationId`), attempts immediate delivery, schedules retries with exponential backoff (`30 s → 2 min → 5 min`, max 4 attempts), retries on 5xx / 408 / 429 / network error, gives up on other 4xx. The retry loop logs include `correlationId` so a delivery can be traced back to the originating HTTP request.
+- **Resolution order for the URL**: `system_settings.outbound_webhook_url` first (admin-configurable), then `process.env.WEBHOOK_URL` as fallback. `routes/settings.ts` `readWebhookUrl` mirrors this and returns the `source` (`settings` | `env` | `unset`) for the admin UI.
+- **Callers**: `routes/orders.ts` on creation, assignment, status changes, pickup-time updates — every call threads `String(req.id)` as `correlationId`.
+- **Do not**: `fetch` upstream from a route handler. Do not bypass the queue "just for this one event". Do not omit `correlationId` from new call sites.
+
+### Revoked-token janitor
+- **Location**: `artifacts/api-server/src/lib/janitor.ts` → `startJanitor`
+- **What it does**: Every 5 minutes, deletes rows from `revoked_tokens` whose `expiresAt` has passed. Bounds the table size linearly with logout volume rather than session lifetime.
+- **Wiring**: started from `index.ts` next to `startRetryLoop`. Logs `{ deleted }` per sweep.
+- **Do not**: prune revoked rows from a route handler or on the request path.
+
+### Typed runtime settings readers
+- **Location**: `artifacts/api-server/src/lib/settings-readers.ts`
+- **What it does**: Single place for typed reads of `system_settings` rows that are consulted on the request path. Currently exports `getAllowRiderSelfClaim()` (default `true`). Add new typed readers here rather than re-parsing the row at the call site.
+- **Callers**: `routes/orders.ts` rider self-claim guard. UI gate is the auth-only `GET /settings/flags` endpoint (`{ allowRiderSelfClaim }`), consumed by `pages/rider.tsx` via `useGetSettingsFlags`. The full `GET /settings` stays admin-only because it exposes the outbound webhook URL.
+- **Do not**: read `system_settings` directly from a route when a typed reader exists or could exist. Do not call admin-only `GET /settings` from non-admin UI surfaces — use `/settings/flags` for any rider/coordinator/restaurant-facing flag reads.
 
 ### Push notification dispatch
 - **Location**: `artifacts/api-server/src/lib/push.ts`
@@ -208,3 +220,4 @@ Per-endpoint rate limits are applied in `app.ts` before the main router: `/api/a
 ## Change Log
 
 - **2026-05-03** — Initial documentation pass. Captured all SSOTs that exist today: pickup-time priority (server + client), state machine, status visuals, urgency thresholds, push audiences, webhook retry, auth, order serialization, formatters. Noted no gaps below — items that should be centralized but aren't yet are tracked in `docs/todo.md`.
+- **2026-05-03** — SSOT centralization pass. (1) Active locale resolution is now a priority chain (profile > localStorage > navigator > `nl`); `applyProfileLocale` is the only path the AuthProvider uses, and `PATCH /users/me/locale` persists the per-user override (`users.preferred_locale`). (2) Outbound webhook URL precedence inverted: admin-configurable `system_settings.outbound_webhook_url` wins, env is fallback. Every `enqueueOutboundEvent` call threads `correlationId` (request id), persisted on `webhook_retry_queue.correlation_id` and surfaced in retry logs. (3) New `lib/janitor.ts` prunes expired `revoked_tokens` every 5 minutes. (4) New `lib/settings-readers.ts` for typed runtime settings; `allow_rider_self_claim` (default true) gates rider self-claim on `POST /orders/:id/assign`.

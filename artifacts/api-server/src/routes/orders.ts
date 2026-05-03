@@ -30,6 +30,7 @@ import {
   serializeOrderListItems,
 } from "../lib/order-serialize";
 import { enqueueOutboundEvent } from "../lib/webhook";
+import { getAllowRiderSelfClaim } from "../lib/settings-readers";
 import {
   sendPushToRoles,
   sendPushToRider,
@@ -209,6 +210,7 @@ router.post(
               eventType: "order.created",
               orderId: row!.id,
               payload: { externalOrderId: row!.externalOrderId, status: row!.status },
+              correlationId: String(req.id),
             }),
           ]);
         } catch (err) {
@@ -381,6 +383,7 @@ router.post(
       eventType: "order.status_changed",
       orderId: id,
       payload: { fromStatus: order.status, toStatus, note: parsed.data.note ?? null },
+      correlationId: String(req.id),
     });
 
     const detail = await serializeOrderDetail(id);
@@ -394,13 +397,28 @@ router.post(
 router.post(
   "/orders/:id/assign",
   requireAuth,
-  requireRole("admin", "coordinator"),
+  requireRole("admin", "coordinator", "rider"),
   wrap(async (req, res) => {
     const id = req.params["id"] as string;
     const auth = req.auth!;
     const parsed = AssignOrderBody.safeParse(req.body);
     if (!parsed.success) throw httpError(400, "VALIDATION_ERROR", parsed.error.message);
     const { riderId } = parsed.data;
+
+    // Rider self-claim path: a rider may only claim *for themselves*, and only
+    // when the operator-controlled `allow_rider_self_claim` flag is on. The DB
+    // race below (atomic update guarded by status='pending' + rider IS NULL)
+    // remains the real authority on whether a claim succeeds — this gate is
+    // only about whether the *attempt* is allowed at all.
+    if (auth.role === "rider") {
+      if (auth.riderId === null || auth.riderId !== riderId) {
+        throw httpError(403, "FORBIDDEN", "Riders can only claim orders for themselves");
+      }
+      const allowed = await getAllowRiderSelfClaim();
+      if (!allowed) {
+        throw httpError(403, "SELF_CLAIM_DISABLED", "Rider self-claim is disabled");
+      }
+    }
 
     const [rider] = await db
       .select()
@@ -469,6 +487,7 @@ router.post(
         eventType: "order.assigned",
         orderId: id,
         payload: { riderId },
+        correlationId: String(req.id),
       }),
     ]);
 
@@ -556,6 +575,7 @@ router.post(
       eventType: "order.pickup_time_updated",
       orderId: id,
       payload: { source, pickupTime: newValueDb?.toISOString() ?? null },
+      correlationId: String(req.id),
     });
 
     const detail = await serializeOrderDetail(id);

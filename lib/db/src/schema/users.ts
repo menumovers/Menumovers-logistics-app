@@ -24,6 +24,7 @@ export const usersTable = pgTable(
       onDelete: "set null",
     }),
     accountStatus: accountStatusEnum("account_status").notNull().default("active"),
+    preferredLocale: text("preferred_locale"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true })
       .notNull()

@@ -16,6 +16,7 @@ export const webhookRetryQueueTable = pgTable(
     eventType: text("event_type").notNull(),
     targetUrl: text("target_url").notNull(),
     payload: jsonb("payload").notNull().$type<Record<string, unknown>>(),
+    correlationId: text("correlation_id"),
     attemptCount: integer("attempt_count").notNull().default(0),
     nextRetryAt: timestamp("next_retry_at", { withTimezone: true }).notNull().defaultNow(),
     lastError: text("last_error"),

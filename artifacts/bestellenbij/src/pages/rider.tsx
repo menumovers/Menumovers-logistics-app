@@ -6,6 +6,8 @@ import {
   useListRiders,
   useSetOwnAvailability,
   useAssignOrder,
+  useGetSettingsFlags,
+  getGetSettingsFlagsQueryKey,
   getListOrdersQueryKey,
   getListRidersQueryKey,
   getGetCurrentUserQueryKey,
@@ -51,6 +53,14 @@ export default function RiderPage() {
   const queue = mine.filter((o) => o.status === "driver_assigned");
   const open = all.filter((o) => o.status === "pending" && !o.riderId);
 
+  // Server is authoritative; the UI just hides the button when self-claim
+  // is disabled. While loading, default to false so we don't briefly show
+  // an action that the server will then refuse.
+  const flags = useGetSettingsFlags({
+    query: { queryKey: getGetSettingsFlagsQueryKey(), staleTime: 60_000 },
+  });
+  const allowSelfClaim = flags.data?.allowRiderSelfClaim ?? false;
+
   return (
     <div className="space-y-6">
       <header>
@@ -88,7 +98,12 @@ export default function RiderPage() {
         ) : (
           <Grid>
             {open.map((o) => (
-              <OpenOrderCard key={o.id} order={o} riderId={riderId} />
+              <OpenOrderCard
+                key={o.id}
+                order={o}
+                riderId={riderId}
+                allowSelfClaim={allowSelfClaim}
+              />
             ))}
           </Grid>
         )}
@@ -263,9 +278,11 @@ function RiderOrderCard({ order }: { order: OrderListItem }) {
 function OpenOrderCard({
   order,
   riderId,
+  allowSelfClaim,
 }: {
   order: OrderListItem;
   riderId: string | undefined;
+  allowSelfClaim: boolean;
 }) {
   const { t } = useTranslation();
   const assign = useAssignOrder();
@@ -322,14 +339,23 @@ function OpenOrderCard({
               {order.deliveryAddress}
             </div>
           </div>
-          <Button
-            className="w-full h-12 text-base font-semibold"
-            disabled={!riderId || assign.isPending}
-            onClick={claim}
-            data-testid={`button-claim-${order.id}`}
-          >
-            {assign.isPending ? t("rider.claimPending") : t("rider.claim")}
-          </Button>
+          {allowSelfClaim ? (
+            <Button
+              className="w-full h-12 text-base font-semibold"
+              disabled={!riderId || assign.isPending}
+              onClick={claim}
+              data-testid={`button-claim-${order.id}`}
+            >
+              {assign.isPending ? t("rider.claimPending") : t("rider.claim")}
+            </Button>
+          ) : (
+            <p
+              className="text-xs text-muted-foreground text-center"
+              data-testid={`text-claim-disabled-${order.id}`}
+            >
+              {t("rider.claimDisabled")}
+            </p>
+          )}
         </CardContent>
       </Card>
     </motion.div>

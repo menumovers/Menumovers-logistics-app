@@ -161,6 +161,7 @@
     "sectionOpenEmpty": "Geen open orders",
     "claim": "Aanmelden voor deze rit",
     "claimPending": "Bezig...",
+    "claimDisabled": "Wacht op toewijzing door coördinator",
     "claimUnavailable": "Vraag de coördinator om je toe te wijzen"
   },
   "restaurant": {
@@ -191,13 +192,19 @@
     "outboundSource": "Bron",
     "outboundSource_env": "Omgevingsvariabele",
     "outboundSource_settings": "Instelling",
-    "outboundSource_unset": "Niet ingesteld"
+    "outboundSource_unset": "Niet ingesteld",
+    "settingsSaved": "Instellingen bijgewerkt",
+    "dispatchPolicy": "Toewijzingsbeleid",
+    "allowRiderSelfClaim": "Rijders mogen zelf bestellingen aannemen",
+    "allowRiderSelfClaimHelp": "Indien uitgeschakeld kan alleen een coördinator een rijder aan een bestelling toewijzen"
   },
   "settings": {
     "title": "Instellingen",
     "language": "Taal",
     "languageNl": "Nederlands",
     "languageEn": "Engels",
+    "languageSaved": "Taal opgeslagen",
+    "languageSaveFailed": "Taal kon niet worden opgeslagen",
     "account": "Account",
     "changePassword": "Wachtwoord wijzigen",
     "newPassword": "Nieuw wachtwoord",

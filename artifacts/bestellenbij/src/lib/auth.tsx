@@ -9,6 +9,7 @@ import {
 import { ApiError } from "@workspace/api-client-react";
 import { useLocation } from "wouter";
 import { setToken, getToken } from "./api";
+import { applyProfileLocale } from "./i18n";
 import { Spinner } from "@/components/ui/spinner";
 
 type AuthContextValue = {
@@ -41,6 +42,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       queryClient.clear();
     }
   }, [meQuery.isError, meQuery.error, queryClient]);
+
+  // Profile-driven locale: when /auth/me returns a preferredLocale, apply it
+  // without writing to localStorage (storage stays as the unauthed-default
+  // / cross-account fallback). Generated openapi types make preferredLocale
+  // optional + nullable, so handle both shapes.
+  useEffect(() => {
+    const loc = meQuery.data?.preferredLocale;
+    if (loc === "nl" || loc === "en") applyProfileLocale(loc);
+  }, [meQuery.data?.preferredLocale]);
 
   const signOut = useCallback(() => {
     setToken(null);

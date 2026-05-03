@@ -32,6 +32,9 @@ export const LoginResponse = zod.object({
     accountStatus: zod.enum(["active", "suspended"]),
     restaurantId: zod.string().nullish(),
     riderId: zod.string().nullish(),
+    preferredLocale: zod
+      .union([zod.literal("nl"), zod.literal("en"), zod.literal(null)])
+      .nullish(),
   }),
 });
 
@@ -46,6 +49,9 @@ export const GetCurrentUserResponse = zod.object({
   accountStatus: zod.enum(["active", "suspended"]),
   restaurantId: zod.string().nullish(),
   riderId: zod.string().nullish(),
+  preferredLocale: zod
+    .union([zod.literal("nl"), zod.literal("en"), zod.literal(null)])
+    .nullish(),
 });
 
 /**
@@ -1249,6 +1255,21 @@ export const DeleteRestaurantParams = zod.object({
   id: zod.coerce.string(),
 });
 
+/**
+ * @summary Update the calling user's preferred locale
+ */
+export const UpdateMyLocaleBody = zod.object({
+  preferredLocale: zod
+    .union([zod.literal("nl"), zod.literal("en"), zod.literal(null)])
+    .nullable(),
+});
+
+export const UpdateMyLocaleResponse = zod.object({
+  preferredLocale: zod
+    .union([zod.literal("nl"), zod.literal("en"), zod.literal(null)])
+    .nullable(),
+});
+
 export const ListUsersResponseItem = zod.object({
   id: zod.string(),
   email: zod.string(),
@@ -1300,19 +1321,29 @@ export const DeleteUserParams = zod.object({
 export const GetSettingsResponse = zod.object({
   outboundWebhookUrl: zod.string().nullable(),
   outboundWebhookUrlSource: zod.enum(["env", "settings", "unset"]),
+  allowRiderSelfClaim: zod.boolean(),
   vapidConfigured: zod.boolean(),
   inboundSecretConfigured: zod.boolean().optional(),
 });
 
 export const UpdateSettingsBody = zod.object({
   outboundWebhookUrl: zod.string().nullish(),
+  allowRiderSelfClaim: zod.boolean().optional(),
 });
 
 export const UpdateSettingsResponse = zod.object({
   outboundWebhookUrl: zod.string().nullable(),
   outboundWebhookUrlSource: zod.enum(["env", "settings", "unset"]),
+  allowRiderSelfClaim: zod.boolean(),
   vapidConfigured: zod.boolean(),
   inboundSecretConfigured: zod.boolean().optional(),
+});
+
+/**
+ * @summary Public-ish operational flags any authenticated user (rider/coordinator/restaurant/admin) may read
+ */
+export const GetSettingsFlagsResponse = zod.object({
+  allowRiderSelfClaim: zod.boolean(),
 });
 
 /**

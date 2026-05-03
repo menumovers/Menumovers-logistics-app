@@ -1,7 +1,7 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import { eq } from "drizzle-orm";
 import { db, usersTable } from "@workspace/db";
-import { CreateUserBody, UpdateUserBody } from "@workspace/api-zod";
+import { CreateUserBody, UpdateUserBody, UpdateMyLocaleBody } from "@workspace/api-zod";
 import {
   hashPassword,
   requireAuth,
@@ -17,6 +17,26 @@ const wrap =
   (req: Request, res: Response, next: NextFunction): void => {
     fn(req, res).catch(next);
   };
+
+// PATCH /users/me/locale — any authenticated user can set their own locale.
+// Defined BEFORE /users/:id so the literal "me" doesn't get parsed as a uuid id.
+router.patch(
+  "/users/me/locale",
+  requireAuth,
+  wrap(async (req, res) => {
+    const parsed = UpdateMyLocaleBody.safeParse(req.body);
+    if (!parsed.success) throw httpError(400, "VALIDATION_ERROR", parsed.error.message);
+    const userId = req.auth!.sub;
+    const next = parsed.data.preferredLocale; // "nl" | "en" | null
+    const [row] = await db
+      .update(usersTable)
+      .set({ preferredLocale: next })
+      .where(eq(usersTable.id, userId))
+      .returning();
+    if (!row) throw httpError(404, "USER_NOT_FOUND", "User not found");
+    res.json({ preferredLocale: next });
+  }),
+);
 
 router.get(
   "/users",
