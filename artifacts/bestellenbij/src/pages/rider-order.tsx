@@ -49,12 +49,10 @@ export default function RiderOrderPage() {
   const [failureReason, setFailureReason] = useState("");
   const [pickupTime, setPickupTime] = useState("");
 
+  const effIso = order.data ? effectivePickup(order.data).iso : null;
   useEffect(() => {
-    if (order.data) {
-      const eff = effectivePickup(order.data);
-      setPickupTime(formatTime(eff.iso, "en"));
-    }
-  }, [order.data?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (effIso) setPickupTime(formatTime(effIso, "en"));
+  }, [effIso]);
 
   if (order.isLoading || !order.data) {
     return <div className="grid place-items-center py-20"><Spinner className="size-6 text-primary" /></div>;

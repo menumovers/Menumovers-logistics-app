@@ -23,14 +23,22 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return;
   if (url.pathname.startsWith("/api/")) return;
-  // Network-first for navigations.
+  // Network-first for navigations; cache successful HTML for offline fallback.
   if (req.mode === "navigate") {
     event.respondWith(
-      fetch(req).catch(async () => {
+      (async () => {
         const cache = await caches.open(CACHE_VERSION);
-        const cached = await cache.match("/");
-        return cached || Response.error();
-      }),
+        try {
+          const res = await fetch(req);
+          if (res && res.ok && res.type !== "opaque") {
+            cache.put(req, res.clone()).catch(() => {});
+          }
+          return res;
+        } catch {
+          const cached = (await cache.match(req)) || (await cache.match("/"));
+          return cached || Response.error();
+        }
+      })(),
     );
     return;
   }

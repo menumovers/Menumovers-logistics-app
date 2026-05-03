@@ -22,7 +22,7 @@ export function setToken(token: string | null): void {
 }
 
 export function configureApi(): void {
-  const base = `${import.meta.env.BASE_URL.replace(/\/+$/, "")}/api`;
-  setBaseUrl(base);
+  const base = import.meta.env.BASE_URL.replace(/\/+$/, "");
+  setBaseUrl(base || null);
   setAuthTokenGetter(() => getToken());
 }

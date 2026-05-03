@@ -47,14 +47,22 @@ import { LoginResponse as LoginResponseZod, GetCurrentUserResponse } from "@work
 
 ## Default dev admin
 
-Seeded via `scripts/src/seed-admin.ts`: `admin@bestellenbij.nl` / `admin123` (change in production).
+Seeded via `scripts/src/seed-admin.ts`: `admin@bestellenbij.nl` / `admin123` (change in production). The api-server's seed script also creates demo accounts (`admin@`, `coordinator@`, `rider1/2/3@bestellenbij.nl`, `marco@damarco.nl`, `yuki@sushiyama.nl`) all with password `password`.
+
+## Frontend (artifacts/bestellenbij)
+
+- React 18 + Vite 7 + Wouter + TanStack Query + Tailwind + framer-motion + react-i18next.
+- Wouter `base` and API client base URL both come from `import.meta.env.BASE_URL`. **Important:** the orval-generated paths already include `/api` (e.g. `/api/auth/login`), so `configureApi()` sets the client base URL to `BASE_URL` only — never append `/api` (would double-prefix).
+- Token in `localStorage["bb_token"]`, locale in `bb_locale`, theme in `bb_theme`.
+- PWA: `public/manifest.webmanifest` + `public/sw.js` (network-first navigation cache + Web Push via VAPID). SW registration is gated on `import.meta.env.PROD` in `main.tsx`. We do NOT use vite-plugin-pwa (1.2.0 was incompatible with Node 24 and crashed Vite post-ready).
+- Vite dev server binds to `process.env.PORT` (path-based proxy routes `/` → bestellenbij and `/api/*` → api-server).
 
 ## Project tasks
 
 Tracked in `.local/tasks/`:
 1. Backend foundation (DB schema + local auth + OpenAPI) — DONE
-2. Backend implementation (route handlers, state machine, webhooks, push) — pending
-3. Frontend PWA + i18n — pending
+2. Backend implementation (route handlers, state machine, webhooks, push) — DONE
+3. Frontend PWA + i18n — DONE
 4. FUTURE_WORK.md — pending
 
 See the `pnpm-workspace` skill for workspace structure.
