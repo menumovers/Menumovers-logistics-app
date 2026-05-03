@@ -524,13 +524,13 @@ router.patch(
         .from(ordersTable)
         .where(eq(ordersTable.tripId, id));
       for (const o of tripOrders) {
+        // Do not yank a rider mid-flight or rewind any in-flight leg.
+        // Reassignment only affects orders that have not yet started moving.
         if (
-          o.status === "delivered" ||
-          o.status === "failed" ||
-          o.status === "picked_up" ||
-          o.status === "en_route_to_customer"
+          o.status !== "pending" &&
+          o.status !== "driver_assigned"
         ) {
-          continue; // do not yank a rider mid-flight
+          continue;
         }
         if (newRiderId == null) {
           await db
