@@ -21,10 +21,13 @@ const ROLE_NAV: Record<UserRole, Array<{ to: string; key: string; icon: typeof B
   admin: [
     { to: "/admin", key: "admin", icon: ShieldCheck },
     { to: "/coordinator", key: "coordinator", icon: LayoutDashboard },
+    { to: "/rider", key: "rider", icon: Bike },
+    { to: "/restaurant", key: "restaurant", icon: Store },
     { to: "/settings", key: "settings", icon: SettingsIcon },
   ],
   coordinator: [
     { to: "/coordinator", key: "coordinator", icon: LayoutDashboard },
+    { to: "/rider", key: "rider", icon: Bike },
     { to: "/settings", key: "settings", icon: SettingsIcon },
   ],
   rider: [

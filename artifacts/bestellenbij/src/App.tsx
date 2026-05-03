@@ -51,13 +51,13 @@ function Routes() {
         <RequireRole roles={["admin", "coordinator"]}><AppShell><CoordinatorOrderPage /></AppShell></RequireRole>
       </Route>
       <Route path="/rider">
-        <RequireRole roles={["rider"]}><AppShell><RiderPage /></AppShell></RequireRole>
+        <RequireRole roles={["admin", "coordinator", "rider"]}><AppShell><RiderPage /></AppShell></RequireRole>
       </Route>
       <Route path="/rider/orders/:id">
-        <RequireRole roles={["rider"]}><AppShell><RiderOrderPage /></AppShell></RequireRole>
+        <RequireRole roles={["admin", "coordinator", "rider"]}><AppShell><RiderOrderPage /></AppShell></RequireRole>
       </Route>
       <Route path="/restaurant">
-        <RequireRole roles={["restaurant_staff"]}><AppShell><RestaurantPage /></AppShell></RequireRole>
+        <RequireRole roles={["admin", "restaurant_staff"]}><AppShell><RestaurantPage /></AppShell></RequireRole>
       </Route>
       <Route path="/settings">
         <RequireRole roles={["admin", "coordinator", "rider", "restaurant_staff"]}><AppShell><SettingsPage /></AppShell></RequireRole>
