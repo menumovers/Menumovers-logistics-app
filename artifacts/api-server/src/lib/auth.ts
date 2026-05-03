@@ -1,8 +1,15 @@
+import { randomUUID } from "node:crypto";
 import bcrypt from "bcryptjs";
 import jwt, { type SignOptions } from "jsonwebtoken";
 import type { Request, Response, NextFunction } from "express";
 import { eq } from "drizzle-orm";
-import { db, usersTable, type User, type UserRole } from "@workspace/db";
+import {
+  db,
+  usersTable,
+  revokedTokensTable,
+  type User,
+  type UserRole,
+} from "@workspace/db";
 
 const JWT_ALGO = "HS256";
 const JWT_TTL_SECONDS = 60 * 60 * 24 * 7; // 7 days
@@ -18,7 +25,11 @@ export type AuthClaims = {
   sub: string; // user id
   role: UserRole;
   restaurantId: string | null;
+  jti: string;
+  exp: number;
 };
+
+export type SignClaims = Omit<AuthClaims, "jti" | "exp">;
 
 export async function hashPassword(plain: string): Promise<string> {
   return bcrypt.hash(plain, BCRYPT_ROUNDS);
@@ -28,25 +39,60 @@ export async function verifyPassword(plain: string, hash: string): Promise<boole
   return bcrypt.compare(plain, hash);
 }
 
-export function signToken(claims: AuthClaims): string {
-  const opts: SignOptions = { algorithm: JWT_ALGO, expiresIn: JWT_TTL_SECONDS };
-  return jwt.sign(claims, getJwtSecret(), opts);
+export function signToken(claims: SignClaims): { token: string; jti: string; expiresAt: Date } {
+  const jti = randomUUID();
+  const opts: SignOptions = {
+    algorithm: JWT_ALGO,
+    expiresIn: JWT_TTL_SECONDS,
+    jwtid: jti,
+  };
+  const token = jwt.sign(claims, getJwtSecret(), opts);
+  const expiresAt = new Date(Date.now() + JWT_TTL_SECONDS * 1000);
+  return { token, jti, expiresAt };
 }
 
 export function verifyToken(token: string): AuthClaims | null {
   try {
     const decoded = jwt.verify(token, getJwtSecret(), { algorithms: [JWT_ALGO] });
     if (typeof decoded !== "object" || decoded === null) return null;
-    const { sub, role, restaurantId } = decoded as Record<string, unknown>;
-    if (typeof sub !== "string" || typeof role !== "string") return null;
+    const { sub, role, restaurantId, jti, exp } = decoded as Record<string, unknown>;
+    if (
+      typeof sub !== "string" ||
+      typeof role !== "string" ||
+      typeof jti !== "string" ||
+      typeof exp !== "number"
+    ) {
+      return null;
+    }
     return {
       sub,
       role: role as UserRole,
       restaurantId: typeof restaurantId === "string" ? restaurantId : null,
+      jti,
+      exp,
     };
   } catch {
     return null;
   }
+}
+
+export async function isJtiRevoked(jti: string): Promise<boolean> {
+  const [row] = await db
+    .select({ jti: revokedTokensTable.jti })
+    .from(revokedTokensTable)
+    .where(eq(revokedTokensTable.jti, jti));
+  return Boolean(row);
+}
+
+export async function revokeJti(
+  jti: string,
+  userId: string | null,
+  expiresAt: Date,
+): Promise<void> {
+  await db
+    .insert(revokedTokensTable)
+    .values({ jti, userId, expiresAt })
+    .onConflictDoNothing({ target: revokedTokensTable.jti });
 }
 
 declare global {
@@ -86,6 +132,10 @@ export async function requireAuth(
     res.status(401).json({ error: "Invalid or expired token" });
     return;
   }
+  if (await isJtiRevoked(claims.jti)) {
+    res.status(401).json({ error: "Session has been revoked" });
+    return;
+  }
   const [user] = await db.select().from(usersTable).where(eq(usersTable.id, claims.sub));
   if (!user) {
     res.status(401).json({ error: "User no longer exists" });
@@ -100,6 +150,8 @@ export async function requireAuth(
     sub: user.id,
     role: user.role,
     restaurantId: user.restaurantId,
+    jti: claims.jti,
+    exp: claims.exp,
   };
   next();
 }

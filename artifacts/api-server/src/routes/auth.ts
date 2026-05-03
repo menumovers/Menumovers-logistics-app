@@ -7,6 +7,7 @@ import {
   verifyPassword,
   signToken,
   requireAuth,
+  revokeJti,
 } from "../lib/auth";
 
 const router: IRouter = Router();
@@ -46,7 +47,7 @@ router.post("/auth/login", async (req, res): Promise<void> => {
     return;
   }
 
-  const token = signToken({
+  const { token } = signToken({
     sub: user.id,
     role: user.role,
     restaurantId: user.restaurantId,
@@ -83,7 +84,9 @@ router.post("/auth/login", async (req, res): Promise<void> => {
   res.json(body);
 });
 
-router.post("/auth/logout", (_req, res): void => {
+router.post("/auth/logout", requireAuth, async (req, res): Promise<void> => {
+  const auth = req.auth!;
+  await revokeJti(auth.jti, auth.sub, new Date(auth.exp * 1000));
   res.clearCookie("auth_token", { path: "/" });
   res.sendStatus(204);
 });
