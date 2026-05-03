@@ -15,7 +15,9 @@ const wrap =
 
 router.get("/push/vapid-public-key", (_req, res): void => {
   const publicKey = process.env["VAPID_PUBLIC_KEY"] ?? null;
-  res.json({ publicKey, configured: Boolean(publicKey) });
+  const privateKey = process.env["VAPID_PRIVATE_KEY"] ?? null;
+  const configured = Boolean(publicKey && privateKey);
+  res.json({ publicKey: configured ? publicKey : null, configured });
 });
 
 router.post(
