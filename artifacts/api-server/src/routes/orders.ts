@@ -298,6 +298,16 @@ router.post(
 
     const order = await loadOrderForAuthOr404(auth, id);
     const toStatus = parsed.data.toStatus as OrderStatus;
+    // driver_assigned is reachable only via the atomic /assign endpoint so
+    // status and riderId are always set together. Reject it here to prevent
+    // inconsistent (driver_assigned, riderId=NULL) states.
+    if (toStatus === "driver_assigned") {
+      throw httpError(
+        422,
+        "USE_ASSIGN_ENDPOINT",
+        "Use POST /orders/:id/assign to transition to driver_assigned",
+      );
+    }
     assertValidTransition(order.status, toStatus);
 
     // Role permissions:
