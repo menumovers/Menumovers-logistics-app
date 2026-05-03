@@ -1,0 +1,81 @@
+const B = "http://localhost:8080/api";
+const SECRET = process.env.INBOUND_SHARED_SECRET;
+async function j(method, path, body, headers={}) {
+  const r = await fetch(`${B}${path}`, { method, headers: { "content-type":"application/json", ...headers }, body: body ? JSON.stringify(body) : undefined });
+  const text = await r.text();
+  let parsed; try { parsed = JSON.parse(text); } catch { parsed = text; }
+  return { status: r.status, body: parsed };
+}
+// Need to seed restaurant + admin via direct DB.
+import("@workspace/db").then(async ({ db, restaurantsTable, usersTable, ridersTable }) => {
+  const bcrypt = (await import("bcryptjs")).default;
+  const passwordHash = await bcrypt.hash("password123", 10);
+  // Cleanup prior smoke data
+  const { eq } = await import("drizzle-orm");
+  await db.delete(usersTable).where(eq(usersTable.email, "smoke-admin@x.com"));
+  await db.delete(usersTable).where(eq(usersTable.email, "smoke-rider@x.com"));
+  const [rest] = await db.insert(restaurantsTable).values({ name:"Smoke Resto", address:"Hoofdstraat 1", minDeliveryTime:25 }).returning();
+  const [admin] = await db.insert(usersTable).values({ email:"smoke-admin@x.com", name:"Admin", passwordHash, role:"admin" }).returning();
+  const [riderUser] = await db.insert(usersTable).values({ email:"smoke-rider@x.com", name:"Rider1", passwordHash, role:"rider" }).returning();
+  const [rider] = await db.insert(ridersTable).values({ userId: riderUser.id, availabilityStatus:"online" }).returning();
+  console.log("Seeded:", { restaurantId: rest.id, adminId: admin.id, riderId: rider.id });
+  // Login
+  const login = await j("POST","/auth/login",{ email:"smoke-admin@x.com", password:"password123" });
+  console.log("login:", login.status, login.body.user?.role);
+  const token = login.body.token;
+  // Ingest
+  const orderId = `ext-smoke-${Date.now()}`;
+  const ingest = await j("POST","/inbound/orders",{
+    orderId, restaurantId: rest.id,
+    customer: { name:"Klaas", phone:"+31600000001", address:"Kerkstraat 9" },
+    items: [{ name:"Pizza", quantity:2, price:"12.50"},{name:"Cola",quantity:1,price:"3.00"}],
+    deliveryFee:"4.00", totalAmount:"32.00", deliveryInstructions:"Bel aan"
+  }, { "x-inbound-secret": SECRET });
+  console.log("ingest:", ingest.status, ingest.body.id, "items:", ingest.body.items?.length, "status:", ingest.body.status);
+  const id = ingest.body.id;
+  // Idempotency replay
+  const replay = await j("POST","/inbound/orders",{
+    orderId, restaurantId: rest.id,
+    customer: { name:"Klaas", phone:"+31600000001", address:"Kerkstraat 9" },
+    items: [{name:"Pizza",quantity:2,price:"12.50"}],
+    deliveryFee:"4.00", totalAmount:"29.00"
+  }, { "x-inbound-secret": SECRET });
+  console.log("replay (same id):", replay.status, replay.body.id, "same:", replay.body.id===id);
+  // List
+  const list = await j("GET","/orders", null, { authorization: `Bearer ${token}`});
+  console.log("list:", list.status, "count:", list.body.length);
+  // Detail
+  const detail = await j("GET",`/orders/${id}`, null, { authorization: `Bearer ${token}`});
+  console.log("detail:", detail.status, "log entries:", detail.body.statusLog?.length, "effectiveSource:", detail.body.effectivePickupSource);
+  // Assign rider
+  const assign = await j("POST",`/orders/${id}/assign`,{ riderId: rider.id }, { authorization: `Bearer ${token}`});
+  console.log("assign:", assign.status, assign.body.status, "riderId:", assign.body.riderId);
+  // Re-assign should 409
+  const assignAgain = await j("POST",`/orders/${id}/assign`,{ riderId: rider.id }, { authorization: `Bearer ${token}`});
+  console.log("re-assign (expect 409):", assignAgain.status, assignAgain.body.code);
+  // Status invalid transition
+  const bad = await j("POST",`/orders/${id}/status`,{ toStatus:"delivered" }, { authorization: `Bearer ${token}`});
+  console.log("invalid transition (expect 422):", bad.status, bad.body.code);
+  // Status valid
+  const ok = await j("POST",`/orders/${id}/status`,{ toStatus:"en_route_to_restaurant" }, { authorization: `Bearer ${token}`});
+  console.log("transition valid:", ok.status, ok.body.status);
+  // Pickup time override
+  const pt = await j("POST",`/orders/${id}/pickup-time`,{ source:"override", pickupTime: new Date(Date.now()+45*60000).toISOString()}, { authorization: `Bearer ${token}`});
+  console.log("pickup-time override:", pt.status, "source:", pt.body.effectivePickupSource);
+  // Hide item
+  const hide = await j("POST",`/orders/${id}/items/hide`,{ itemIndex:0 }, { authorization: `Bearer ${token}`});
+  console.log("hide item:", hide.status, "items now:", hide.body.items.length);
+  // Add item
+  const add = await j("POST",`/orders/${id}/items/add`,{ item:{ name:"Frites", quantity:1, price:"3.50"}}, { authorization: `Bearer ${token}`});
+  console.log("add item:", add.status, "items now:", add.body.items.length);
+  // Notification banner
+  const notif = await j("POST",`/orders/${id}/notification`,{ message:"Bel aan bij linkerdeur" }, { authorization: `Bearer ${token}`});
+  console.log("notification:", notif.status, "banner:", notif.body.pendingRiderNotification);
+  // Contact override
+  const contact = await j("POST",`/orders/${id}/contact`,{ deliveryAddress:"Nieuwe Straat 22" }, { authorization: `Bearer ${token}`});
+  console.log("contact:", contact.status, "addr:", contact.body.deliveryAddress);
+  // Riders list
+  const riders = await j("GET","/riders", null, { authorization: `Bearer ${token}`});
+  console.log("riders:", riders.status, "count:", riders.body.length, "active:", riders.body.find(r=>r.id===rider.id)?.activeOrderCount);
+  process.exit(0);
+});

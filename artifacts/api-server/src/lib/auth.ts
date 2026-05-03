@@ -6,6 +6,7 @@ import { eq } from "drizzle-orm";
 import {
   db,
   usersTable,
+  ridersTable,
   revokedTokensTable,
   type User,
   type UserRole,
@@ -27,6 +28,11 @@ export type AuthClaims = {
   restaurantId: string | null;
   jti: string;
   exp: number;
+};
+
+export type AuthContext = AuthClaims & {
+  /** Resolved server-side at requireAuth time for rider users; null otherwise. */
+  riderId: string | null;
 };
 
 export type SignClaims = Omit<AuthClaims, "jti" | "exp">;
@@ -100,7 +106,7 @@ declare global {
   namespace Express {
     interface Request {
       user?: User;
-      auth?: AuthClaims;
+      auth?: AuthContext;
     }
   }
 }
@@ -143,11 +149,20 @@ export async function requireAuth(
     res.status(403).json({ error: "Account is suspended" });
     return;
   }
+  let riderId: string | null = null;
+  if (user.role === "rider") {
+    const [rider] = await db
+      .select({ id: ridersTable.id })
+      .from(ridersTable)
+      .where(eq(ridersTable.userId, user.id));
+    riderId = rider?.id ?? null;
+  }
   req.user = user;
   req.auth = {
     sub: user.id,
     role: user.role,
     restaurantId: user.restaurantId,
+    riderId,
     jti: claims.jti,
     exp: claims.exp,
   };

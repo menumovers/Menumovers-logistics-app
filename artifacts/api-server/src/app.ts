@@ -1,9 +1,11 @@
-import express, { type Express, type Request, type Response, type NextFunction } from "express";
+import express, { type Express } from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import pinoHttp from "pino-http";
 import router from "./routes";
 import { logger } from "./lib/logger";
+import { errorHandler } from "./middlewares/error-handler";
+import { authLimiter, inboundLimiter } from "./middlewares/rate-limit";
 
 const app: Express = express();
 
@@ -26,6 +28,7 @@ app.use(
     },
   }),
 );
+
 // CORS: when cookie auth is enabled (`credentials: true`), browsers require an
 // explicit origin instead of `*`. Allow a comma-separated allowlist via env;
 // fall back to reflecting the request origin only in non-production.
@@ -48,19 +51,12 @@ app.use(cookieParser());
 app.use(express.json({ limit: "1mb" }));
 app.use(express.urlencoded({ extended: true }));
 
+// Per-endpoint rate limits before the main router.
+app.use("/api/auth/login", authLimiter);
+app.use("/api/inbound/orders", inboundLimiter);
+
 app.use("/api", router);
 
-// Centralized error handler. Task #2 expands this with structured error codes
-// and per-error handling. We always log the underlying error with request
-// context, but only surface the raw message in non-production environments to
-// avoid leaking internals (stack traces, SQL fragments, etc.) to clients.
-app.use((err: unknown, req: Request, res: Response, _next: NextFunction): void => {
-  req.log.error({ err }, "Unhandled route error");
-  if (res.headersSent) return;
-  const isProd = process.env["NODE_ENV"] === "production";
-  const message =
-    !isProd && err instanceof Error ? err.message : "Internal server error";
-  res.status(500).json({ error: message });
-});
+app.use(errorHandler);
 
 export default app;
