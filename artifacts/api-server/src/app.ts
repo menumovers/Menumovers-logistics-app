@@ -34,12 +34,15 @@ app.use(express.urlencoded({ extended: true }));
 app.use("/api", router);
 
 // Centralized error handler. Task #2 expands this with structured error codes
-// and per-error handling; for now it normalises any thrown error into a JSON
-// response and logs it with request context.
+// and per-error handling. We always log the underlying error with request
+// context, but only surface the raw message in non-production environments to
+// avoid leaking internals (stack traces, SQL fragments, etc.) to clients.
 app.use((err: unknown, req: Request, res: Response, _next: NextFunction): void => {
-  const message = err instanceof Error ? err.message : "Internal server error";
   req.log.error({ err }, "Unhandled route error");
   if (res.headersSent) return;
+  const isProd = process.env["NODE_ENV"] === "production";
+  const message =
+    !isProd && err instanceof Error ? err.message : "Internal server error";
   res.status(500).json({ error: message });
 });
 
