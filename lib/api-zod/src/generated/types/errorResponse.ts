@@ -10,4 +10,5 @@ export interface ErrorResponse {
   error: string;
   code?: string;
   requestId?: string;
+  details?: unknown;
 }

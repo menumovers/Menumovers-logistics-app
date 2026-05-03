@@ -13,6 +13,7 @@ export interface ErrorResponse {
   error: string;
   code?: string;
   requestId?: string;
+  details?: unknown;
 }
 
 export type UserRole = (typeof UserRole)[keyof typeof UserRole];
@@ -505,6 +506,13 @@ export interface UpdateTripRequest {
   name?: string | null;
   /** @nullable */
   riderId?: string | null;
+  /** Required when reassigning a rider while one or more orders on the trip
+are already in motion (past `driver_assigned`). When omitted or false
+and in-flight orders exist, the API returns 409
+`INFLIGHT_REASSIGN_REQUIRES_CONFIRM` with an `inFlightOrders` detail
+payload so the UI can confirm.
+ */
+  force?: boolean;
 }
 
 export interface StopInput {

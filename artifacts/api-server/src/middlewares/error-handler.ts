@@ -42,6 +42,7 @@ export function errorHandler(
       error: err.message,
       code: err.code,
       requestId,
+      ...(err.details !== undefined ? { details: err.details } : {}),
     });
     return;
   }

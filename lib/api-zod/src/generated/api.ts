@@ -1667,6 +1667,12 @@ export const UpdateTripParams = zod.object({
 export const UpdateTripBody = zod.object({
   name: zod.string().nullish(),
   riderId: zod.string().nullish(),
+  force: zod
+    .boolean()
+    .optional()
+    .describe(
+      "Required when reassigning a rider while one or more orders on the trip\nare already in motion (past `driver_assigned`). When omitted or false\nand in-flight orders exist, the API returns 409\n`INFLIGHT_REASSIGN_REQUIRES_CONFIRM` with an `inFlightOrders` detail\npayload so the UI can confirm.\n",
+    ),
 });
 
 export const UpdateTripResponse = zod

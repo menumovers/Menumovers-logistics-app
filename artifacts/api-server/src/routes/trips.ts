@@ -488,7 +488,11 @@ router.patch(
   wrap(async (req, res) => {
     const id = req.params["id"] as string;
     const auth = req.auth!;
-    const body = req.body as { name?: string | null; riderId?: string | null };
+    const body = req.body as {
+      name?: string | null;
+      riderId?: string | null;
+      force?: boolean;
+    };
 
     const [trip] = await db
       .select()
@@ -523,13 +527,65 @@ router.patch(
         .select()
         .from(ordersTable)
         .where(eq(ordersTable.tripId, id));
+
+      // Identify in-flight orders: past driver_assigned but not yet in a
+      // terminal state. We never lock the coordinator out, but we require an
+      // explicit `force: true` so the choice is conscious.
+      const inFlight = tripOrders.filter(
+        (o) =>
+          o.status !== "pending" &&
+          o.status !== "driver_assigned" &&
+          o.status !== "delivered" &&
+          o.status !== "failed",
+      );
+      const riderActuallyChanges =
+        newRiderId !== (trip.riderId ?? null) && inFlight.length > 0;
+      if (riderActuallyChanges && body.force !== true) {
+        throw httpError(
+          409,
+          "INFLIGHT_REASSIGN_REQUIRES_CONFIRM",
+          "Some orders on this trip are already in motion. Confirm to reassign.",
+          {
+            inFlightOrders: inFlight.map((o) => ({
+              id: o.id,
+              externalOrderId: o.externalOrderId,
+              status: o.status,
+            })),
+          },
+        );
+      }
+
       for (const o of tripOrders) {
-        // Do not yank a rider mid-flight or rewind any in-flight leg.
-        // Reassignment only affects orders that have not yet started moving.
+        // Terminal orders never change rider.
+        if (o.status === "delivered" || o.status === "failed") continue;
+
+        // In-flight orders: with force=true, swap the rider but preserve the
+        // current status (no rewind of an in-flight leg). Without force we
+        // would have already returned 409 above.
         if (
           o.status !== "pending" &&
           o.status !== "driver_assigned"
         ) {
+          if (newRiderId !== null && o.riderId !== newRiderId) {
+            await db
+              .update(ordersTable)
+              .set({ riderId: newRiderId })
+              .where(eq(ordersTable.id, o.id));
+            await db.insert(orderStatusLogsTable).values({
+              orderId: o.id,
+              fromStatus: o.status,
+              toStatus: o.status,
+              actorUserId: auth.sub,
+              actorRole: auth.role,
+              note: `Trip #${trip.tripNumber} rider reassigned mid-flight (status preserved)`,
+            });
+            await db.insert(riderAssignmentsTable).values({
+              orderId: o.id,
+              riderId: newRiderId,
+              outcome: "reassigned",
+              assignedByUserId: auth.sub,
+            });
+          }
           continue;
         }
         if (newRiderId == null) {

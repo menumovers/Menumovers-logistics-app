@@ -286,7 +286,10 @@
     "statusPlanned": "Planned",
     "statusInProgress": "In progress",
     "statusCompleted": "Completed",
-    "statusDissolved": "Dissolved"
+    "statusDissolved": "Dissolved",
+    "reassignWarningTitle": "Reassign rider on a trip in motion?",
+    "reassignWarningBody": "These orders are already in motion. The new rider will take over them at their current step — no statuses will be rewound.",
+    "reassignConfirm": "Reassign anyway"
   },
   "bundle": {
     "title": "Bundled pickup",

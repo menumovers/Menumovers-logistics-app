@@ -286,7 +286,10 @@
     "statusPlanned": "Gepland",
     "statusInProgress": "Bezig",
     "statusCompleted": "Voltooid",
-    "statusDissolved": "Ontbonden"
+    "statusDissolved": "Ontbonden",
+    "reassignWarningTitle": "Rijder wisselen op een lopende rit?",
+    "reassignWarningBody": "Deze orders zijn al onderweg. De nieuwe rijder neemt ze over bij hun huidige stap — er wordt geen status teruggedraaid.",
+    "reassignConfirm": "Toch wisselen"
   },
   "bundle": {
     "title": "Gebundelde ophaling",

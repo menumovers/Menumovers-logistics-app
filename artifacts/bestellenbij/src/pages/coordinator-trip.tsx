@@ -19,6 +19,17 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import type { OrderStatus } from "@workspace/api-client-react";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -48,6 +59,11 @@ export default function CoordinatorTripPage() {
   const riders = useListRiders({ query: { queryKey: getListRidersQueryKey() } });
   const update = useUpdateTrip();
   const dissolve = useDissolveTrip();
+  const [pendingReassign, setPendingReassign] = useState<{
+    name: string | null;
+    riderId: string | null;
+    inFlightOrders: Array<{ id: string; externalOrderId: string; status: OrderStatus }>;
+  } | null>(null);
 
   if (trip.isLoading || !trip.data) {
     return (
@@ -63,6 +79,49 @@ export default function CoordinatorTripPage() {
     qc.invalidateQueries({ queryKey: getListTripsQueryKey() });
     qc.invalidateQueries({ queryKey: getListOrdersQueryKey() });
     qc.invalidateQueries({ queryKey: getListOrdersQueryKey({}) });
+  }
+
+  function submitUpdate(name: string | null, riderId: string | null, force: boolean) {
+    update.mutate(
+      { id: tripId, data: { name, riderId, force } },
+      {
+        onSuccess: () => {
+          toast({ title: t("trip.saved") });
+          setPendingReassign(null);
+          invalidate();
+        },
+        onError: (err: unknown) => {
+          const e = err as {
+            response?: {
+              status?: number;
+              data?: {
+                code?: string;
+                details?: {
+                  inFlightOrders?: Array<{
+                    id: string;
+                    externalOrderId: string;
+                    status: OrderStatus;
+                  }>;
+                };
+              };
+            };
+          };
+          if (
+            e.response?.status === 409 &&
+            e.response?.data?.code === "INFLIGHT_REASSIGN_REQUIRES_CONFIRM" &&
+            e.response.data.details?.inFlightOrders?.length
+          ) {
+            setPendingReassign({
+              name,
+              riderId,
+              inFlightOrders: e.response.data.details.inFlightOrders,
+            });
+            return;
+          }
+          toast({ title: t("errors.generic"), variant: "destructive" });
+        },
+      },
+    );
   }
 
   function onDissolve() {
@@ -167,23 +226,61 @@ export default function CoordinatorTripPage() {
             riders={(riders.data ?? []).filter(
               (r) => r.availabilityStatus !== "offline" && r.accountStatus === "active",
             )}
-            onSave={(name, riderId) => {
-              update.mutate(
-                { id: tripId, data: { name, riderId } },
-                {
-                  onSuccess: () => {
-                    toast({ title: t("trip.saved") });
-                    invalidate();
-                  },
-                  onError: () =>
-                    toast({ title: t("errors.generic"), variant: "destructive" }),
-                },
-              );
-            }}
+            onSave={(name, riderId) => submitUpdate(name, riderId, false)}
             saving={update.isPending}
           />
         </div>
       </div>
+
+      <AlertDialog
+        open={pendingReassign != null}
+        onOpenChange={(open) => {
+          if (!open) setPendingReassign(null);
+        }}
+      >
+        <AlertDialogContent data-testid="dialog-inflight-reassign">
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("trip.reassignWarningTitle")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("trip.reassignWarningBody")}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          {pendingReassign ? (
+            <ul className="space-y-1.5 rounded-md border border-border p-3 text-sm">
+              {pendingReassign.inFlightOrders.map((o) => (
+                <li
+                  key={o.id}
+                  className="flex items-center justify-between gap-2"
+                  data-testid={`inflight-order-${o.id}`}
+                >
+                  <span className="tabular-nums font-semibold">
+                    #{o.externalOrderId}
+                  </span>
+                  <StatusBadge status={o.status} />
+                </li>
+              ))}
+            </ul>
+          ) : null}
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-reassign-cancel">
+              {t("common.cancel")}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (!pendingReassign) return;
+                submitUpdate(
+                  pendingReassign.name,
+                  pendingReassign.riderId,
+                  true,
+                );
+              }}
+              data-testid="button-reassign-confirm"
+            >
+              {t("trip.reassignConfirm")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

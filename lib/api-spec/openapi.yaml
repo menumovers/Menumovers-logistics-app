@@ -821,6 +821,7 @@ components:
           type: string
         requestId:
           type: string
+        details: {}
     UserRole:
       type: string
       enum: [admin, coordinator, rider, restaurant_staff]
@@ -1470,6 +1471,14 @@ components:
           type: ["string", "null"]
         riderId:
           type: ["string", "null"]
+        force:
+          type: boolean
+          description: |
+            Required when reassigning a rider while one or more orders on the trip
+            are already in motion (past `driver_assigned`). When omitted or false
+            and in-flight orders exist, the API returns 409
+            `INFLIGHT_REASSIGN_REQUIRES_CONFIRM` with an `inFlightOrders` detail
+            payload so the UI can confirm.
     StopInput:
       type: object
       required: [orderId, kind]
