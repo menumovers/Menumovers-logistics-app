@@ -1,0 +1,147 @@
+## Bestellenbij — Logistics Platform Rebuild Prompt
+
+### What This System Is
+
+This is an internal food delivery logistics management platform, a food delivery rider app, for a Dutch delivery worker cooperative called **Bestellenbij**. It sits in the middle of a delivery chain: an upstream distribution service sends orders in, and this system routes them through coordinators, riders, and restaurant staff, then reports status back to that upstream service via webhooks.
+
+The system is primarily used on mobile (riders on phones, restaurant staff on tablets or POS screen, coordinators on mobile or desktop), so it must be a Progressive Web App with push notifications and installability.
+
+The business language is Dutch, but if multilingual is possible, adding English would be a nice to have. Status labels, UI copy, and user-facing timestamps should be in Dutch / `nl-NL` locale. The codebase itself (code, identifiers, API field names) stays in English.
+
+---
+
+### The Domain
+
+**Orders** arrive from an upstream distribution service. Each order has:
+- A customer (name, phone, email, delivery address)
+- A restaurant the food comes from (with a `minDeliveryTime` in minutes)
+- Items, a delivery fee, a total amount, and optional delivery instructions
+- A lifecycle: from the moment it arrives it is `pending`, then a rider gets assigned (`driver_assigned`), the rider travels to the restaurant (`en_route_to_restaurant`), picks up the food (`picked_up`), travels to the customer (`en_route_to_customer`), and finally delivers it (`delivered`). At any point it can become `failed`.
+
+**Restaurants** are pre-registered in the system. When an order arrives, the restaurant's `minDeliveryTime` determines the calculated pickup time (how soon the rider should be at the restaurant). If no match, fall back to a 30-minute default.
+
+**Riders** are independent contractors. They have an account status (active, suspended, etc.) and an availability status (offline, online, backup). The system tracks their active workload (orders currently in-flight) and queue (pending orders assigned to them).
+
+**Coordinators** oversee daily operations: they assign riders, monitor order progress, adjust pickup times, and intervene when things go wrong.
+
+**Admins** manage the platform itself: users, restaurants, riders, system settings (like the outbound webhook URL and push notification keys).
+
+**Restaurant staff** see only their own restaurant's orders. Their key action is marking an order as "ready for pickup."
+
+---
+
+### What the System Must Do
+
+#### Order Ingestion
+The upstream distribution service sends a `POST` to an inbound endpoint with the full order payload. This must be idempotent — if the same `orderId` arrives twice, update the existing record rather than creating a duplicate. On arrival, calculate the ASAP pickup time from the restaurant's `minDeliveryTime` and store it (immutably — this original value should never be overwritten). Fire push notifications to coordinators, admins, and the relevant restaurant staff.
+
+#### Rider Assignment
+A coordinator (or admin, or a rider self-assigning) assigns a rider to an order. This must be atomic — if two coordinators try to assign different riders simultaneously, only one should succeed. Create an assignment record and log the event. Send a push notification to the assigned rider and relevant restaurant staff. Dispatch a webhook to the upstream service.
+
+#### Status Transitions
+Status changes follow a defined state machine. Not all transitions are valid — enforce them. Every transition is logged in an audit trail with who made the change, when, and what role they had. Each valid transition dispatches a webhook to the upstream service and sends relevant push notifications.
+
+#### Pickup Time Management
+The system tracks multiple versions of the pickup time:
+- The original system-calculated time (immutable)
+- A rider-proposed adjustment (lowest priority)
+- A coordinator/admin override (highest priority, overrides everything)
+- A restaurant-provided adjustment
+
+The "effective" pickup time used for countdowns and priority coloring should prefer coordinator override → restaurant time → rider time → original.
+
+#### Outbound Webhooks
+When an order is assigned or changes status, fire a webhook to the configured upstream URL. If it fails with a server error (5xx), retry with exponential backoff (roughly 30 seconds, then 2 minutes, then 5 minutes). Never retry on client errors (4xx). Store retry state in the database so it survives server restarts. A background loop polls for due retries.
+
+#### Push Notifications
+The system uses the Web Push API with VAPID authentication. Users opt in per device. Notifications are targeted either to a specific user or to all users of a given role. The trigger rules:
+- New order → coordinators + admins + the relevant restaurant's staff
+- Rider assigned → the assigned rider + the relevant restaurant's staff
+- Order picked up or delivered → coordinators + admins
+- Order failed → all coordinators + admins
+
+#### Item Management
+Coordinators and admins can hide items from the order (if a restaurant is out of something) by index, and can add new items. The original payload should be preserved; these are display-layer overrides stored separately.
+
+---
+
+### The Four Roles
+
+All roles log in at the same URL with email and password. After login, each role is redirected to their own interface.
+
+**Admin** — Full access. Manages users, restaurants, riders, and system settings. Can do everything a coordinator can.
+
+**Coordinator** — Operational view. Sees all orders across all restaurants. Assigns riders, adjusts pickup times, overrides delivery addresses and customer contact info. Monitors rider workload.
+
+**Rider** — Sees a scoped view: pending unassigned orders (to self-assign), orders assigned to them, and their active deliveries. On each order they can advance the status, adjust their proposed pickup time, and see full customer/delivery details.
+
+**Restaurant staff** — Sees only their restaurant's orders. Can mark an order as "ready for pickup." Can see items, kitchen notes, and pickup countdown timers.
+
+---
+
+### Key UX Details
+
+**Pickup time countdown** — Show time remaining until pickup as a colored priority indicator. Under 5 minutes: red. Under 20 minutes: purple. Otherwise: neutral. If overdue, show "X min te laat" (X minutes late).
+
+**Time display** — If an event is less than 30 minutes away or ago, show relative time ("over 12 min"). Otherwise show clock time (HH:mm). All in `nl-NL` locale.
+
+**30-second polling** — The frontend should automatically refresh order data every 30 seconds. Push notifications can supplement this but should not replace polling.
+
+**Rider order grouping** — The rider view groups orders into: Active Deliveries (theirs, in progress), Queue (theirs, not started), and Open Orders (unassigned, available to claim).
+
+**Pending rider notification** — Admins/coordinators can set a banner message visible to the currently assigned rider on their order detail view.
+
+---
+
+### Architecture Preferences
+- **No financial calculations** — this system is a passthrough. Store amounts as database `numeric` type, transmit as strings. Never use JavaScript floating-point for money.
+- **Role-based data filtering at the database layer** — don't retrieve data and then filter in application code. Filter in the query.
+- **Centralize reusable logic** — status labels, color classes, time formatting, valid status transitions, push trigger rules. Never duplicate these across components.
+
+---
+
+### What Was Not Built Yet (Obvious Next Steps)
+
+The following were either explicitly planned or are natural extensions of what exists:
+
+1. **Automated test suite** — The previous implementation had zero tests. At minimum: unit tests for the status transition state machine, order ingestion idempotency, webhook retry logic, and the pickup time priority calculation. Integration tests for the critical endpoints.
+
+2. **Structured logging** — Replace `console.log` throughout with a structured logger (e.g. Pino). Log request IDs, user IDs, order IDs, and role on every significant action.
+
+3. **Centralized error handling** — A single Express error middleware that formats all errors consistently and logs them structurally.
+
+4. **Rate limiting** — The inbound order endpoint and auth endpoints should be rate-limited.
+
+5. **Order export / download** — Coordinators and admins should be able to export filtered order lists (CSV or similar) for reporting.
+
+6. **Order deletion and duplication** — Admins should be able to delete erroneous orders and duplicate orders (e.g. for re-dispatching a failed delivery).
+
+7. **Per-restaurant (or per-brand) webhooks** — Currently one global outbound webhook URL. The natural evolution is configurable per-restaurant or per-brand webhook targets, so different clients of the distribution service get independent notifications.
+
+8. **Timezone handling** — The current system assumes all times are UTC on the server and renders in `nl-NL` locale on the client without conversion. A proper implementation should store a timezone per restaurant or per order and handle DST correctly.
+
+9. **Rider mobile UX improvements** — The rider interface works but a dedicated flow for each delivery step (with large tap targets and minimal cognitive load per step) would reduce errors in the field.
+
+10. **Real-time updates** — Replace or supplement 30-second polling with WebSockets or Server-Sent Events so coordinators see order changes instantly without the polling lag.
+
+11. **Admin dashboard / analytics** — Basic stats exist (order counts by status). A meaningful dashboard would show orders per restaurant per day, average delivery time, rider performance, on-time rates, and failed-delivery breakdown.
+
+12. **Availability scheduling for riders** — Currently riders have a simple online/offline/backup status set manually. A shift-based scheduling view where coordinators can plan rider availability in advance would be the logical next step.
+
+13. **Customer-facing status page** — An optional public-facing URL (per order) where customers can track their delivery without logging in.
+
+14. **Notification preference management** — Currently all users of a role receive all notifications for that role. Per-user notification preferences (e.g. a coordinator who only wants to be pinged for failed orders) would reduce noise.
+
+---
+
+### Constraints and Non-Negotiables
+
+- The original system-calculated pickup time (`pickupTimeOriginal`) must never be overwritten after creation.
+- Status transitions must be validated against the state machine before any database write.
+- Rider assignment must use an atomic conditional update (`UPDATE ... WHERE status = 'pending'`) to prevent race conditions.
+- The outbound webhook URL is operator-configured at runtime (environment variable or admin settings), not hardcoded.
+- VAPID keys for push notifications are operator-configured environment variables, with a UI in admin settings to verify they are set.
+
+---
+
+*This prompt describes the system and its domain. Implementation decisions — design, technology, file structure, specific library versions, component organization — are yours to make. Prefer clarity and maintainability over cleverness.*
