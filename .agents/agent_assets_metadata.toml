@@ -1,0 +1,14 @@
+uploads = []
+outputs = []
+
+[[generated]]
+id = "QsZTZWngiFkuTQPBrll6Q"
+uri = "file://artifacts/bestellenbij/public/pwa-192x192.png"
+type = "image"
+title = "Bestellenbij PWA Icon 192"
+
+[[generated]]
+id = "AUeZnXIoa3rLBojF6LeCL"
+uri = "file://artifacts/bestellenbij/public/pwa-512x512.png"
+type = "image"
+title = "Bestellenbij PWA Icon 512"
