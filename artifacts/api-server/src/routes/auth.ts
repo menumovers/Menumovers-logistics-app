@@ -26,19 +26,19 @@ router.post("/auth/login", async (req, res): Promise<void> => {
 
   if (!user) {
     req.log.warn({ email }, "Login: unknown email");
-    res.status(401).json({ error: "Ongeldige inloggegevens" });
+    res.status(401).json({ error: "Invalid credentials" });
     return;
   }
 
   if (user.accountStatus !== "active") {
-    res.status(403).json({ error: "Account is opgeschort" });
+    res.status(403).json({ error: "Account is suspended" });
     return;
   }
 
   const ok = await verifyPassword(password, user.passwordHash);
   if (!ok) {
     req.log.warn({ userId: user.id }, "Login: bad password");
-    res.status(401).json({ error: "Ongeldige inloggegevens" });
+    res.status(401).json({ error: "Invalid credentials" });
     return;
   }
 

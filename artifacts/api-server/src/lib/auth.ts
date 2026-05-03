@@ -110,9 +110,7 @@ function extractToken(req: Request): string | null {
   if (header && header.toLowerCase().startsWith("bearer ")) {
     return header.slice(7).trim();
   }
-  const cookieToken = (req as unknown as { cookies?: Record<string, string> }).cookies?.[
-    "auth_token"
-  ];
+  const cookieToken = req.cookies?.["auth_token"];
   if (typeof cookieToken === "string" && cookieToken.length > 0) return cookieToken;
   return null;
 }
