@@ -60,13 +60,13 @@ Precedence inverted: the admin-configurable `system_settings.outbound_webhook_ur
 
 The locale dropdown writes to `bb_locale` and i18next reflects the change. Verify there is no path that resets it to `nl` on next mount (we removed `i18next-browser-languagedetector` but the dependency remains in `package.json`). Investigation: search for `LanguageDetector` usage. Priority: low.
 
-### L5. Trip mutations are not transactional
+### L5. Trip mutations are not transactional — DONE (2026-05-03)
 
-`routes/trips.ts` performs trip create / reassign / dissolve as a sequence of statements without a `db.transaction(...)` boundary. Concurrent edits or a mid-sequence error can leave a trip with partial stops or partial order linkage. Investigation: wrap each multi-statement mutation in `db.transaction`, and within `dissolve` re-query order statuses inside the transaction so a concurrent rider advance is not silently rewound. Priority: medium-low (single-coordinator workflow today).
+Every multi-statement mutation in `routes/trips.ts` (`POST /trips`, `PATCH /trips/:id`, `PUT /trips/:id/stops`, `POST /trips/:id/dissolve`) now runs inside `db.transaction(async (tx) => …)` and starts with `SELECT ... FOR UPDATE` on the trip row. Terminal-state checks (`status in ('dissolved','completed')`) and order-status reads happen inside the same transaction so a concurrent rider advance, rename, or dissolve cannot leave a trip with partial stops or partial order linkage. Captured as an SSOT entry under "Trip bundling and bundled pickup time" (Concurrency safety).
 
-### L6. Reassignment can rewind active orders
+### L6. Reassignment can rewind active orders — DONE (2026-05-03)
 
-When a coordinator reassigns a trip whose orders are already in `en_route_to_restaurant` / `picked_up` / `en_route_to_customer`, the current implementation does not regress order statuses but also does not refuse the reassignment. We accept this for now because the coordinator is the human in the loop. Investigation: decide whether to (a) refuse reassignment past `picked_up`, (b) auto-postpone affected orders, or (c) leave as-is and document. Priority: low.
+Resolved with option (c) plus an explicit confirmation gate. `PATCH /api/trips/:id` returns `409 TRIP_IN_MOTION` whenever the assigned rider changes and any order on the trip is at or past `picked_up`, unless the caller passes `force: true`. The coordinator UI (`pages/coordinator-trip.tsx`) catches that error code, opens a confirmation dialog, and re-issues the patch with `force: true` on confirm. The server still preserves in-flight order statuses; only the trip's nominal rider is swapped. Captured as an SSOT entry under "Trip bundling and bundled pickup time" (Reassignment in motion).
 
 ### L7. `as unknown as` audit
 

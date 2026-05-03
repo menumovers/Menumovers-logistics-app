@@ -78,9 +78,13 @@ What the system explicitly does not do:
 │   │       ├── app.ts             Express setup (CORS, pino-http, rate limits, error handler)
 │   │       ├── index.ts           Boot. Reads PORT. Starts retry loop.
 │   │       ├── routes/            One file per resource. All mounted at /api.
+│   │       │                       (auth, health, orders, riders, restaurants, users,
+│   │       │                        settings, push, trips)
 │   │       ├── middlewares/       error-handler.ts, rate-limit.ts
 │   │       └── lib/               auth, errors, logger, state-machine, pickup-time,
-│   │                              push, push-triggers, webhook, order-serialize
+│   │                              push, push-triggers, webhook, order-serialize,
+│   │                              janitor (revoked-token sweeper),
+│   │                              settings-readers (typed system_settings reads)
 │   ├── bestellenbij/      The web PWA. Single deployable; two installable PWAs.
 │   │   ├── public/                sw.js, manifest-rider.webmanifest,
 │   │   │                          manifest-restaurant.webmanifest, icons
@@ -89,7 +93,8 @@ What the system explicitly does not do:
 │   │       ├── lib/               api, auth, app-context, format, status,
 │   │       │                       i18n, role-homes, utils
 │   │       ├── pages/             landing, login, admin, coordinator,
-│   │       │                       coordinator-order, rider, rider-order,
+│   │       │                       coordinator-order, coordinator-trip,
+│   │       │                       coordinator-trip-builder, rider, rider-order,
 │   │       │                       restaurant, settings, not-found
 │   │       ├── components/        layout, status-badge, pickup-countdown,
 │   │       │                       locale-switch, push-opt-in, ui/* (shadcn)
@@ -158,7 +163,16 @@ What the system explicitly does not do:
 - Each user device subscribes via `/api/push/subscribe`; the subscription is stored in `push_subscriptions`.
 - `push.ts` resolves recipient user ids from a `PushAudience` (roles plus per-order flags) and sends to all their subscriptions in parallel. 410/404 responses prune the subscription.
 
-### 5.8 Frontend polling
+### 5.8 Trip bundling, reassignment, and dissolution
+
+1. A coordinator opens the trip builder (`pages/coordinator-trip-builder.tsx`), selects 2+ pending or assigned orders, and `POST /api/trips` with `{ name?, riderId?, orderIds[] }`. The handler runs inside `db.transaction(...)` with `SELECT ... FOR UPDATE` on the involved orders: it inserts the `trips` row (auto-assigning `tripNumber`), seeds `trip_stops` (all pickups in ascending effective-pickup-time order, then dropoffs in `orderIds` order), and stamps `orders.tripId`. If a rider is assigned at create time, the orders move to `driver_assigned` via `assertValidTransition` and `audienceForTripAssigned` fires push.
+2. `PATCH /api/trips/:id` (admin/coordinator) renames the trip or reassigns its rider. The transaction starts with `SELECT ... FOR UPDATE` on the trip row and refuses if `status` is `dissolved` or `completed` (422 `TRIP_TERMINAL`). When `riderId` changes and any order on the trip is at or past `picked_up`, the handler returns `409 TRIP_IN_MOTION` unless the request body includes `force: true`. The frontend (`pages/coordinator-trip.tsx`) intercepts that error code, opens a confirmation dialog, and re-issues the same patch with `force: true` on confirm. Pre-flight orders (`pending`/`driver_assigned`) get the new rider via the same `assertValidTransition` machinery; in-flight orders keep their status and existing rider — only the trip's nominal rider is swapped.
+3. `PUT /api/trips/:id/stops` (admin/coordinator) replaces the stop list within a transaction, validating that every supplied `orderId` is currently on the trip and preserving prior `completedAt` per `(orderId, kind)` so a re-order doesn't lose progress.
+4. `POST /api/trips/:id/dissolve` (admin/coordinator/own-rider) runs in a transaction. Pre-flight orders (`pending`/`driver_assigned`) are reverted to `pending` with `riderId` and `tripId` cleared and a `rider_assignments` row written for audit; in-flight orders keep their status and rider but lose their `tripId`. The trip moves to `dissolved`. `audienceForTripDissolved` fires push to coordinators, the previously-assigned rider, and restaurant staff for the affected orders.
+5. `audienceForOpenTrip` exists for surfacing unclaimed trips to coordinators; rider-side discovery of open trips uses the regular trip list, gated by `system_settings.allow_rider_self_claim`.
+6. The order state machine extension that powers trip-driven postpone is documented in section 5.3 above and in the SSOT — `postponed` is reachable from `en_route_to_restaurant` and `en_route_to_customer`, resumes back to either, and accepts `failed` from there.
+
+### 5.9 Frontend polling
 
 - The web client polls every 30 s using TanStack Query `refetchInterval`. Push notifications are a low-latency supplement, not a replacement.
 
