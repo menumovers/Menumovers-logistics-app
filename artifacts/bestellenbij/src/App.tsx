@@ -1,9 +1,9 @@
-import { Switch, Route, Router as WouterRouter, useLocation } from "wouter";
+import { Switch, Route, Router as WouterRouter } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { useEffect } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
+import LandingPage from "@/pages/landing";
 import LoginPage from "@/pages/login";
 import AdminPage from "@/pages/admin";
 import CoordinatorPage from "@/pages/coordinator";
@@ -12,8 +12,7 @@ import RiderPage from "@/pages/rider";
 import RiderOrderPage from "@/pages/rider-order";
 import RestaurantPage from "@/pages/restaurant";
 import SettingsPage from "@/pages/settings";
-import { AuthProvider, FullScreenLoader, RequireRole, useAuth } from "@/lib/auth";
-import { ROLE_HOMES } from "@/lib/role-homes";
+import { AuthProvider, RequireRole } from "@/lib/auth";
 import { AppShell } from "@/components/layout";
 import { configureApi } from "@/lib/api";
 import "@/lib/i18n";
@@ -26,21 +25,19 @@ const queryClient = new QueryClient({
   },
 });
 
-function RootIndex() {
-  const { user, isLoading } = useAuth();
-  const [, navigate] = useLocation();
-  useEffect(() => {
-    if (isLoading) return;
-    if (user) navigate(ROLE_HOMES[user.role]);
-    else navigate("/login");
-  }, [user, isLoading, navigate]);
-  return <FullScreenLoader />;
-}
-
 function Routes() {
   return (
     <Switch>
-      <Route path="/login" component={LoginPage} />
+      <Route path="/rider/login">
+        <LoginPage variant="rider" />
+      </Route>
+      <Route path="/restaurant/login">
+        <LoginPage variant="restaurant" />
+      </Route>
+      <Route path="/login">
+        {/* Legacy generic login — keep working by defaulting to rider. */}
+        <LoginPage variant="rider" />
+      </Route>
       <Route path="/admin">
         <RequireRole roles={["admin"]}><AppShell><AdminPage /></AppShell></RequireRole>
       </Route>
@@ -62,7 +59,7 @@ function Routes() {
       <Route path="/settings">
         <RequireRole roles={["admin", "coordinator", "rider", "restaurant_staff"]}><AppShell><SettingsPage /></AppShell></RequireRole>
       </Route>
-      <Route path="/" component={RootIndex} />
+      <Route path="/" component={LandingPage} />
       <Route component={NotFound} />
     </Switch>
   );

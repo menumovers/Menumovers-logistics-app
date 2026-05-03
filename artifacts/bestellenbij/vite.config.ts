@@ -32,26 +32,12 @@ export default defineConfig({
       injectRegister: false,
       registerType: "autoUpdate",
       devOptions: { enabled: false },
-      manifest: {
-        name: "Bestellenbij",
-        short_name: "BB",
-        description: "Bestellenbij — interne bezorglogistiek",
-        theme_color: "#0E2A47",
-        background_color: "#F8F4EB",
-        display: "standalone",
-        start_url: basePath,
-        scope: basePath,
-        icons: [
-          { src: "pwa-192x192.png", sizes: "192x192", type: "image/png" },
-          { src: "pwa-512x512.png", sizes: "512x512", type: "image/png" },
-          {
-            src: "pwa-512x512.png",
-            sizes: "512x512",
-            type: "image/png",
-            purpose: "any maskable",
-          },
-        ],
-      },
+      // We ship two independently-installable PWAs (rider + restaurant) from
+      // one bundle. Their manifests live as static files in `public/`
+      // (manifest-rider.webmanifest, manifest-restaurant.webmanifest) and
+      // are swapped at runtime in main.tsx based on path. Disable the
+      // plugin-generated manifest so we don't emit a third one.
+      manifest: false,
       injectManifest: {
         globPatterns: ["**/*.{js,css,html,svg,png,webmanifest}"],
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,

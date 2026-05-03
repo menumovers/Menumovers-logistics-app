@@ -1,0 +1,21 @@
+{
+  "name": "Bestellenbij Restaurant",
+  "short_name": "BB Restaurant",
+  "description": "Bestellenbij — restaurant pickup app",
+  "id": "/?app=restaurant",
+  "scope": "/restaurant/",
+  "start_url": "/restaurant/login",
+  "display": "standalone",
+  "theme_color": "#0E2A47",
+  "background_color": "#F8F4EB",
+  "icons": [
+    { "src": "/pwa-192x192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/pwa-512x512.png", "sizes": "512x512", "type": "image/png" },
+    {
+      "src": "/pwa-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

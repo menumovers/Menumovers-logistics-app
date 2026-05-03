@@ -1,0 +1,21 @@
+{
+  "name": "Bestellenbij Rider",
+  "short_name": "BB Rider",
+  "description": "Bestellenbij — interne bezorglogistiek",
+  "id": "/?app=rider",
+  "scope": "/",
+  "start_url": "/rider/login",
+  "display": "standalone",
+  "theme_color": "#0E2A47",
+  "background_color": "#F8F4EB",
+  "icons": [
+    { "src": "/pwa-192x192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/pwa-512x512.png", "sizes": "512x512", "type": "image/png" },
+    {
+      "src": "/pwa-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

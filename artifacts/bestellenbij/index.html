@@ -7,7 +7,10 @@
     <title>Bestellenbij</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="apple-touch-icon" href="/pwa-192x192.png" />
-    <link rel="manifest" href="/manifest.webmanifest" />
+    <!-- Default manifest is the rider PWA. main.tsx swaps in the restaurant
+         manifest when the page loads under /restaurant so each side is
+         independently installable. -->
+    <link rel="manifest" id="app-manifest" href="/manifest-rider.webmanifest" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />

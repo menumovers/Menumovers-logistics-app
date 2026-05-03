@@ -11,6 +11,7 @@ import { useLocation } from "wouter";
 import { setToken, getToken } from "./api";
 import { applyProfileLocale } from "./i18n";
 import { ROLE_HOMES } from "./role-homes";
+import { getContextForPath, getLoginPath } from "./app-context";
 import { Spinner } from "@/components/ui/spinner";
 
 type AuthContextValue = {
@@ -56,7 +57,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = useCallback(() => {
     setToken(null);
     queryClient.clear();
-    navigate("/login");
+    // Send the user back to the login page of the app they were using, so
+    // each PWA stays self-contained after sign-out (rider PWA → /rider/login,
+    // restaurant PWA → /restaurant/login).
+    const ctx = getContextForPath(window.location.pathname);
+    navigate(getLoginPath(ctx));
   }, [queryClient, navigate]);
 
   const applyToken = useCallback(
@@ -107,7 +112,8 @@ export function RequireRole({
   useEffect(() => {
     if (isLoading) return;
     if (!user) {
-      navigate("/login");
+      const ctx = getContextForPath(window.location.pathname);
+      navigate(getLoginPath(ctx));
       return;
     }
     if (!roles.includes(user.role)) {
