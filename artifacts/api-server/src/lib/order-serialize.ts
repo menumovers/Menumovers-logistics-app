@@ -1,4 +1,4 @@
-import { asc, eq } from "drizzle-orm";
+import { asc, eq, inArray } from "drizzle-orm";
 import {
   db,
   itemOverridesTable,
@@ -84,34 +84,52 @@ function baseOrderFields(order: Order, items: SerializedOrderItem[]) {
   };
 }
 
-async function loadJoins(orderIds: string[]): Promise<{
+async function loadJoins(
+  orders: Pick<Order, "id" | "restaurantId" | "riderId">[],
+): Promise<{
   restaurantsById: Map<string, { id: string; name: string }>;
   ridersById: Map<string, { id: string; name: string }>;
   overridesByOrder: Map<string, ItemOverride[]>;
 }> {
-  if (orderIds.length === 0) {
-    return {
-      restaurantsById: new Map(),
-      ridersById: new Map(),
-      overridesByOrder: new Map(),
-    };
-  }
-  const [restaurants, riders, overrides] = await Promise.all([
-    db.select().from(restaurantsTable),
-    db
-      .select({
-        id: ridersTable.id,
-        name: usersTable.name,
-      })
-      .from(ridersTable)
-      .innerJoin(usersTable, eq(usersTable.id, ridersTable.userId)),
-    db.select().from(itemOverridesTable).orderBy(asc(itemOverridesTable.createdAt)),
-  ]);
-  const restaurantsById = new Map(restaurants.map((r) => [r.id, r]));
-  const ridersById = new Map(riders.map((r) => [r.id, r]));
+  const restaurantsById = new Map<string, { id: string; name: string }>();
+  const ridersById = new Map<string, { id: string; name: string }>();
   const overridesByOrder = new Map<string, ItemOverride[]>();
+  if (orders.length === 0) {
+    return { restaurantsById, ridersById, overridesByOrder };
+  }
+  const orderIds = orders.map((o) => o.id);
+  const restaurantIds = Array.from(new Set(orders.map((o) => o.restaurantId)));
+  const riderIds = Array.from(
+    new Set(
+      orders
+        .map((o) => o.riderId)
+        .filter((x): x is string => typeof x === "string"),
+    ),
+  );
+
+  const [restaurants, riders, overrides] = await Promise.all([
+    restaurantIds.length > 0
+      ? db
+          .select({ id: restaurantsTable.id, name: restaurantsTable.name })
+          .from(restaurantsTable)
+          .where(inArray(restaurantsTable.id, restaurantIds))
+      : Promise.resolve([] as { id: string; name: string }[]),
+    riderIds.length > 0
+      ? db
+          .select({ id: ridersTable.id, name: usersTable.name })
+          .from(ridersTable)
+          .innerJoin(usersTable, eq(usersTable.id, ridersTable.userId))
+          .where(inArray(ridersTable.id, riderIds))
+      : Promise.resolve([] as { id: string; name: string }[]),
+    db
+      .select()
+      .from(itemOverridesTable)
+      .where(inArray(itemOverridesTable.orderId, orderIds))
+      .orderBy(asc(itemOverridesTable.createdAt)),
+  ]);
+  for (const r of restaurants) restaurantsById.set(r.id, r);
+  for (const r of riders) ridersById.set(r.id, r);
   for (const o of overrides) {
-    if (!orderIds.includes(o.orderId)) continue;
     const arr = overridesByOrder.get(o.orderId) ?? [];
     arr.push(o);
     overridesByOrder.set(o.orderId, arr);
@@ -121,7 +139,7 @@ async function loadJoins(orderIds: string[]): Promise<{
 
 export async function serializeOrderListItem(order: Order) {
   const { restaurantsById, ridersById, overridesByOrder } = await loadJoins([
-    order.id,
+    order,
   ]);
   const overrides = overridesByOrder.get(order.id) ?? [];
   const items = applyItemOverrides(order.items ?? [], overrides);
@@ -135,8 +153,7 @@ export async function serializeOrderListItem(order: Order) {
 }
 
 export async function serializeOrderListItems(orders: Order[]) {
-  const ids = orders.map((o) => o.id);
-  const { restaurantsById, ridersById, overridesByOrder } = await loadJoins(ids);
+  const { restaurantsById, ridersById, overridesByOrder } = await loadJoins(orders);
   return orders.map((order) => {
     const overrides = overridesByOrder.get(order.id) ?? [];
     const items = applyItemOverrides(order.items ?? [], overrides);
@@ -172,7 +189,17 @@ export async function serializeOrderDetail(orderId: string) {
       .from(itemOverridesTable)
       .where(eq(itemOverridesTable.orderId, orderId))
       .orderBy(asc(itemOverridesTable.createdAt)),
-    loadJoins([orderId]),
+    (async () => {
+      const [o] = await db
+        .select({
+          id: ordersTable.id,
+          restaurantId: ordersTable.restaurantId,
+          riderId: ordersTable.riderId,
+        })
+        .from(ordersTable)
+        .where(eq(ordersTable.id, orderId));
+      return o ? loadJoins([o]) : loadJoins([]);
+    })(),
   ]);
 
   const items = applyItemOverrides(order.items ?? [], overrides);
