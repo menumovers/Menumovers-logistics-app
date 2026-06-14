@@ -10,6 +10,8 @@ The project aims to streamline the dispatch process, improve operational efficie
 
 I prefer concise and direct communication. When making changes, please prioritize using existing, centralized utilities and patterns. If a new pattern or utility is required, ask before implementing. For any significant architectural changes or new external dependencies, I expect a clear explanation and my explicit approval before proceeding. Do not make changes to files or folders that are not directly related to the task at hand.
 
+When closing or completing a task, any items listed as "out of scope" in that task file must be added to `docs/todo-out-of-scope.md` if they are not already present there.
+
 ## System Architecture
 
 Bestellenbij is built as a monorepo using pnpm workspaces, with a Node 24 and TypeScript ~5.9 runtime environment.
