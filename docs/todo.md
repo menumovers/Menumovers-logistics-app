@@ -1,6 +1,6 @@
 # Engineering TODO
 
-Smaller deferred engineering work, inferred from the current code and from notes captured in earlier task rounds. Items here are not the planned product features in `FUTURE_WORK.md` — those are roadmap. These are residue: half-centralized patterns, known gaps, and small risks that the next contributor would otherwise rediscover.
+Smaller deferred engineering work, inferred from the current code and from notes captured in earlier task rounds. Items here are not the planned product features in `docs/todo-roadmap.md` — those are roadmap. These are residue: half-centralized patterns, known gaps, and small risks that the next contributor would otherwise rediscover.
 
 For each item: what it is, what investigation is already done, priority.
 
@@ -18,7 +18,7 @@ Direct-URL navigation by a role outside the page's allowed set should redirect r
 
 ### H3. No automated tests
 
-Already captured as `FUTURE_WORK.md` item 1, but worth listing here too because every other item is harder to fix safely without a test suite. The four highest-leverage tests: state-machine, idempotent inbound, webhook retry queue, and pickup-time priority. Priority: high.
+Already captured as `docs/todo-roadmap.md` item 1, but worth listing here too because every other item is harder to fix safely without a test suite. The four highest-leverage tests: state-machine, idempotent inbound, webhook retry queue, and pickup-time priority. Priority: high.
 
 ## Medium
 

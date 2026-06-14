@@ -40,7 +40,7 @@ What the system does:
 What the system explicitly does not do:
 
 - It does not compute money. Amounts are passthrough strings.
-- It does not run customer-facing tracking (no public status page yet — see `FUTURE_WORK.md`).
+- It does not run customer-facing tracking (no public status page yet — see `docs/todo-roadmap.md`).
 - It does not optimize routes or do dispatching automatically — assignment is human.
 - It does not host the storefront or the distribution service.
 
@@ -212,20 +212,20 @@ What the system explicitly does not do:
 1. **No real-time channel.** The frontend polls every 30 s. This is intentional — pushed-only architectures fail when sockets drop and dispatchers miss orders. Push notifications supplement polling for latency-sensitive events. A WebSocket layer is on the roadmap but not built.
 2. **`vite-plugin-pwa` is in use, but only for service-worker bundling.** We use `strategies: "injectManifest"` so the plugin precaches our hand-written `public/sw.js` while we keep full control over its source. Manifest emission is disabled (`manifest: false`) because we ship two static manifests (rider + restaurant) that need to coexist; the plugin would only emit one. Trade-off: no plugin-managed Workbox-style caching policy, but a service worker we can read in 50 lines and two PWAs that install cleanly side-by-side.
 3. **Browser-language detection is part of the locale priority chain, but it is the lowest tier.** Order: authenticated `user.preferredLocale` > `localStorage.bb_locale` > `navigator.language` (mapped to `nl`/`en`) > `nl`. Operators who don't touch the dropdown still get a sensible default; once they pick a language it persists per-account. See `lib/i18n.ts` for the full chain.
-4. **No timezone per restaurant.** Server is UTC, client renders in the active locale. DST transitions work because we render with `Intl.DateTimeFormat` from a UTC instant, but if the cooperative ever expands beyond Europe/Amsterdam this will need per-restaurant timezone storage. See `FUTURE_WORK.md` item 5.
+4. **No timezone per restaurant.** Server is UTC, client renders in the active locale. DST transitions work because we render with `Intl.DateTimeFormat` from a UTC instant, but if the cooperative ever expands beyond Europe/Amsterdam this will need per-restaurant timezone storage. See `docs/todo-roadmap.md` item 5.
 5. **Single global outbound webhook URL.** A natural evolution is per-restaurant or per-brand targets. Today, all outbound events go to one URL pulled from env or `system_settings`.
 6. **Money is a string everywhere.** This is by design (see Hard Policy 2). It means we cannot show "subtotals" without trusting the upstream payload — which is correct, the cooperative is a passthrough.
-7. **No automated tests yet.** This is the highest-priority deferred work (see `docs/todo.md` and `FUTURE_WORK.md`). Current safety relies on TypeScript, Zod, the centralized utilities, and manual testing.
+7. **No automated tests yet.** This is the highest-priority deferred work (see `docs/todo.md` and `docs/todo-roadmap.md`). Current safety relies on TypeScript, Zod, the centralized utilities, and manual testing.
 8. **`as unknown as` casts are forbidden.** We had to add small data-fetching workarounds (e.g. `AvailabilityCard` reads its own row via `useListRiders.find`) instead of widening models. This is intentional friction.
 9. **The web client and the API are deployed as separate artifacts behind a path-based proxy.** This is a workspace convention, not a hard architectural choice — a single Express server could serve both in production.
 
 ## 9. Future development areas
 
-This section is intentionally short — `FUTURE_WORK.md` is the detailed register. The thematic areas:
+This section is intentionally short — `docs/todo-roadmap.md` is the detailed register. The thematic areas:
 
 - **Quality and reliability**: automated test suite, expanded structured logging, centralized error response shape (mostly done), rate-limit tuning, timezone modeling.
 - **Operations and admin**: CSV export of filtered order lists, order delete and duplicate, per-restaurant or per-brand outbound webhooks, an admin analytics dashboard, rider shift scheduling.
 - **UX**: a step-by-step rider mobile flow, a customer-facing public status page, per-user notification preferences.
 - **Architecture**: a real-time channel (WebSockets or SSE) supplementing the 30-second polling.
 
-See `FUTURE_WORK.md` for one-paragraph descriptions of each item, and `docs/todo.md` for smaller deferred engineering work.
+See `docs/todo-roadmap.md` for one-paragraph descriptions of each item, and `docs/todo.md` for smaller deferred engineering work.
