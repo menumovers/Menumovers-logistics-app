@@ -1,0 +1,19 @@
+## Part 3 — Migration (one-time, for initial rollout)
+
+This first pass is scoped to two things: (1) giving `replit.md` the Part 1 structure, and (2) the file-level organization of `docs/` — names, existence, and the Documentation Index. **Don't rewrite or restructure the content of any `docs/` file in this pass.** Leave existing docs as-is and create missing ones as stubs; moving detailed material out of `replit.md` and into the right `docs/` files is a separate follow-up pass.
+
+Generic instructions, same wording for every project:
+
+> Use this document to restructure this project's `replit.md` and the file structure of `docs/`. Treat this as a re-sort, not a rewrite — nothing gets discarded, only relocated, flagged, or renamed.
+>
+> 1. Read the current `replit.md` and inventory `docs/`, including any pre-blueprint one-off docs.
+> 2. Using Part 0 (Ecosystem Reference), identify which role this project plays — storefront, middleware, or a logistics app — and what its direct neighbors are. This grounds step 7 below.
+> 3. Re-sort `replit.md`'s existing content into the Part 1 section structure. If something clearly belongs in a `docs/` file instead (per Part 1/2) but isn't being moved this pass, leave it where it is and collect it under a temporary "Pending Migration" section at the end of `replit.md` — to be processed and removed during the content-migration pass.
+> 4. While inventorying `docs/`, categorize each existing file as a blueprint doc (the nine in Part 2) or standalone reference material (compliance checklists, audits, ledgers, etc.) for the Documentation Index, without rewriting either's content.
+> 5. Case-normalize filenames to lowercase kebab-case (e.g. `ARCHITECTURE_SOURCES_OF_TRUTH.md` → `architecture-sources-of-truth.md`), updating any references to the old names.
+> 6. Create any missing standard `docs/` files from Part 2 that plausibly apply to this project (commonly `changelog.md` and `integrations.md`) as stubs — a title plus a one-line "to be populated in the content-migration pass" note. If one clearly doesn't apply, note why rather than creating it.
+> 7. Populate the Documentation Index (Part 1, §7) completely — every blueprint doc, plus an entry in "other reference material" for everything found in step 4 that falls into that category.
+> 8. For the Identity section's ecosystem position, describe only this project's direct upstream/downstream relationships (per step 2), at the level of detail relevant to this project's own work — don't attempt to reproduce the whole Part 0 reference.
+> 9. Apply the Working Agreement (Part 1, §8) verbatim — it's shared across all Bestellenbij projects by design.
+> 10. Adopt the Maintenance rules (Part 1, §9) for self-updates going forward.
+> 11. The ~150–180 line target (Part 1, §9) may not be met yet if step 3 produced a Pending Migration section — that's expected, and gets resolved in the content-migration pass. The section *structure* should otherwise match Part 1 in full.

@@ -12,6 +12,17 @@ I prefer concise and direct communication. When making changes, please prioritiz
 
 When closing or completing a task, any items listed as "out of scope" in that task file must be added to `docs/todo-out-of-scope.md` if they are not already present there.
 
+### Contributing: Keeping the Out-of-Scope Backlog Current
+
+`docs/todo-out-of-scope.md` is the canonical list of deferred work. Whenever a task is completed or a new one is proposed, update it:
+
+- **New deferred items**: first confirm the item isn't already implemented in the codebase, add a bullet under the appropriate section with a short description and a `*(source task name)*` reference.
+- **Newly tracked items**: append `→ **now a task** (Proposed): "<task title>"` to the relevant bullet.
+- **Completed items**: append `→ **completed**` to the relevant bullet so it can be pruned in the next pass.
+
+This keeps the backlog accurate as a working document rather than a stale snapshot.
+
+
 ## System Architecture
 
 Bestellenbij is built as a monorepo using pnpm workspaces, with a Node 24 and TypeScript ~5.9 runtime environment.
