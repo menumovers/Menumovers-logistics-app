@@ -10,7 +10,7 @@ When applying this structure to an existing project: re-sort existing content in
 
 ## Part 0 — Ecosystem Reference
 
-The Bestellenbij ecosystem has three roles. A **storefront** (Bestellenbij.nl) — the customer-facing ordering platform — sends order data to a **distribution middleware** (babeldish) for fulfillment routing. The middleware routes orders, via config/rule-based logic (currently keyed by source), to one or more **logistics apps** — each shows riders and restaurants their orders, receives distributed orders from the middleware, and sends status updates back.
+The Bestellenbij ecosystem has three roles. A **storefront** (Bestellenbij.nl and sub-brands) — the customer-facing ordering platform — sends order data to a **distribution middleware** (babeldish) for fulfillment routing. The middleware routes orders, via config/rule-based logic (currently keyed by source), to one or more **logistics apps** — each shows riders and restaurants their orders, receives distributed orders from the middleware, and sends status updates back.
 
 There can be more than one logistics app at a time, serving different operational models (e.g. low-volume/high-rider-agency vs. high-volume/algorithmic-dispatch). Which app(s) handle which source or region is a routing decision in the middleware's configuration, not a fixed structural mapping — this can change or expand without restructuring anything. Some logistics apps may be cooperative-owned but built and maintained by a different team, without a shared `replit.md` — the ecosystem reference is still relevant context even where it isn't enforced.
 
