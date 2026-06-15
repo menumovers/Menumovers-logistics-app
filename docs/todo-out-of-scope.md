@@ -156,6 +156,16 @@ These were listed as out of scope but represent decisions made — not things to
 
 ---
 
+## Documentation
+
+### replit.md content-migration pass
+- **Source**: replit.md blueprint — structural pass
+- **In docs/todo-roadmap.md**: No
+- **Kind**: Deferred feature (follow-up pass)
+- **Notes**: The structural pass (2026-06-15) re-sorted `replit.md` into the nine-section blueprint shape and placed content that can't yet land cleanly in a cockpit section under a "Pending Migration" block. A dedicated content-migration pass needs to: (1) populate `replit.md §2` (Run & Operate) with commands and env var names from the codebase; (2) populate `replit.md §4` (Map) with key directories and entry points; (3) synthesize `replit.md §5` (Non-Negotiables) from the "Do not" entries in `docs/architecture-sources-of-truth.md`; (4) populate `docs/external-services.md` with per-service detail (PostgreSQL, inbound distribution service, outbound webhooks, Web Push/VAPID, JWT, CORS); (5) verify Core Architectural Decisions and Technology Stack are fully covered in `docs/architecture-full-technical.md` and remove the Pending Migration block from `replit.md`. Tracked as PM1–PM7 in `docs/todo.md`.
+
+---
+
 ## Coverage status
 
 | Item | In docs/todo-roadmap.md | In docs/todo.md |
@@ -179,3 +189,4 @@ These were listed as out of scope but represent decisions made — not things to
 | Outbound webhooks for trip events | No | No |
 | Historical order backfill | No | No (conscious boundary) |
 | Customer trip visibility | No | No (privacy boundary) |
+| replit.md content-migration pass | No | Yes (PM1–PM7) |

@@ -71,3 +71,17 @@ Resolved with option (c) plus an explicit confirmation gate. `PATCH /api/trips/:
 ### L7. `as unknown as` audit
 
 We removed the casts during the Task #3 review rounds, but the rule is enforced by code review, not by lint. Add an ESLint rule (`@typescript-eslint/consistent-type-assertions` with `assertionStyle: "as"` and `objectLiteralTypeAssertions: "never"`, plus a custom rule for double-`as`) so a future PR can't sneak one in. Priority: low.
+
+---
+
+## Pending Migration — content-migration pass
+
+The following items were collected in `replit.md §Pending Migration` during the structural pass (2026-06-15). Each needs a dedicated content-migration pass to move detail out of the cockpit and into the right doc. Do not process these during unrelated tasks.
+
+- **PM1. Run & Operate (§2)** — populate `replit.md §2` with install/dev/build/typecheck/db commands and required env var names from the codebase.
+- **PM2. Map (§4)** — populate `replit.md §4` with key directories and entry points from the codebase.
+- **PM3. Non-Negotiables (§5)** — synthesize `replit.md §5` from all "Do not" entries in `docs/architecture-sources-of-truth.md`.
+- **PM4. Core Architectural Decisions** — already documented in `docs/architecture-full-technical.md`; remove the duplicate block from `replit.md` Pending Migration section once verified.
+- **PM5. Technology Stack (detailed)** — already documented in `docs/architecture-full-technical.md`; remove the duplicate block from `replit.md` Pending Migration section once verified.
+- **PM6. External Dependencies** — populate `docs/external-services.md` with per-service env vars, auth, endpoints, and live/stub status (PostgreSQL, inbound distribution service, outbound webhooks, Web Push/VAPID, JWT, CORS allowlist).
+- **PM7. Contributing / out-of-scope backlog protocol** — verify the detailed 3-bullet procedure (formerly in `replit.md` User Preferences) is captured in the `docs/todo-out-of-scope.md` header; consolidate if needed.

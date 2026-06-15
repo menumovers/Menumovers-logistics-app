@@ -1,6 +1,6 @@
 # Bestellenbij — Full Technical Reference
 
-A reference document for new contributors. For day-to-day rule enforcement see `replit.md` and `docs/architecture_sources_of_truth.md`.
+A reference document for new contributors. For day-to-day rule enforcement see `replit.md` and `docs/architecture-sources-of-truth.md`.
 
 ## Table of Contents
 
