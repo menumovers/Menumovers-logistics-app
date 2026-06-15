@@ -1,4 +1,4 @@
-# Bestellenbij Ecosystem — `replit.md` Blueprint
+# Documentation Blueprint — `replit.md`
 
 ## Purpose
 
@@ -10,13 +10,13 @@ When applying this structure to an existing project: re-sort existing content in
 
 ## Part 0 — Ecosystem Reference
 
-The Bestellenbij ecosystem has three roles. A **storefront** (Bestellenbij.nl and sub-brands) — the customer-facing ordering platform — sends order data to a **distribution middleware** (babeldish) for fulfillment routing. The middleware routes orders, via config/rule-based logic (currently keyed by source), to one or more **logistics apps** — each shows riders and restaurants their orders, receives distributed orders from the middleware, and sends status updates back.
+The Bestellenbij ecosystem has three roles. A **storefront** (Bestellenbij.nl) — the customer-facing ordering platform — sends order data to a **distribution middleware** (babeldish) for fulfillment routing. The middleware routes orders, via config/rule-based logic (currently keyed by source), to one or more **logistics apps** — each shows riders and restaurants their orders, receives distributed orders from the middleware, and sends status updates back.
 
-There can be more than one logistics app at a time, serving different operational models (e.g. low-volume/high-rider-agency vs. high-volume/algorithmic-dispatch). Which app(s) handle which source or region is a routing decision in the middleware's configuration, not a fixed structural mapping — this can change or expand without restructuring anything. Some logistics apps may be cooperative-owned but built and maintained by a different team, without a shared `replit.md` — the ecosystem reference is still relevant context even where it isn't enforced.
+There can be more than one logistics app at a time, serving different operational models (e.g. low-volume/high-rider-agency vs. high-volume/algorithmic-dispatch). Which app(s) handle which source or region is a routing decision in the middleware's configuration, not a fixed structural mapping — this can change or expand without restructuring anything. Some logistics apps may be cooperative-owned but built and maintained by a different team, without a shared `replit.md` — the "Ecosystem boundaries are negotiable" principle (Part 1, §8) still applies to these, but changes need direct coordination with that team rather than a docs update.
 
 Each project should use this reference to identify its own role (storefront / middleware / a logistics app) and name its direct neighbors accordingly in its Identity section (Part 1, §1). The middleware's specific current logistics-app consumers — names, statuses, routing configuration — are operational detail that belongs in the middleware's own Identity and `docs/`, not in this shared reference.
 
-**Why this matters for Agent.** All three roles are under common ownership. That means repo boundaries exist for operational isolation, not as walls of authority. When working within a logistics app, if a constraint or friction point would be more cleanly dissolved by a small change upstream (in the middleware or storefront), that's a valid proposal to surface — not a thing to silently work around. The ecosystem reference is what makes that reasoning possible. See also the Working Agreement (§8) for how cross-ecosystem proposals are handled.
+**Why this matters for Agent.** This reference isn't for tracking what sibling projects are doing day to day — it's so this project can recognize when the best solution to a problem lies on the other side of one of these interfaces, and apply the "Ecosystem boundaries are negotiable" principle (Part 1, §8) rather than only optimizing within its own boundary.
 
 ---
 
@@ -32,8 +32,8 @@ Then:
 
 Then, **ecosystem position** — use Part 0 to identify which of the three roles (storefront / middleware / a logistics app) this project plays, then describe only what's relevant from there. No shared "describe the whole ecosystem" blurb — each project's slice is sized to its own boundary:
 
-- **Storefront**: a sentence or two — "sends order data to babeldish for fulfillment routing." Two things worth making explicit here, for different reasons. First: babeldish owns everything downstream of that — this project doesn't need to track which logistics apps are active, which preempts an agent going down a rabbit hole when it stumbles on references to things outside this project's boundary. Second: babeldish is built and maintained by the same team — its interface is negotiable, not a fixed external constraint. That distinction matters for how Agent reasons about solutions (see Working Agreement §8).
-- **Middleware (babeldish)**: each direct relationship — what flows, from/to whom, current status (live / planned / stub), and where the contract is defined (OpenAPI spec, `integrations.md`, etc.). Include cooperative-owned-but-externally-maintained logistics apps alongside ones built by this team — they're part of the picture even though there's no shared `replit.md` on their side.
+- **Storefront**: a sentence or two — "sends order data to babeldish for fulfillment routing." Two things worth making explicit here, for different reasons. First: babeldish owns everything downstream of that — this project doesn't need to track which logistics apps are active, which preempts an agent going down a rabbit hole when it stumbles on references to things outside this project's boundary. Second: babeldish is built and maintained by the same team — its interface is a fence you can move, not a wall like a third-party API would be, so if changing it is the best fix for something, that's a live option (see Working Agreement, "Ecosystem boundaries are negotiable").
+- **Middleware (babeldish)**: each direct relationship — what flows, from/to whom, current status (live / planned / stub), and where the contract is defined (OpenAPI spec, `external-services.md`, etc.). Include cooperative-owned-but-externally-maintained logistics apps alongside ones built by this team — they're part of the picture even though there's no shared `replit.md` on their side.
 - **A logistics app**: the relationship with babeldish is two-way — receives distributed orders, and sends status updates back via webhooks. Cover both directions, with status and contract location for each. Other logistics apps may exist as siblings, per Part 0 (different operational models, possibly different teams) — this project doesn't need their details, only that they exist and that babeldish coordinates between them.
 
 ### 2. Run & Operate
@@ -80,22 +80,22 @@ A table covering every file in `docs/`. This is the single most important sectio
 | Document | Contents | Bucket | Update trigger |
 |---|---|---|---|
 | `architecture-sources-of-truth.md` | Full SSOT pattern registry | Routine | New reusable pattern/helper created |
-| `changelog.md` | Dated record of architecturally-significant changes | Routine | New integration goes live, pattern added/retired, major decision made/reversed |
+| `changelog.md` | Dated record of architecturally-significant changes | Routine | New external service goes live, pattern added/retired, major decision made/reversed |
 | `architecture.md` | Short contributor summary | Core-contract | Real architectural shift |
-| `architecture-full-technical.md` | Deep technical reference | Core-contract | Major feature or integration change |
-| `external-services.md` | Per-service env vars, auth, endpoints, status | Routine | Integration added/changed |
+| `architecture-full-technical.md` | Deep technical reference | Core-contract | Major feature or external service change |
+| `external-services.md` | Per-service env vars, auth, endpoints, status | Routine | External service added/changed |
 | `todo-out-of-scope.md` | Deferred-work backlog | Routine (automated) | Existing protocol — unchanged |
 | `todo.md` | Lean, uncategorized quick-capture inbox | Idea-space | Periodic triage only |
 | `todo-bugs.md` | Confirmed low-priority defects | Idea-space (on-command) | Only when explicitly added/moved |
 | `todo-roadmap.md` | Planned-but-not-built product/feature work | Idea-space (on-command) | Only when explicitly added/moved |
 
-The **bucket** column governs how cautiously Agent should treat self-edits to that doc (see Maintenance, §9, and Part 2 for per-doc protocols).
+The **bucket** column governs how cautiously Agent should treat self-edits to that doc (see Maintenance, §9, and Part 2 for per-doc protocols). This table isn't capped at nine rows — a project may add others here for docs that have earned a defined role of their own (Part 2, "Beyond the nine"), with a bucket assigned via Maintenance §9's "Discoveries that don't fit."
 
-**Other reference material** (if any exists in this project) gets a lighter second list — name and purpose only, no bucket or trigger:
+**Notes** — anything relocated into `docs/notes/` (see Part 2) gets a lighter second list, name and purpose only:
 
 | Document | What it's for |
 |---|---|
-| *(e.g.)* `gdpr-readiness.md` | Tracked checklist of privacy/GDPR/production-hardening items — exists for its own compliance purposes, not part of the blueprint system |
+| `notes/<name>.md` | One-line description of what this is for — filled in per project during migration |
 
 ### 8. Working Agreement
 
@@ -111,18 +111,18 @@ Shared across **all** Bestellenbij-ecosystem projects, worded identically by des
 >
 > **Out-of-scope backlog.** When a task is completed, anything explicitly scoped out of it gets logged to `docs/todo-out-of-scope.md` per the existing protocol — confirm it isn't already implemented elsewhere before adding, mark items as `completed` or promoted to `now a task` as appropriate.
 >
-> **Changelog discipline.** Before closing a task, check whether anything warrants a `changelog.md` entry per the trigger list in §7. If yes, add one dated entry — what changed and why, in two lines or fewer.
+> **Changelog discipline.** Before considering a task done, ask whether it made an architecturally-significant change — a new external service went live, a pattern was added or retired, a major decision was made or reversed. If so, add a dated entry to `docs/changelog.md` in the format shown in Part 2.
 >
-> **Ecosystem boundaries are negotiable.** This project is one part of the Bestellenbij ecosystem — the storefront, distribution middleware, and rider/restaurant logistics apps are all under common ownership, plus at least one cooperative-owned app maintained by another team. Repo boundaries exist for operational isolation (so a failure in one doesn't take down the rest), not because these are walls of authority. If the best solution to a problem involves a change on another project in the ecosystem, propose it and wait for explicit approval before acting on it. Never make or attempt a cross-repo change unilaterally. The direction to look is always upstream first: a constraint that could be dissolved by a small change in the middleware or storefront is worth naming, not silently working around.
+> **Ecosystem boundaries are negotiable.** This project is one part of the Bestellenbij ecosystem — the storefront, distribution middleware, and rider/restaurant logistics apps are all under common ownership, plus at least one cooperative-owned app maintained by another team. Repo boundaries exist for operational isolation (so a failure in one doesn't take down the rest), not because these are walls of authority. If the best solution to a problem involves a change on the other side of an interface — including a change someone else's team would need to make — say so explicitly: describe what the change would be and where it would need to happen, rather than only optimizing within this repo. Propose it, and wait for explicit approval before acting on it — never unilaterally.
 
 ### 9. Maintenance
 
 Governs how Agent treats `replit.md` itself when self-updating (Replit Agent updates this file as it works — there's no separate human/agent file split here, so this section *is* the discipline).
 
-- **Core-contract sections** — Identity, Non-Negotiables, Working Agreement, this Maintenance section — change rarely and deliberately. Never update a Core-contract section as a side effect of an unrelated task. If a session identifies a genuine need to change one of these sections, surface it explicitly and wait for confirmation before editing.
+- **Core-contract sections** — Identity, Non-Negotiables, Working Agreement, this Maintenance section — change rarely and deliberately. Never edit these as a side effect of unrelated work. If a session feels one of these needs substantial rewriting, surface that explicitly and wait for confirmation before making the change.
 - **Routine sections** — Run & Operate / Stack / Map update when the underlying facts change (new command, new directory, new dependency). Documentation Index entries update when their target doc's purpose or status changes. SSOT Quick-Reference gets a new line whenever `architecture-sources-of-truth.md` gains a new entry.
 - **Discoveries that don't fit** — if something comes up that doesn't have an obvious home in this structure, propose a new `docs/` entry (assign it a bucket per Part 2's categories) rather than appending it to the cockpit. If genuinely unclear where it belongs, flag it rather than guessing.
-- **Size discipline** — if `replit.md` grows past ~180 lines, treat that as a signal to ask whether content has crept back in that belongs in a `docs/` file. This is a diagnostic signal, not a hard cap — some projects legitimately need more; the question is always whether each line belongs in the cockpit or in a deeper doc.
+- **Size discipline** — the ~150–180 line range is a diagnostic signal, not a hard cap. If `replit.md` creeps past it, that's a prompt to go through it line by line and ask whether each one still earns its place in the cockpit (per Purpose, above) — not to trim indiscriminately just to hit a number.
 - **Readability** — this file is also human-facing documentation. Keep prose readable, not just terse instruction fragments.
 
 ---
@@ -133,21 +133,23 @@ Governs how Agent treats `replit.md` itself when self-updating (Replit Agent upd
 The full SSOT pattern registry — every reusable calculation/utility/pattern that could otherwise be silently re-implemented: canonical function, signature/usage, file location, and an explicit "do not inline" note. Update whenever a new pattern is created or an existing one changes. (Previously also described as covering an "architectural changelog" — that responsibility now lives in `changelog.md`; this file is purely the pattern registry.)
 
 ### `changelog.md` — *Routine*
-Dated, terse entries for architecturally-significant changes: a new integration goes live, a pattern is added or retired, a major decision is made or reversed. One or two lines per entry, with a task reference if applicable. This is the home for the kind of provenance currently embedded inline as "(Task #N)" markers in some current-state docs — during migration, consider extracting those into dated entries here so the architecture docs can describe *now* without historical clutter.
+Dated, terse entries for architecturally-significant changes: a new external service goes live, a pattern is added or retired, a major decision is made or reversed. One or two lines per entry, with a task reference if applicable. This is the home for the kind of provenance currently embedded inline as "(Task #N)" markers in some current-state docs — during migration, consider extracting those into dated entries here so the architecture docs can describe *now* without historical clutter.
 
-Format: `YYYY-MM-DD — [what changed] — [why / context]`. Example:
+Format:
 ```
-2026-06-14 — Added trip bundling (trips + trip_stops tables, /api/trips routes) — coordinator need to batch multi-stop deliveries efficiently without opening multiple assignments.
+- 2026-06-15 (Task #42): Resend email notifications went live for restaurant order confirmations.
+- 2026-05-03: `calcVatAllocation` became the canonical VAT/fee helper — replaces inline calculations in checkout.
+- 2026-04-20 (Task #31): Reversed earlier decision to poll for rider status; switched to webhook-based updates.
 ```
 
 ### `architecture.md` — *Core-contract*
 Short contributor-facing summary — the high-level "why" behind major decisions, written for someone (or some session) orienting on a subsystem without needing full depth. Tiered alongside `architecture-full-technical.md` below.
 
 ### `architecture-full-technical.md` — *Core-contract*
-The deep reference: full tech stack with versions, detailed architectural decision narratives (the kind of depth in the existing "Trips"/"Two PWAs" writeups), route/auth/boot-sequence tables, testing infrastructure detail. Updated when adding major features or integration changes.
+The deep reference: full tech stack with versions, detailed architectural decision narratives (the kind of depth in the existing "Trips"/"Two PWAs" writeups), route/auth/boot-sequence tables, testing infrastructure detail. Updated when adding major features or external service changes.
 
 ### `external-services.md` — *Routine*
-Per external service: env vars, auth, endpoints, provisioning steps, and live/stub status. Updated whenever an integration is added or changes status. (Named `external-services.md` rather than `integrations.md` to avoid confusion with Replit's integration marketplace.)
+Per external service: env vars, auth, endpoints, provisioning steps, and live/stub status. Updated whenever an external service is added or its status changes.
 
 ### `todo-out-of-scope.md` — *Routine, automated*
 Unchanged from the existing protocol: canonical list of deferred work, updated as a routine part of closing a task. New deferred items get a source-task reference and a check that they aren't already implemented; completed items get marked; promoted items get an annotation.
@@ -161,13 +163,15 @@ Confirmed defects that aren't urgent enough to fix now but shouldn't be forgotte
 ### `todo-roadmap.md` — *Idea-space, on-command*
 Planned-but-not-yet-built product/feature extensions — your own roadmap notes. Populated only on command, same as above.
 
-### Blueprint docs vs. other reference material
+### Beyond the nine: project-specific docs and notes
 
-The nine docs above form *the system* — each has a defined role, bucket, and maintenance protocol, and gets a full row in the Documentation Index (contents / bucket / update trigger).
+The nine docs above are the only ones guaranteed to exist — every project has all nine (created as stubs where missing, per Part 3). Each has a universal, predefined role, bucket, and maintenance protocol, and gets a full row in the Documentation Index.
 
-`docs/` may also contain files that aren't part of this system at all: compliance checklists, migration ledgers, one-off audits, anything that exists for its own reasons and has its own lifecycle independent of the blueprint. A GDPR readiness checklist is a good example — it's a real, useful document, but it isn't a "blueprint doc." It doesn't need a bucket, an update trigger, or to be folded into the routine/core-contract/idea-space framework; it has its own purpose and its own owner already.
+A project may also have additional docs that have earned a full Documentation Index entry — their own defined role, bucket, and update trigger — without being part of the universal nine. These are project-specific: something that matters enough to *this* project to warrant a real maintained reference (a compliance policy doc, say). They get a bucket assigned via the "Discoveries that don't fit" process in Maintenance (§9), and then sit alongside the nine in the main table.
 
-For these, the Documentation Index needs only enough to make them *discoverable* — a name and a one-line "what this is for," with no bucket or trigger forced onto it. During restructuring, the default for anything in this category is: leave it as-is, just make sure it's listed.
+Anything that hasn't reached that point yet — working notes, in-progress checklists, loose collections of ideas on a topic — lives in `docs/notes/` and gets only the lighter listing (name + one-line purpose, no bucket or trigger). These can be promoted later: once something in `docs/notes/` becomes a real, maintained reference in its own right, it moves into `docs/`, gets a bucket assigned the same way, and graduates to the main table.
+
+During restructuring, the default for anything not obviously one of the nine is: if it already functions as a defined reference, give it a full entry (assign a bucket per §9); otherwise relocate it into `docs/notes/` (creating the folder if needed), update any cross-references, and list it in the lighter table — without rewriting its content either way.
 
 ---
 
@@ -181,12 +185,12 @@ Generic instructions, same wording for every project:
 >
 > 1. Read the current `replit.md` and inventory `docs/`, including any pre-blueprint one-off docs.
 > 2. Using Part 0 (Ecosystem Reference), identify which role this project plays — storefront, middleware, or a logistics app — and what its direct neighbors are. This grounds step 7 below.
-> 3. Re-sort `replit.md`'s existing content into the Part 1 section structure. If something clearly belongs in a `docs/` file instead (per Part 1/2) but isn't being moved this pass, leave it where it is and collect it under a temporary "Pending Migration" section at the end of `replit.md` — to be processed and removed during the content-migration pass. **For each item placed in Pending Migration, assign its destination immediately** — add a stub entry to the Documentation Index if needed and a tracking line in the appropriate `todo` doc. The content moves later; the intent should not be left unanchored.
-> 4. While inventorying `docs/`, categorize each existing file as a blueprint doc (the nine in Part 2) or standalone reference material (compliance checklists, audits, ledgers, etc.) for the Documentation Index, without rewriting either's content.
-> 5. Case-normalize filenames to lowercase kebab-case (e.g. `ARCHITECTURE_SOURCES_OF_TRUTH.md` → `architecture-sources-of-truth.md`), updating all cross-references to the old names in every file that references them.
+> 3. Re-sort `replit.md`'s existing content into the Part 1 section structure. If something clearly belongs in a `docs/` file instead (per Part 1/2) but isn't being moved this pass, collect it under a temporary "Pending Migration" section at the end of `replit.md`, with each item tagged with its intended destination doc (e.g. "→ `architecture-full-technical.md`") — to be processed and removed during the content-migration pass. Unanchored items tend to stay forever; an assigned destination is what makes the follow-up pass mechanical.
+> 4. While inventorying `docs/`, categorize each existing file: (a) one of the nine blueprint docs (Part 2); (b) a project-specific doc that already functions as a defined, maintained reference — give it a full Documentation Index entry, assigning a bucket via §9's "Discoveries that don't fit"; (c) a note — relocate into `docs/notes/` (creating the folder if needed) and add a lighter entry; or (d) neither of these — flag for review. Don't rewrite content in any case.
+> 5. Case-normalize filenames to lowercase kebab-case (e.g. `ARCHITECTURE_SOURCES_OF_TRUTH.md` → `architecture-sources-of-truth.md`). Update every cross-reference to a file renamed or relocated in this pass — in `replit.md` and in any other `docs/` file that links to it — so nothing breaks. Fixing broken links from renames or moves is a mechanical edit, not the kind of content rewrite this pass is otherwise scoped to avoid.
 > 6. Create any missing standard `docs/` files from Part 2 that plausibly apply to this project (commonly `changelog.md` and `external-services.md`) as stubs — a title plus a one-line "to be populated in the content-migration pass" note. If one clearly doesn't apply, note why rather than creating it.
-> 7. Populate the Documentation Index (Part 1, §7) completely — every blueprint doc, plus an entry in "other reference material" for everything found in step 4 that falls into that category.
+> 7. Populate the Documentation Index (Part 1, §7) completely — every blueprint doc, every project-specific doc from step 4(b) in the main table, and an entry in the Notes table for everything relocated to `docs/notes/` in step 4(c).
 > 8. For the Identity section's ecosystem position, describe only this project's direct upstream/downstream relationships (per step 2), at the level of detail relevant to this project's own work — don't attempt to reproduce the whole Part 0 reference.
 > 9. Apply the Working Agreement (Part 1, §8) verbatim — it's shared across all Bestellenbij projects by design.
 > 10. Adopt the Maintenance rules (Part 1, §9) for self-updates going forward.
-> 11. The ~150–180 line guideline (Part 1, §9) may not be met yet if step 3 produced a Pending Migration section — that's expected, and gets resolved in the content-migration pass. The section *structure* should otherwise match Part 1 in full.
+> 11. The ~150–180 line range (Part 1, §9) is a diagnostic signal, not a target to hit in this pass — it may well sit above that range if step 3 produced a Pending Migration section. That's expected, and gets resolved in the content-migration pass. The section *structure* should otherwise match Part 1 in full.
