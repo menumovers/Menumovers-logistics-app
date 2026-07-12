@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useParams } from "wouter";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   useGetOrder,
   useAssignOrder,
@@ -16,6 +16,7 @@ import {
   getListRidersQueryKey,
   getListOrdersQueryKey,
   type OrderDetail,
+  type OrderItem,
   type OrderStatus as OrderStatusType,
   PickupTimeSource,
 } from "@workspace/api-client-react";
@@ -35,8 +36,9 @@ import { Separator } from "@/components/ui/separator";
 import { Spinner } from "@/components/ui/spinner";
 import { StatusBadge } from "@/components/status-badge";
 import { PickupCountdown, PickupSourceBadge } from "@/components/pickup-countdown";
-import { ArrowLeft, Bike, MapPin, Phone, Mail, Plus, EyeOff, Bell, History } from "lucide-react";
+import { ArrowLeft, Bike, MapPin, Phone, Mail, Plus, Eye, EyeOff, Bell, History } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { getOriginalOrderItems, unhideOrderItem } from "@/lib/api";
 import { effectivePickup, formatCurrency, formatDateTime, formatTime } from "@/lib/format";
 
 const TRANSITIONS: Record<OrderStatusType, OrderStatusType[]> = {
@@ -99,11 +101,16 @@ export default function CoordinatorOrderPage() {
   );
 }
 
+function originalOrderItemsQueryKey(orderId: string) {
+  return ["original-order-items", orderId] as const;
+}
+
 function useInvalidateOrder(orderId: string) {
   const qc = useQueryClient();
   return () => {
     qc.invalidateQueries({ queryKey: getGetOrderQueryKey(orderId) });
     qc.invalidateQueries({ queryKey: getListOrdersQueryKey() });
+    qc.invalidateQueries({ queryKey: originalOrderItemsQueryKey(orderId) });
   };
 }
 
@@ -216,15 +223,33 @@ function ItemsCard({ order }: { order: OrderDetail }) {
   const add = useAddOrderItem();
   const invalidate = useInvalidateOrder(order.id);
   const { toast } = useToast();
+  const originalItems = useQuery({
+    queryKey: originalOrderItemsQueryKey(order.id),
+    queryFn: () => getOriginalOrderItems(order.id),
+    refetchInterval: 30_000,
+  });
+  const [pendingUnhideIndex, setPendingUnhideIndex] = useState<number | null>(null);
   const hidden = new Set(
     (order.itemOverrides ?? []).filter((o) => o.type === "hide" && o.itemIndex != null).map((o) => o.itemIndex as number),
   );
   const extras = (order.itemOverrides ?? []).filter((o) => o.type === "add").map((o) => o.addedItem!).filter(Boolean);
+  const displayItems: OrderItem[] = originalItems.data?.items ?? order.items;
 
   const [name, setName] = useState("");
   const [qty, setQty] = useState("1");
   const [price, setPrice] = useState("0.00");
   const [notes, setNotes] = useState("");
+
+  async function unhide(itemIndex: number) {
+    setPendingUnhideIndex(itemIndex);
+    try {
+      await unhideOrderItem(order.id, itemIndex);
+      toast({ title: t("coordinator.unhideItem") });
+      invalidate();
+    } finally {
+      setPendingUnhideIndex(null);
+    }
+  }
 
   return (
     <Card>
@@ -234,27 +259,50 @@ function ItemsCard({ order }: { order: OrderDetail }) {
       </CardHeader>
       <CardContent className="space-y-4">
         <ul className="text-sm divide-y divide-border">
-          {order.items.map((it, i) => {
+          {displayItems.map((it, i) => {
             const isHidden = hidden.has(i);
             return (
-              <li key={i} className="flex items-center justify-between py-2 gap-3" data-testid={`row-item-${i}`}>
-                <div className={isHidden ? "line-through text-muted-foreground flex-1" : "flex-1"}>
-                  <span className="text-muted-foreground tabular-nums">{it.quantity}× </span>
-                  {it.name}
+              <li
+                key={i}
+                className={`flex items-center justify-between py-2 gap-3 ${isHidden ? "bg-muted/40 px-2 -mx-2 rounded-md" : ""}`}
+                data-testid={`row-item-${i}`}
+              >
+                <div className={isHidden ? "text-muted-foreground flex-1" : "flex-1"}>
+                  <div className={isHidden ? "line-through" : ""}>
+                    <span className="text-muted-foreground tabular-nums">{it.quantity}× </span>
+                    {it.name}
+                  </div>
                   {it.notes ? <span className="block text-xs text-muted-foreground">{it.notes}</span> : null}
+                  {isHidden ? (
+                    <span className="mt-1 inline-flex items-center rounded border border-border bg-background px-1.5 py-0.5 text-[10px] uppercase text-muted-foreground">
+                      {t("coordinator.hiddenForOthers")}
+                    </span>
+                  ) : null}
                 </div>
                 <span className="tabular-nums text-muted-foreground">{formatCurrency(it.price, lang)}</span>
                 {!isHidden ? (
                   <Button
                     variant="ghost"
                     size="sm"
+                    disabled={hide.isPending}
                     onClick={() => hide.mutate({ id: order.id, data: { itemIndex: i } }, { onSuccess: invalidate })}
+                    title={t("coordinator.hideItemLabel", { name: it.name })}
                     data-testid={`button-hide-item-${i}`}
                   >
                     <EyeOff className="size-3.5" />
                   </Button>
                 ) : (
-                  <span className="text-xs text-muted-foreground italic">{t("coordinator.hidden")}</span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    disabled={pendingUnhideIndex === i}
+                    onClick={() => void unhide(i)}
+                    title={t("coordinator.unhideItemLabel", { name: it.name })}
+                    data-testid={`button-unhide-item-${i}`}
+                  >
+                    <Eye className="size-3.5" />
+                    <span className="sr-only">{t("coordinator.unhideItem")}</span>
+                  </Button>
                 )}
               </li>
             );
