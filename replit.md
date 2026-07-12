@@ -24,7 +24,12 @@ Bestellenbij is an internal Progressive Web App (PWA) for food-delivery logistic
 
 ## 2. Run & Operate
 
-→ Pending Migration (content-migration pass): commands and env var names to be populated from codebase.
+**Migration workflow:** `pnpm --filter @workspace/db run push` applies local schema changes to the database. Schema-drift guard: `pnpm --filter @workspace/db run db:drift` — exits non-zero if `lib/db/src/schema/` has uncommitted changes, signalling that schema was edited but `push` may not have been run. (This project uses `push`, not migrations — the guard catches local edits, not live DB divergence.)
+
+**Importing external code (GitHub / PR merges):** the platform runs `scripts/post-merge.sh` (install + `db push`) automatically after *platform-managed* merges — but a **manual** GitHub merge or PR merge on `main` bypasses it, leaving the environment un-reconciled (unlinked deps, unapplied schema changes). When the user says they imported or merged external code:
+1. **Clarify what they actually did first** — a manual GitHub merge, a fresh import, or a rebase? Each reconciles slightly differently; don't assume.
+2. Run `scripts/post-merge.sh`, then run **all** validation steps up front in one pass (`db:drift`, typecheck, any tests) and collect every failure before fixing — don't fix one, re-run, discover the next.
+3. **Do** fix reconciliation breakage (unlinked deps, unapplied schema). **Don't** rewrite app logic, "improve" unrelated code, or revert files the merge legitimately changed.
 
 ---
 
@@ -124,7 +129,6 @@ Content that can't yet live cleanly in a cockpit section — to be processed in 
 - **Core Architectural Decisions** (12 bullets from the former §System Architecture: path-based proxy, polling/push, server-validated state machine, atomic rider assignment, database-backed webhook retry queue, centralized push audiences, additive item overrides, JWT with JTI revocation, money as string, locale resolution priority, two PWAs one bundle, configurable outbound webhook URL, rider self-claim toggle, trips/order bundling) → `docs/architecture-full-technical.md` *(already documented there; remove from cockpit in content-migration pass)*
 - **Technology Stack** (detailed annotated list with parenthetical implementation notes) → `docs/architecture-full-technical.md` *(already documented there)*
 - **External Dependencies** (6 bullets: PostgreSQL/DATABASE_URL, inbound distribution service/INBOUND_SHARED_SECRET, outbound webhooks/WEBHOOK_URL, Web Push/VAPID keys, JWT/JWT_SECRET, CORS/CORS_ALLOWED_ORIGINS) → `docs/external-services.md` *(to be populated in content-migration pass)*
-- **Run & Operate commands** → `replit.md §2` *(populate from codebase in content-migration pass)*
 - **Map** (directory structure and entry points) → `replit.md §4` *(populate from codebase in content-migration pass)*
 - **Non-Negotiables** → `replit.md §5` *(synthesize from `docs/architecture-sources-of-truth.md` "Do not" entries in content-migration pass)*
 - **Contributing / out-of-scope backlog protocol** (detailed 3-bullet procedure from former User Preferences) → superseded by §8 Working Agreement "Out-of-scope backlog" bullet; detailed procedure belongs in `docs/todo-out-of-scope.md` header *(verify and consolidate in content-migration pass)*
