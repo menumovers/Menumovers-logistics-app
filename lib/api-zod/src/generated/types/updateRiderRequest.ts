@@ -10,6 +10,8 @@ import type { RiderAvailability } from "./riderAvailability";
 
 export interface UpdateRiderRequest {
   name?: string;
+  /** @minLength 1 */
+  nameCode?: string;
   /** @nullable */
   phone?: string | null;
   availabilityStatus?: RiderAvailability;

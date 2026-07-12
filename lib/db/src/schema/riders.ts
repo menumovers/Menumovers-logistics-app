@@ -15,6 +15,7 @@ export const ridersTable = pgTable(
     userId: uuid("user_id")
       .notNull()
       .references(() => usersTable.id, { onDelete: "cascade" }),
+    nameCode: text("name_code").notNull().unique(),
     availabilityStatus: riderAvailabilityEnum("availability_status")
       .notNull()
       .default("offline"),

@@ -10,6 +10,8 @@ import type { RiderAvailability } from "./riderAvailability";
 export interface CreateRiderRequest {
   email: string;
   name: string;
+  /** @minLength 1 */
+  nameCode: string;
   password: string;
   /** @nullable */
   phone?: string | null;

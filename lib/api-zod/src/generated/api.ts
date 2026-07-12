@@ -1301,9 +1301,11 @@ export const UpdateOrderContactResponse = zod
 /**
  * @summary List riders with current workload counts
  */
+
 export const ListRidersResponseItem = zod.object({
   id: zod.string(),
   userId: zod.string(),
+  nameCode: zod.string().min(1),
   name: zod.string(),
   email: zod.string(),
   phone: zod.string().nullish(),
@@ -1317,9 +1319,11 @@ export const ListRidersResponse = zod.array(ListRidersResponseItem);
 /**
  * @summary Create a new rider account
  */
+
 export const CreateRiderBody = zod.object({
   email: zod.string(),
   name: zod.string(),
+  nameCode: zod.string().min(1),
   password: zod.string(),
   phone: zod.string().nullish(),
   availabilityStatus: zod.enum(["offline", "online", "backup"]).optional(),
@@ -1334,6 +1338,7 @@ export const UpdateRiderParams = zod.object({
 
 export const UpdateRiderBody = zod.object({
   name: zod.string().optional(),
+  nameCode: zod.string().min(1).optional(),
   phone: zod.string().nullish(),
   availabilityStatus: zod.enum(["offline", "online", "backup"]).optional(),
   accountStatus: zod.enum(["active", "suspended"]).optional(),
@@ -1342,6 +1347,7 @@ export const UpdateRiderBody = zod.object({
 export const UpdateRiderResponse = zod.object({
   id: zod.string(),
   userId: zod.string(),
+  nameCode: zod.string().min(1),
   name: zod.string(),
   email: zod.string(),
   phone: zod.string().nullish(),
@@ -1361,6 +1367,7 @@ export const SetOwnAvailabilityBody = zod.object({
 export const SetOwnAvailabilityResponse = zod.object({
   id: zod.string(),
   userId: zod.string(),
+  nameCode: zod.string().min(1),
   name: zod.string(),
   email: zod.string(),
   phone: zod.string().nullish(),
@@ -1373,6 +1380,7 @@ export const SetOwnAvailabilityResponse = zod.object({
 export const ListRestaurantsResponseItem = zod.object({
   id: zod.string(),
   name: zod.string(),
+  nameCode: zod.string().min(1),
   address: zod.string(),
   phone: zod.string().nullish(),
   minDeliveryTime: zod.number(),
@@ -1382,6 +1390,7 @@ export const ListRestaurantsResponse = zod.array(ListRestaurantsResponseItem);
 
 export const CreateRestaurantBody = zod.object({
   name: zod.string(),
+  nameCode: zod.string().min(1),
   address: zod.string(),
   phone: zod.string().nullish(),
   minDeliveryTime: zod.number(),
@@ -1393,6 +1402,7 @@ export const UpdateRestaurantParams = zod.object({
 
 export const UpdateRestaurantBody = zod.object({
   name: zod.string().optional(),
+  nameCode: zod.string().min(1).optional(),
   address: zod.string().optional(),
   phone: zod.string().nullish(),
   minDeliveryTime: zod.number().optional(),
@@ -1401,6 +1411,7 @@ export const UpdateRestaurantBody = zod.object({
 export const UpdateRestaurantResponse = zod.object({
   id: zod.string(),
   name: zod.string(),
+  nameCode: zod.string().min(1),
   address: zod.string(),
   phone: zod.string().nullish(),
   minDeliveryTime: zod.number(),

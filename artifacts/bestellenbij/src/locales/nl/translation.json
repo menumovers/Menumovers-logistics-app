@@ -209,6 +209,7 @@
     "newUser": "Gebruiker toevoegen",
     "newRestaurant": "Restaurant toevoegen",
     "newRider": "Rijder toevoegen",
+    "nameCode": "Naamcode",
     "minDeliveryTime": "Minimale bereidingstijd (minuten)",
     "outboundWebhook": "Uitgaande webhook URL",
     "outboundWebhookPlaceholder": "https://voorbeeld.nl/webhook",

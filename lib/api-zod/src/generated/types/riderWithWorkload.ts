@@ -11,6 +11,8 @@ import type { RiderAvailability } from "./riderAvailability";
 export interface RiderWithWorkload {
   id: string;
   userId: string;
+  /** @minLength 1 */
+  nameCode: string;
   name: string;
   email: string;
   /** @nullable */

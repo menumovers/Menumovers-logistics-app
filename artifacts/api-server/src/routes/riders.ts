@@ -35,6 +35,7 @@ async function buildRiderViews(riderIds: string[]) {
     .select({
       id: ridersTable.id,
       userId: ridersTable.userId,
+      nameCode: ridersTable.nameCode,
       phone: ridersTable.phone,
       availabilityStatus: ridersTable.availabilityStatus,
       name: usersTable.name,
@@ -65,6 +66,7 @@ async function buildRiderViews(riderIds: string[]) {
   return riders.map((r) => ({
     id: r.id,
     userId: r.userId,
+    nameCode: r.nameCode,
     name: r.name,
     email: r.email,
     phone: r.phone,
@@ -93,31 +95,44 @@ router.post(
   wrap(async (req, res) => {
     const parsed = CreateRiderBody.safeParse(req.body);
     if (!parsed.success) throw httpError(400, "VALIDATION_ERROR", parsed.error.message);
-    const { email, name, password, phone, availabilityStatus } = parsed.data;
+    const { email, name, nameCode, password, phone, availabilityStatus } = parsed.data;
     const passwordHash = await hashPassword(password);
 
-    const [user] = await db
-      .insert(usersTable)
-      .values({
-        email: email.toLowerCase(),
-        name,
-        passwordHash,
-        role: "rider",
-      })
-      .returning();
-    if (!user) throw httpError(500, "DB_ERROR", "Failed to create user");
+    let riderId: string;
+    try {
+      riderId = await db.transaction(async (tx) => {
+        const [user] = await tx
+          .insert(usersTable)
+          .values({
+            email: email.toLowerCase(),
+            name,
+            passwordHash,
+            role: "rider",
+          })
+          .returning();
+        if (!user) throw httpError(500, "DB_ERROR", "Failed to create user");
 
-    const [rider] = await db
-      .insert(ridersTable)
-      .values({
-        userId: user.id,
-        phone: phone ?? null,
-        availabilityStatus: (availabilityStatus as RiderAvailability) ?? "offline",
-      })
-      .returning();
-    if (!rider) throw httpError(500, "DB_ERROR", "Failed to create rider");
+        const [rider] = await tx
+          .insert(ridersTable)
+          .values({
+            userId: user.id,
+            nameCode,
+            phone: phone ?? null,
+            availabilityStatus: (availabilityStatus as RiderAvailability) ?? "offline",
+          })
+          .returning();
+        if (!rider) throw httpError(500, "DB_ERROR", "Failed to create rider");
 
-    const [view] = await buildRiderViews([rider.id]);
+        return rider.id;
+      });
+    } catch (err: unknown) {
+      if (err instanceof Error && err.message.includes("riders_name_code_unique")) {
+        throw httpError(400, "NAME_CODE_CONFLICT", "A rider with that name code already exists");
+      }
+      throw err;
+    }
+
+    const [view] = await buildRiderViews([riderId]);
     res.status(201).json(view);
   }),
 );
@@ -138,12 +153,20 @@ router.patch(
     if (!rider) throw httpError(404, "RIDER_NOT_FOUND", "Rider not found");
 
     const riderUpdates: Partial<typeof ridersTable.$inferInsert> = {};
+    if (parsed.data.nameCode !== undefined) riderUpdates.nameCode = parsed.data.nameCode;
     if (parsed.data.phone !== undefined) riderUpdates.phone = parsed.data.phone ?? null;
     if (parsed.data.availabilityStatus !== undefined) {
       riderUpdates.availabilityStatus = parsed.data.availabilityStatus as RiderAvailability;
     }
     if (Object.keys(riderUpdates).length > 0) {
-      await db.update(ridersTable).set(riderUpdates).where(eq(ridersTable.id, id));
+      try {
+        await db.update(ridersTable).set(riderUpdates).where(eq(ridersTable.id, id));
+      } catch (err: unknown) {
+        if (err instanceof Error && err.message.includes("riders_name_code_unique")) {
+          throw httpError(400, "NAME_CODE_CONFLICT", "A rider with that name code already exists");
+        }
+        throw err;
+      }
     }
 
     const userUpdates: Partial<typeof usersTable.$inferInsert> = {};

@@ -160,7 +160,7 @@ function RestaurantsPanel() {
   const del = useDeleteRestaurant();
   const { toast } = useToast();
 
-  const [form, setForm] = useState({ name: "", address: "", phone: "", minDeliveryTime: 30 });
+  const [form, setForm] = useState({ name: "", nameCode: "", address: "", phone: "", minDeliveryTime: 30 });
   function invalidate() { qc.invalidateQueries({ queryKey: getListRestaurantsQueryKey() }); }
 
   return (
@@ -175,14 +175,14 @@ function RestaurantsPanel() {
               create.mutate(
                 {
                   data: {
-                    name: form.name, address: form.address,
+                    name: form.name, nameCode: form.nameCode, address: form.address,
                     phone: form.phone || null,
                     minDeliveryTime: Math.max(1, Number(form.minDeliveryTime) || 30),
                   },
                 },
                 {
                   onSuccess: () => {
-                    setForm({ name: "", address: "", phone: "", minDeliveryTime: 30 });
+                    setForm({ name: "", nameCode: "", address: "", phone: "", minDeliveryTime: 30 });
                     toast({ title: t("admin.newRestaurant") });
                     invalidate();
                   },
@@ -191,6 +191,7 @@ function RestaurantsPanel() {
             }}
           >
             <div className="md:col-span-2"><Label className="text-xs">{t("common.name")}</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required data-testid="input-new-rest-name" /></div>
+            <div><Label className="text-xs">{t("admin.nameCode")}</Label><Input value={form.nameCode} onChange={(e) => setForm({ ...form, nameCode: e.target.value })} required data-testid="input-new-rest-name-code" /></div>
             <div className="md:col-span-2"><Label className="text-xs">{t("common.address")}</Label><Input value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} required data-testid="input-new-rest-address" /></div>
             <div><Label className="text-xs">{t("common.phone")}</Label><Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} data-testid="input-new-rest-phone" /></div>
             <div className="md:col-span-2"><Label className="text-xs">{t("admin.minDeliveryTime")}</Label><Input type="number" min={1} value={form.minDeliveryTime} onChange={(e) => setForm({ ...form, minDeliveryTime: Number(e.target.value) })} data-testid="input-new-rest-min-delivery" /></div>
@@ -210,14 +211,16 @@ function RestaurantsPanel() {
 function RestaurantRow({ restaurant, onUpdate, onDelete }: { restaurant: Restaurant; onUpdate: ReturnType<typeof useUpdateRestaurant>["mutate"]; onDelete: () => void }) {
   const { t } = useTranslation();
   const [name, setName] = useState(restaurant.name);
+  const [nameCode, setNameCode] = useState(restaurant.nameCode);
   const [addr, setAddr] = useState(restaurant.address);
   const [phone, setPhone] = useState(restaurant.phone ?? "");
   const [mdt, setMdt] = useState(restaurant.minDeliveryTime);
-  const dirty = name !== restaurant.name || addr !== restaurant.address || phone !== (restaurant.phone ?? "") || mdt !== restaurant.minDeliveryTime;
+  const dirty = name !== restaurant.name || nameCode !== restaurant.nameCode || addr !== restaurant.address || phone !== (restaurant.phone ?? "") || mdt !== restaurant.minDeliveryTime;
   return (
     <Card data-testid={`row-restaurant-${restaurant.id}`}>
       <CardContent className="py-3 grid grid-cols-1 md:grid-cols-6 gap-2 items-end">
         <div className="md:col-span-2"><Label className="text-xs">{t("common.name")}</Label><Input value={name} onChange={(e) => setName(e.target.value)} /></div>
+        <div><Label className="text-xs">{t("admin.nameCode")}</Label><Input value={nameCode} onChange={(e) => setNameCode(e.target.value)} data-testid={`input-rest-name-code-${restaurant.id}`} /></div>
         <div className="md:col-span-2"><Label className="text-xs">{t("common.address")}</Label><Input value={addr} onChange={(e) => setAddr(e.target.value)} /></div>
         <div><Label className="text-xs">{t("common.phone")}</Label><Input value={phone} onChange={(e) => setPhone(e.target.value)} /></div>
         <div><Label className="text-xs">{t("admin.minDeliveryTime")}</Label><Input type="number" min={1} value={mdt} onChange={(e) => setMdt(Number(e.target.value))} /></div>
@@ -225,7 +228,7 @@ function RestaurantRow({ restaurant, onUpdate, onDelete }: { restaurant: Restaur
           <Button
             variant="outline"
             disabled={!dirty}
-            onClick={() => onUpdate({ id: restaurant.id, data: { name, address: addr, phone: phone || null, minDeliveryTime: mdt } })}
+            onClick={() => onUpdate({ id: restaurant.id, data: { name, nameCode, address: addr, phone: phone || null, minDeliveryTime: mdt } })}
             data-testid={`button-update-restaurant-${restaurant.id}`}
           >
             {t("common.save")}
@@ -247,7 +250,7 @@ function RidersPanel() {
   const update = useUpdateRider();
   const { toast } = useToast();
 
-  const [form, setForm] = useState({ name: "", email: "", password: "", phone: "", availabilityStatus: "online" as RiderAvailabilityType });
+  const [form, setForm] = useState({ name: "", nameCode: "", email: "", password: "", phone: "", availabilityStatus: "online" as RiderAvailabilityType });
   function invalidate() { qc.invalidateQueries({ queryKey: getListRidersQueryKey() }); }
 
   return (
@@ -260,10 +263,10 @@ function RidersPanel() {
             onSubmit={(e) => {
               e.preventDefault();
               create.mutate(
-                { data: { name: form.name, email: form.email, password: form.password, phone: form.phone || null, availabilityStatus: form.availabilityStatus } },
+                { data: { name: form.name, nameCode: form.nameCode, email: form.email, password: form.password, phone: form.phone || null, availabilityStatus: form.availabilityStatus } },
                 {
                   onSuccess: () => {
-                    setForm({ name: "", email: "", password: "", phone: "", availabilityStatus: "online" });
+                    setForm({ name: "", nameCode: "", email: "", password: "", phone: "", availabilityStatus: "online" });
                     toast({ title: t("admin.newRider") });
                     invalidate();
                   },
@@ -272,6 +275,7 @@ function RidersPanel() {
             }}
           >
             <div><Label className="text-xs">{t("common.name")}</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required data-testid="input-new-rider-name" /></div>
+            <div><Label className="text-xs">{t("admin.nameCode")}</Label><Input value={form.nameCode} onChange={(e) => setForm({ ...form, nameCode: e.target.value })} required data-testid="input-new-rider-name-code" /></div>
             <div><Label className="text-xs">{t("common.email")}</Label><Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required data-testid="input-new-rider-email" /></div>
             <div><Label className="text-xs">{t("common.password")}</Label><Input type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required minLength={8} data-testid="input-new-rider-password" /></div>
             <div><Label className="text-xs">{t("common.phone")}</Label><Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} data-testid="input-new-rider-phone" /></div>
@@ -291,31 +295,55 @@ function RidersPanel() {
 
       <div className="grid gap-3">
         {(riders.data ?? []).map((r: RiderWithWorkload) => (
-          <Card key={r.id} data-testid={`row-rider-${r.id}`}>
-            <CardContent className="py-3 flex flex-wrap items-center gap-3">
-              <div className="flex-1 min-w-[200px]">
-                <div className="font-medium">{r.name}</div>
-                <div className="text-xs text-muted-foreground">{r.email}{r.phone ? ` · ${r.phone}` : ""} · {r.activeOrderCount}+{r.queuedOrderCount}</div>
-              </div>
-              <Select
-                value={r.availabilityStatus}
-                onValueChange={(v) =>
-                  update.mutate(
-                    { id: r.id, data: { availabilityStatus: v as RiderAvailabilityType } },
-                    { onSuccess: invalidate },
-                  )
-                }
-              >
-                <SelectTrigger className="w-36" data-testid={`select-rider-avail-${r.id}`}><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {Object.values(RiderAvailability).map((a) => <SelectItem key={a} value={a}>{t(`availability.${a}`)}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </CardContent>
-          </Card>
+          <RiderRow key={r.id} rider={r} onUpdate={update.mutate} onInvalidate={invalidate} />
         ))}
       </div>
     </div>
+  );
+}
+
+function RiderRow({ rider: r, onUpdate, onInvalidate }: { rider: RiderWithWorkload; onUpdate: ReturnType<typeof useUpdateRider>["mutate"]; onInvalidate: () => void }) {
+  const { t } = useTranslation();
+  const [nameCode, setNameCode] = useState(r.nameCode);
+  const nameDirty = nameCode !== r.nameCode;
+  return (
+    <Card data-testid={`row-rider-${r.id}`}>
+      <CardContent className="py-3 flex flex-wrap items-center gap-3">
+        <div className="flex-1 min-w-[200px]">
+          <div className="font-medium">{r.name}</div>
+          <div className="text-xs text-muted-foreground">{r.nameCode} · {r.email}{r.phone ? ` · ${r.phone}` : ""} · {r.activeOrderCount}+{r.queuedOrderCount}</div>
+        </div>
+        <div className="flex items-end gap-2">
+          <div>
+            <Label className="text-xs">{t("admin.nameCode")}</Label>
+            <Input value={nameCode} onChange={(e) => setNameCode(e.target.value)} className="w-32" data-testid={`input-rider-name-code-${r.id}`} />
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={!nameDirty}
+            onClick={() => onUpdate({ id: r.id, data: { nameCode } }, { onSuccess: onInvalidate })}
+            data-testid={`button-update-rider-name-code-${r.id}`}
+          >
+            {t("common.save")}
+          </Button>
+        </div>
+        <Select
+          value={r.availabilityStatus}
+          onValueChange={(v) =>
+            onUpdate(
+              { id: r.id, data: { availabilityStatus: v as RiderAvailabilityType } },
+              { onSuccess: onInvalidate },
+            )
+          }
+        >
+          <SelectTrigger className="w-36" data-testid={`select-rider-avail-${r.id}`}><SelectValue /></SelectTrigger>
+          <SelectContent>
+            {Object.values(RiderAvailability).map((a) => <SelectItem key={a} value={a}>{t(`availability.${a}`)}</SelectItem>)}
+          </SelectContent>
+        </Select>
+      </CardContent>
+    </Card>
   );
 }
 

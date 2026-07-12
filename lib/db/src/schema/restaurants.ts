@@ -5,6 +5,7 @@ import { z } from "zod/v4";
 export const restaurantsTable = pgTable("restaurants", {
   id: uuid("id").primaryKey().defaultRandom(),
   name: text("name").notNull(),
+  nameCode: text("name_code").notNull().unique(),
   address: text("address").notNull(),
   phone: text("phone"),
   // Minimum minutes from order ingestion to expected pickup. Used to compute pickup_time_original.

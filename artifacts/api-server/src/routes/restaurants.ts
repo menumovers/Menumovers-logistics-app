@@ -32,15 +32,24 @@ router.post(
   wrap(async (req, res) => {
     const parsed = CreateRestaurantBody.safeParse(req.body);
     if (!parsed.success) throw httpError(400, "VALIDATION_ERROR", parsed.error.message);
-    const [row] = await db
-      .insert(restaurantsTable)
-      .values({
-        name: parsed.data.name,
-        address: parsed.data.address,
-        phone: parsed.data.phone ?? null,
-        minDeliveryTime: parsed.data.minDeliveryTime,
-      })
-      .returning();
+    let row;
+    try {
+      [row] = await db
+        .insert(restaurantsTable)
+        .values({
+          name: parsed.data.name,
+          nameCode: parsed.data.nameCode,
+          address: parsed.data.address,
+          phone: parsed.data.phone ?? null,
+          minDeliveryTime: parsed.data.minDeliveryTime,
+        })
+        .returning();
+    } catch (err: unknown) {
+      if (err instanceof Error && err.message.includes("restaurants_name_code_unique")) {
+        throw httpError(400, "NAME_CODE_CONFLICT", "A restaurant with that name code already exists");
+      }
+      throw err;
+    }
     res.status(201).json(row);
   }),
 );
@@ -55,6 +64,7 @@ router.patch(
     if (!parsed.success) throw httpError(400, "VALIDATION_ERROR", parsed.error.message);
     const updates: Partial<typeof restaurantsTable.$inferInsert> = {};
     if (parsed.data.name !== undefined) updates.name = parsed.data.name;
+    if (parsed.data.nameCode !== undefined) updates.nameCode = parsed.data.nameCode;
     if (parsed.data.address !== undefined) updates.address = parsed.data.address;
     if (parsed.data.phone !== undefined) updates.phone = parsed.data.phone ?? null;
     if (parsed.data.minDeliveryTime !== undefined) updates.minDeliveryTime = parsed.data.minDeliveryTime;
@@ -67,11 +77,19 @@ router.patch(
       res.json(existing);
       return;
     }
-    const [row] = await db
-      .update(restaurantsTable)
-      .set(updates)
-      .where(eq(restaurantsTable.id, id))
-      .returning();
+    let row;
+    try {
+      [row] = await db
+        .update(restaurantsTable)
+        .set(updates)
+        .where(eq(restaurantsTable.id, id))
+        .returning();
+    } catch (err: unknown) {
+      if (err instanceof Error && err.message.includes("restaurants_name_code_unique")) {
+        throw httpError(400, "NAME_CODE_CONFLICT", "A restaurant with that name code already exists");
+      }
+      throw err;
+    }
     if (!row) throw httpError(404, "RESTAURANT_NOT_FOUND", "Restaurant not found");
     res.json(row);
   }),

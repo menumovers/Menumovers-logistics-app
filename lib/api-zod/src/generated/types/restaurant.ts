@@ -9,6 +9,8 @@
 export interface Restaurant {
   id: string;
   name: string;
+  /** @minLength 1 */
+  nameCode: string;
   address: string;
   /** @nullable */
   phone?: string | null;

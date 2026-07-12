@@ -952,12 +952,15 @@ components:
           type: ["string", "null"]
     Restaurant:
       type: object
-      required: [id, name, address, minDeliveryTime, createdAt]
+      required: [id, name, nameCode, address, minDeliveryTime, createdAt]
       properties:
         id:
           type: string
         name:
           type: string
+        nameCode:
+          type: string
+          minLength: 1
         address:
           type: string
         phone:
@@ -969,10 +972,13 @@ components:
           format: date-time
     CreateRestaurantRequest:
       type: object
-      required: [name, address, minDeliveryTime]
+      required: [name, nameCode, address, minDeliveryTime]
       properties:
         name:
           type: string
+        nameCode:
+          type: string
+          minLength: 1
         address:
           type: string
         phone:
@@ -984,6 +990,9 @@ components:
       properties:
         name:
           type: string
+        nameCode:
+          type: string
+          minLength: 1
         address:
           type: string
         phone:
@@ -1245,6 +1254,7 @@ components:
       required:
         - id
         - userId
+        - nameCode
         - name
         - email
         - availabilityStatus
@@ -1256,6 +1266,9 @@ components:
           type: string
         userId:
           type: string
+        nameCode:
+          type: string
+          minLength: 1
         name:
           type: string
         email:
@@ -1272,12 +1285,15 @@ components:
           type: integer
     CreateRiderRequest:
       type: object
-      required: [email, name, password]
+      required: [email, name, nameCode, password]
       properties:
         email:
           type: string
         name:
           type: string
+        nameCode:
+          type: string
+          minLength: 1
         password:
           type: string
         phone:
@@ -1289,6 +1305,9 @@ components:
       properties:
         name:
           type: string
+        nameCode:
+          type: string
+          minLength: 1
         phone:
           type: ["string", "null"]
         availabilityStatus:

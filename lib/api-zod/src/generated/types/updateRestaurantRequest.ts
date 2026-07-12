@@ -8,6 +8,8 @@
 
 export interface UpdateRestaurantRequest {
   name?: string;
+  /** @minLength 1 */
+  nameCode?: string;
   address?: string;
   /** @nullable */
   phone?: string | null;

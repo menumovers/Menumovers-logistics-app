@@ -182,6 +182,8 @@ export interface UpdateUserRequest {
 export interface Restaurant {
   id: string;
   name: string;
+  /** @minLength 1 */
+  nameCode: string;
   address: string;
   /** @nullable */
   phone?: string | null;
@@ -191,6 +193,8 @@ export interface Restaurant {
 
 export interface CreateRestaurantRequest {
   name: string;
+  /** @minLength 1 */
+  nameCode: string;
   address: string;
   /** @nullable */
   phone?: string | null;
@@ -199,6 +203,8 @@ export interface CreateRestaurantRequest {
 
 export interface UpdateRestaurantRequest {
   name?: string;
+  /** @minLength 1 */
+  nameCode?: string;
   address?: string;
   /** @nullable */
   phone?: string | null;
@@ -366,6 +372,8 @@ export interface UpdateOrderContactRequest {
 export interface RiderWithWorkload {
   id: string;
   userId: string;
+  /** @minLength 1 */
+  nameCode: string;
   name: string;
   email: string;
   /** @nullable */
@@ -379,6 +387,8 @@ export interface RiderWithWorkload {
 export interface CreateRiderRequest {
   email: string;
   name: string;
+  /** @minLength 1 */
+  nameCode: string;
   password: string;
   /** @nullable */
   phone?: string | null;
@@ -387,6 +397,8 @@ export interface CreateRiderRequest {
 
 export interface UpdateRiderRequest {
   name?: string;
+  /** @minLength 1 */
+  nameCode?: string;
   /** @nullable */
   phone?: string | null;
   availabilityStatus?: RiderAvailability;
