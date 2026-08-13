@@ -10,7 +10,11 @@ import type { OrderItem } from "./orderItem";
 
 export interface InboundOrderPayload {
   orderId: string;
-  restaurantId: string;
+  /** The restaurant identifier as known to the caller's system. Resolved to an
+internal restaurant via restaurant_external_ids, scoped to the credential's
+source. Unresolved values do not fail the request — see the endpoint description.
+ */
+  externalRestaurantId: string;
   customer: InboundOrderPayloadCustomer;
   items: OrderItem[];
   deliveryFee: string;

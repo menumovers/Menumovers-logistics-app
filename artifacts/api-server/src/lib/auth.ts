@@ -12,6 +12,7 @@ import {
   type UserRole,
 } from "@workspace/db";
 import { AppError } from "./errors";
+import { findActiveCredential } from "./inbound-credentials";
 
 const JWT_ALGO = "HS256";
 const JWT_TTL_SECONDS = 60 * 60 * 24 * 7; // 7 days
@@ -108,6 +109,8 @@ declare global {
     interface Request {
       user?: User;
       auth?: AuthContext;
+      /** Set by requireInboundCredential: the source the matched credential belongs to. */
+      inboundSource?: string;
     }
   }
 }
@@ -184,21 +187,22 @@ export function requireRole(...roles: UserRole[]) {
   };
 }
 
-export function requireInboundSecret(
+export async function requireInboundCredential(
   req: Request,
   _res: Response,
   next: NextFunction,
-): void {
-  const expected = process.env["INBOUND_SHARED_SECRET"];
-  if (!expected) {
-    next(new AppError(503, "INBOUND_NOT_CONFIGURED", "Inbound endpoint not configured"));
-    return;
-  }
+): Promise<void> {
   const provided = req.header("x-inbound-secret");
-  if (provided !== expected) {
-    next(new AppError(401, "INBOUND_INVALID_SECRET", "Invalid inbound secret"));
+  if (!provided) {
+    next(new AppError(401, "INBOUND_MISSING_SECRET", "Missing x-inbound-secret header"));
     return;
   }
+  const credential = await findActiveCredential(provided);
+  if (!credential) {
+    next(new AppError(401, "INBOUND_INVALID_SECRET", "Invalid or revoked inbound credential"));
+    return;
+  }
+  req.inboundSource = credential.source;
   next();
 }
 

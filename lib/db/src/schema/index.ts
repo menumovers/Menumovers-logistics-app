@@ -12,3 +12,5 @@ export * from "./rider-assignments";
 export * from "./pickup-time-adjustments";
 export * from "./revoked-tokens";
 export * from "./trips";
+export * from "./api-credentials";
+export * from "./restaurant-external-ids";

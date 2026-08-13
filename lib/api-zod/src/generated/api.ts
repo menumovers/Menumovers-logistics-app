@@ -55,8 +55,13 @@ export const GetCurrentUserResponse = zod.object({
 });
 
 /**
- * Authenticated via the `x-inbound-secret` header. Idempotent on `externalOrderId`:
-re-sending the same payload updates the existing order record instead of creating a duplicate.
+ * Authenticated via the `x-inbound-secret` header, matched against a provisioned
+per-source credential (see `api_credentials`) rather than a single shared secret.
+Idempotent on `externalOrderId`: re-sending the same payload updates the existing
+order record instead of creating a duplicate. If `externalRestaurantId` doesn't
+resolve to a known restaurant for the credential's source, the order is still
+accepted — it's filed against a placeholder restaurant and marked parked
+(`isParked: true`) instead of being rejected.
 
  * @summary Receive a new order from the upstream distribution service
  */
@@ -66,7 +71,11 @@ export const IngestOrderHeader = zod.object({
 
 export const IngestOrderBody = zod.object({
   orderId: zod.string(),
-  restaurantId: zod.string(),
+  externalRestaurantId: zod
+    .string()
+    .describe(
+      "The restaurant identifier as known to the caller's system. Resolved to an\ninternal restaurant via restaurant_external_ids, scoped to the credential's\nsource. Unresolved values do not fail the request — see the endpoint description.\n",
+    ),
   customer: zod.object({
     name: zod.string(),
     phone: zod.string(),
@@ -126,6 +135,13 @@ export const IngestOrderResponse = zod.object({
     .optional(),
   pendingRiderNotification: zod.string().nullish(),
   failureReason: zod.string().nullish(),
+  isParked: zod
+    .boolean()
+    .optional()
+    .describe(
+      "True when the inbound restaurant identifier couldn't be resolved and this\norder was filed against the placeholder restaurant instead of being rejected.\n",
+    ),
+  parkedReason: zod.string().nullish(),
   tripId: zod.string().nullish(),
   tripNumber: zod
     .number()
@@ -202,6 +218,13 @@ export const ListOrdersResponseItem = zod
       .optional(),
     pendingRiderNotification: zod.string().nullish(),
     failureReason: zod.string().nullish(),
+    isParked: zod
+      .boolean()
+      .optional()
+      .describe(
+        "True when the inbound restaurant identifier couldn't be resolved and this\norder was filed against the placeholder restaurant instead of being rejected.\n",
+      ),
+    parkedReason: zod.string().nullish(),
     tripId: zod.string().nullish(),
     tripNumber: zod
       .number()
@@ -273,6 +296,13 @@ export const GetOrderResponse = zod
       .optional(),
     pendingRiderNotification: zod.string().nullish(),
     failureReason: zod.string().nullish(),
+    isParked: zod
+      .boolean()
+      .optional()
+      .describe(
+        "True when the inbound restaurant identifier couldn't be resolved and this\norder was filed against the placeholder restaurant instead of being rejected.\n",
+      ),
+    parkedReason: zod.string().nullish(),
     tripId: zod.string().nullish(),
     tripNumber: zod
       .number()
@@ -416,6 +446,13 @@ export const TransitionOrderStatusResponse = zod
       .optional(),
     pendingRiderNotification: zod.string().nullish(),
     failureReason: zod.string().nullish(),
+    isParked: zod
+      .boolean()
+      .optional()
+      .describe(
+        "True when the inbound restaurant identifier couldn't be resolved and this\norder was filed against the placeholder restaurant instead of being rejected.\n",
+      ),
+    parkedReason: zod.string().nullish(),
     tripId: zod.string().nullish(),
     tripNumber: zod
       .number()
@@ -548,6 +585,13 @@ export const AssignOrderResponse = zod
       .optional(),
     pendingRiderNotification: zod.string().nullish(),
     failureReason: zod.string().nullish(),
+    isParked: zod
+      .boolean()
+      .optional()
+      .describe(
+        "True when the inbound restaurant identifier couldn't be resolved and this\norder was filed against the placeholder restaurant instead of being rejected.\n",
+      ),
+    parkedReason: zod.string().nullish(),
     tripId: zod.string().nullish(),
     tripNumber: zod
       .number()
@@ -681,6 +725,13 @@ export const UpdatePickupTimeResponse = zod
       .optional(),
     pendingRiderNotification: zod.string().nullish(),
     failureReason: zod.string().nullish(),
+    isParked: zod
+      .boolean()
+      .optional()
+      .describe(
+        "True when the inbound restaurant identifier couldn't be resolved and this\norder was filed against the placeholder restaurant instead of being rejected.\n",
+      ),
+    parkedReason: zod.string().nullish(),
     tripId: zod.string().nullish(),
     tripNumber: zod
       .number()
@@ -813,6 +864,13 @@ export const HideOrderItemResponse = zod
       .optional(),
     pendingRiderNotification: zod.string().nullish(),
     failureReason: zod.string().nullish(),
+    isParked: zod
+      .boolean()
+      .optional()
+      .describe(
+        "True when the inbound restaurant identifier couldn't be resolved and this\norder was filed against the placeholder restaurant instead of being rejected.\n",
+      ),
+    parkedReason: zod.string().nullish(),
     tripId: zod.string().nullish(),
     tripNumber: zod
       .number()
@@ -950,6 +1008,13 @@ export const AddOrderItemResponse = zod
       .optional(),
     pendingRiderNotification: zod.string().nullish(),
     failureReason: zod.string().nullish(),
+    isParked: zod
+      .boolean()
+      .optional()
+      .describe(
+        "True when the inbound restaurant identifier couldn't be resolved and this\norder was filed against the placeholder restaurant instead of being rejected.\n",
+      ),
+    parkedReason: zod.string().nullish(),
     tripId: zod.string().nullish(),
     tripNumber: zod
       .number()
@@ -1082,6 +1147,13 @@ export const SetRiderNotificationResponse = zod
       .optional(),
     pendingRiderNotification: zod.string().nullish(),
     failureReason: zod.string().nullish(),
+    isParked: zod
+      .boolean()
+      .optional()
+      .describe(
+        "True when the inbound restaurant identifier couldn't be resolved and this\norder was filed against the placeholder restaurant instead of being rejected.\n",
+      ),
+    parkedReason: zod.string().nullish(),
     tripId: zod.string().nullish(),
     tripNumber: zod
       .number()
@@ -1218,6 +1290,13 @@ export const UpdateOrderContactResponse = zod
       .optional(),
     pendingRiderNotification: zod.string().nullish(),
     failureReason: zod.string().nullish(),
+    isParked: zod
+      .boolean()
+      .optional()
+      .describe(
+        "True when the inbound restaurant identifier couldn't be resolved and this\norder was filed against the placeholder restaurant instead of being rejected.\n",
+      ),
+    parkedReason: zod.string().nullish(),
     tripId: zod.string().nullish(),
     tripNumber: zod
       .number()
@@ -1643,6 +1722,13 @@ export const GetTripResponse = zod
               .optional(),
             pendingRiderNotification: zod.string().nullish(),
             failureReason: zod.string().nullish(),
+            isParked: zod
+              .boolean()
+              .optional()
+              .describe(
+                "True when the inbound restaurant identifier couldn't be resolved and this\norder was filed against the placeholder restaurant instead of being rejected.\n",
+              ),
+            parkedReason: zod.string().nullish(),
             tripId: zod.string().nullish(),
             tripNumber: zod
               .number()
@@ -1774,6 +1860,13 @@ export const UpdateTripResponse = zod
               .optional(),
             pendingRiderNotification: zod.string().nullish(),
             failureReason: zod.string().nullish(),
+            isParked: zod
+              .boolean()
+              .optional()
+              .describe(
+                "True when the inbound restaurant identifier couldn't be resolved and this\norder was filed against the placeholder restaurant instead of being rejected.\n",
+              ),
+            parkedReason: zod.string().nullish(),
             tripId: zod.string().nullish(),
             tripNumber: zod
               .number()
@@ -1905,6 +1998,13 @@ export const ReplaceTripStopsResponse = zod
               .optional(),
             pendingRiderNotification: zod.string().nullish(),
             failureReason: zod.string().nullish(),
+            isParked: zod
+              .boolean()
+              .optional()
+              .describe(
+                "True when the inbound restaurant identifier couldn't be resolved and this\norder was filed against the placeholder restaurant instead of being rejected.\n",
+              ),
+            parkedReason: zod.string().nullish(),
             tripId: zod.string().nullish(),
             tripNumber: zod
               .number()
@@ -2025,6 +2125,13 @@ export const DissolveTripResponse = zod
               .optional(),
             pendingRiderNotification: zod.string().nullish(),
             failureReason: zod.string().nullish(),
+            isParked: zod
+              .boolean()
+              .optional()
+              .describe(
+                "True when the inbound restaurant identifier couldn't be resolved and this\norder was filed against the placeholder restaurant instead of being rejected.\n",
+              ),
+            parkedReason: zod.string().nullish(),
             tripId: zod.string().nullish(),
             tripNumber: zod
               .number()

@@ -386,8 +386,13 @@ export function useGetCurrentUser<
 }
 
 /**
- * Authenticated via the `x-inbound-secret` header. Idempotent on `externalOrderId`:
-re-sending the same payload updates the existing order record instead of creating a duplicate.
+ * Authenticated via the `x-inbound-secret` header, matched against a provisioned
+per-source credential (see `api_credentials`) rather than a single shared secret.
+Idempotent on `externalOrderId`: re-sending the same payload updates the existing
+order record instead of creating a duplicate. If `externalRestaurantId` doesn't
+resolve to a known restaurant for the credential's source, the order is still
+accepted — it's filed against a placeholder restaurant and marked parked
+(`isParked: true`) instead of being rejected.
 
  * @summary Receive a new order from the upstream distribution service
  */

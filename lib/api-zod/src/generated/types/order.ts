@@ -39,6 +39,12 @@ export interface Order {
   pendingRiderNotification?: string | null;
   /** @nullable */
   failureReason?: string | null;
+  /** True when the inbound restaurant identifier couldn't be resolved and this
+order was filed against the placeholder restaurant instead of being rejected.
+ */
+  isParked?: boolean;
+  /** @nullable */
+  parkedReason?: string | null;
   /** @nullable */
   tripId?: string | null;
   /**

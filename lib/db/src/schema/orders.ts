@@ -6,6 +6,7 @@ import {
   timestamp,
   numeric,
   jsonb,
+  boolean,
   uniqueIndex,
   index,
 } from "drizzle-orm/pg-core";
@@ -68,6 +69,12 @@ export const ordersTable = pgTable(
     pickupTimeOverride: timestamp("pickup_time_override", { withTimezone: true }),
     pendingRiderNotification: text("pending_rider_notification"),
     failureReason: text("failure_reason"),
+    // Set when the inbound restaurant identifier couldn't be resolved via
+    // restaurant_external_ids; the order is filed against a placeholder
+    // restaurant instead of being rejected. Not a dispatch-blocking status —
+    // just a queryable marker for manual follow-up.
+    isParked: boolean("is_parked").notNull().default(false),
+    parkedReason: text("parked_reason"),
     // Trip bundling: when set, the order is part of a coordinator-built trip
     // executed alongside other orders by a single rider. Trip is layered
     // above order status — clearing this column does not change `status`.

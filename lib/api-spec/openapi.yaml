@@ -92,8 +92,13 @@ paths:
       security: []
       summary: Receive a new order from the upstream distribution service
       description: |
-        Authenticated via the `x-inbound-secret` header. Idempotent on `externalOrderId`:
-        re-sending the same payload updates the existing order record instead of creating a duplicate.
+        Authenticated via the `x-inbound-secret` header, matched against a provisioned
+        per-source credential (see `api_credentials`) rather than a single shared secret.
+        Idempotent on `externalOrderId`: re-sending the same payload updates the existing
+        order record instead of creating a duplicate. If `externalRestaurantId` doesn't
+        resolve to a known restaurant for the credential's source, the order is still
+        accepted — it's filed against a placeholder restaurant and marked parked
+        (`isParked: true`) instead of being rejected.
       parameters:
         - in: header
           name: x-inbound-secret
@@ -120,7 +125,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
         "401":
-          description: Invalid inbound secret
+          description: Missing or invalid inbound credential
           content:
             application/json:
               schema:
@@ -1015,7 +1020,7 @@ components:
       type: object
       required:
         - orderId
-        - restaurantId
+        - externalRestaurantId
         - customer
         - items
         - deliveryFee
@@ -1023,8 +1028,12 @@ components:
       properties:
         orderId:
           type: string
-        restaurantId:
+        externalRestaurantId:
           type: string
+          description: |
+            The restaurant identifier as known to the caller's system. Resolved to an
+            internal restaurant via restaurant_external_ids, scoped to the credential's
+            source. Unresolved values do not fail the request — see the endpoint description.
         customer:
           type: object
           required: [name, phone, address]
@@ -1112,6 +1121,13 @@ components:
         pendingRiderNotification:
           type: ["string", "null"]
         failureReason:
+          type: ["string", "null"]
+        isParked:
+          type: boolean
+          description: |
+            True when the inbound restaurant identifier couldn't be resolved and this
+            order was filed against the placeholder restaurant instead of being rejected.
+        parkedReason:
           type: ["string", "null"]
         tripId:
           type: ["string", "null"]

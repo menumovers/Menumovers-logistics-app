@@ -229,7 +229,11 @@ export type InboundOrderPayloadCustomer = {
 
 export interface InboundOrderPayload {
   orderId: string;
-  restaurantId: string;
+  /** The restaurant identifier as known to the caller's system. Resolved to an
+internal restaurant via restaurant_external_ids, scoped to the credential's
+source. Unresolved values do not fail the request — see the endpoint description.
+ */
+  externalRestaurantId: string;
   customer: InboundOrderPayloadCustomer;
   items: OrderItem[];
   deliveryFee: string;
@@ -268,6 +272,12 @@ export interface Order {
   pendingRiderNotification?: string | null;
   /** @nullable */
   failureReason?: string | null;
+  /** True when the inbound restaurant identifier couldn't be resolved and this
+order was filed against the placeholder restaurant instead of being rejected.
+ */
+  isParked?: boolean;
+  /** @nullable */
+  parkedReason?: string | null;
   /** @nullable */
   tripId?: string | null;
   /**

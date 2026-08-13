@@ -95,6 +95,8 @@ function baseOrderFields(
     effectivePickupSource: eff.effectivePickupSource,
     pendingRiderNotification: order.pendingRiderNotification,
     failureReason: order.failureReason,
+    isParked: order.isParked,
+    parkedReason: order.parkedReason,
     tripId: order.tripId,
     tripNumber,
     bundlePickupTime,

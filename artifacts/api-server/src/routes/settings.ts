@@ -4,6 +4,7 @@ import { db, systemSettingsTable, SETTING_KEYS } from "@workspace/db";
 import { UpdateSettingsBody } from "@workspace/api-zod";
 import { requireAuth, requireRole } from "../lib/auth";
 import { httpError } from "../lib/errors";
+import { countActiveCredentials } from "../lib/inbound-credentials";
 
 const router: IRouter = Router();
 
@@ -48,6 +49,7 @@ function buildSettings(
   url: string | null,
   source: "env" | "settings" | "unset",
   allowRiderSelfClaim: boolean,
+  inboundSecretConfigured: boolean,
 ) {
   return {
     outboundWebhookUrl: url,
@@ -56,7 +58,7 @@ function buildSettings(
     vapidConfigured: Boolean(
       process.env["VAPID_PUBLIC_KEY"] && process.env["VAPID_PRIVATE_KEY"],
     ),
-    inboundSecretConfigured: Boolean(process.env["INBOUND_SHARED_SECRET"]),
+    inboundSecretConfigured,
   };
 }
 
@@ -77,11 +79,12 @@ router.get(
   requireAuth,
   requireRole("admin"),
   wrap(async (_req, res) => {
-    const [{ url, source }, allowRiderSelfClaim] = await Promise.all([
+    const [{ url, source }, allowRiderSelfClaim, activeCredentials] = await Promise.all([
       readWebhookUrl(),
       readAllowRiderSelfClaim(),
+      countActiveCredentials(),
     ]);
-    res.json(buildSettings(url, source, allowRiderSelfClaim));
+    res.json(buildSettings(url, source, allowRiderSelfClaim, activeCredentials > 0));
   }),
 );
 
@@ -126,11 +129,12 @@ router.patch(
         });
     }
 
-    const [{ url, source }, allowRiderSelfClaim] = await Promise.all([
+    const [{ url, source }, allowRiderSelfClaim, activeCredentials] = await Promise.all([
       readWebhookUrl(),
       readAllowRiderSelfClaim(),
+      countActiveCredentials(),
     ]);
-    res.json(buildSettings(url, source, allowRiderSelfClaim));
+    res.json(buildSettings(url, source, allowRiderSelfClaim, activeCredentials > 0));
   }),
 );
 

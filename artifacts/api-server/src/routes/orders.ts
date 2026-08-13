@@ -9,7 +9,9 @@ import {
   riderAssignmentsTable,
   ridersTable,
   restaurantsTable,
+  restaurantExternalIdsTable,
   type OrderStatus,
+  type Restaurant,
 } from "@workspace/db";
 import {
   IngestOrderBody,
@@ -22,7 +24,7 @@ import {
   UpdateOrderContactBody,
   ListOrdersQueryParams,
 } from "@workspace/api-zod";
-import { requireAuth, requireRole, requireInboundSecret } from "../lib/auth";
+import { requireAuth, requireRole, requireInboundCredential } from "../lib/auth";
 import { httpError } from "../lib/errors";
 import { assertValidTransition } from "../lib/state-machine";
 import {
@@ -43,6 +45,12 @@ import {
 } from "../lib/push-triggers";
 
 const router: IRouter = Router();
+
+// nameCode of the seeded placeholder restaurant that parked orders are filed
+// against when their externalRestaurantId doesn't resolve. Provisioned out of
+// band (see scripts/src/seed-unmapped-restaurant.ts) — not created here so a
+// slow/failed seed fails loudly instead of silently spawning duplicates.
+const UNMAPPED_RESTAURANT_NAME_CODE = "unmapped";
 
 const wrap =
   (fn: (req: Request, res: Response) => Promise<void>) =>
@@ -82,6 +90,37 @@ function orderScopeWhere(auth: NonNullable<Request["auth"]>) {
   return sql`false`;
 }
 
+async function resolveExternalRestaurantId(
+  source: string,
+  externalRestaurantId: string,
+): Promise<string | null> {
+  const [mapping] = await db
+    .select({ restaurantId: restaurantExternalIdsTable.restaurantId })
+    .from(restaurantExternalIdsTable)
+    .where(
+      and(
+        eq(restaurantExternalIdsTable.source, source),
+        eq(restaurantExternalIdsTable.externalId, externalRestaurantId),
+      ),
+    );
+  return mapping?.restaurantId ?? null;
+}
+
+async function getUnmappedRestaurant(): Promise<Restaurant> {
+  const [restaurant] = await db
+    .select()
+    .from(restaurantsTable)
+    .where(eq(restaurantsTable.nameCode, UNMAPPED_RESTAURANT_NAME_CODE));
+  if (!restaurant) {
+    throw httpError(
+      503,
+      "UNMAPPED_RESTAURANT_NOT_SEEDED",
+      "Placeholder restaurant for parked orders has not been seeded",
+    );
+  }
+  return restaurant;
+}
+
 async function loadOrderOr404(id: string) {
   const [order] = await db
     .select()
@@ -109,21 +148,34 @@ async function loadOrderForAuthOr404(
 // =====================================================================
 router.post(
   "/inbound/orders",
-  requireInboundSecret,
+  requireInboundCredential,
   wrap(async (req, res) => {
     const parsed = IngestOrderBody.safeParse(req.body);
     if (!parsed.success) {
       throw httpError(400, "VALIDATION_ERROR", parsed.error.message);
     }
     const payload = parsed.data;
+    const source = req.inboundSource!;
 
-    const [restaurant] = await db
-      .select()
-      .from(restaurantsTable)
-      .where(eq(restaurantsTable.id, payload.restaurantId));
+    const resolvedRestaurantId = await resolveExternalRestaurantId(
+      source,
+      payload.externalRestaurantId,
+    );
+    const isParked = resolvedRestaurantId === null;
+    const restaurant = resolvedRestaurantId
+      ? await db
+          .select()
+          .from(restaurantsTable)
+          .where(eq(restaurantsTable.id, resolvedRestaurantId))
+          .then((rows) => rows[0])
+      : await getUnmappedRestaurant();
     if (!restaurant) {
-      throw httpError(400, "UNKNOWN_RESTAURANT", "Restaurant not found");
+      // resolvedRestaurantId pointed at a restaurant that no longer exists.
+      throw httpError(500, "DB_ERROR", "Resolved restaurant not found");
     }
+    const parkedReason = isParked
+      ? `Unresolved external restaurant: source=${source} externalRestaurantId=${payload.externalRestaurantId}`
+      : null;
 
     const minMinutes = restaurant.minDeliveryTime ?? 30;
     const pickupTimeOriginal = new Date(Date.now() + minMinutes * 60_000);
@@ -141,7 +193,7 @@ router.post(
       .insert(ordersTable)
       .values({
         externalOrderId: payload.orderId,
-        restaurantId: payload.restaurantId,
+        restaurantId: restaurant.id,
         customerName: payload.customer.name,
         customerPhone: payload.customer.phone,
         customerEmail: payload.customer.email ?? null,
@@ -152,6 +204,8 @@ router.post(
         items,
         originalPayload: payload as unknown as Record<string, unknown>,
         pickupTimeOriginal,
+        isParked,
+        parkedReason,
       })
       .onConflictDoNothing({ target: ordersTable.externalOrderId })
       .returning();
