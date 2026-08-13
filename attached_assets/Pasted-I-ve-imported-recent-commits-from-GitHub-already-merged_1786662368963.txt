@@ -1,0 +1,78 @@
+I've imported recent commits from GitHub, already merged to this branch, building Bestellenbij order ingestion for the new logistics app: a new
+api_credentials table for per-source inbound auth, a
+restaurant_external_ids table + parked-order handling on orders
+(isParked/parkedReason), structured address columns, 7 gap-field columns
+plus totalPrice/externalId on the orders.items JSONB, 10 time-data
+columns, a typecheck fix, a replit.md/docs correction, and the removal of
+a dead order_items table's schema definition (see step 3a below — that
+last one needs a live database action from you, not just a code push).
+
+Before doing anything environment-side:
+1. Read the actual diff/schema changes in lib/db/src/schema/ and
+   artifacts/api-server/src/routes/orders.ts and confirm they match the
+   description above — flag anything that looks wrong or incomplete rather
+   than assuming the code is correct.
+2. Check for schema drift between these files and the live database
+   (this repo has db:drift / db:live-drift scripts under lib/db — use them).
+3. IMPORTANT — before running any push, look at what's actually in the live
+   orders table. Several of the new columns (street, postalCode, city,
+   country, tipRider, tipRestaurant, supTotal, statiegeldTotal,
+   administrationCosts, deliveryMethod, paymentMethod, sourceCreatedAt,
+   requestedDeliveryTime, deliveryTimeType) are NOT NULL with no default.
+   Pushing this schema against a table with existing rows triggers
+   drizzle-kit's data-loss guard, which offers to TRUNCATE THE ENTIRE
+   ORDERS TABLE to proceed. As of when this message was written, the only
+   rows in this table were dummy/test data, so a truncate was harmless
+   then — but that may no longer be true by the time you're reading this.
+   Check the actual rows (customer names, addresses, order values, how
+   recent) before deciding: if it still looks like dummy/test data,
+   confirming the truncate is fine, go ahead. If anything looks like a
+   real order — a plausible customer, a restaurant that isn't a test
+   fixture — stop and tell me instead; we'd need a backfill-safe migration
+   (add nullable, backfill a value, then set NOT NULL) rather than a
+   truncate.
+3a. SEPARATELY — the order_items table (a different, older table, unrelated
+    to the orders NOT NULL check above) has had its schema definition
+    removed from the code, since it was confirmed dead: nothing in the
+    codebase has ever read or written it, and it was created alongside
+    orders.items in the founding commit as an alternate design that was
+    never adopted. Removing its schema definition means your push will
+    want to DROP this table from the live database to match. Before
+    allowing that: check whether the live order_items table actually has
+    any rows. If it's empty (expected), the drop is safe, go ahead. If it
+    has rows, stop and tell me instead — that would mean something wrote
+    to it at some point despite no current code path doing so, which is
+    worth understanding before deleting anything.
+
+Then, if the code checks out and you've resolved the orders-table checks above:
+4. IMPORTANT before running this — the auth cutover in this push is a hard
+   swap, not additive: the commit replaced the inbound endpoint's auth
+   middleware entirely (the old requireInboundSecret / INBOUND_SHARED_SECRET
+   became requireInboundCredential / api_credentials in place, same code
+   slot), not added alongside the old path. Once this deploys, the shared
+   secret stops working immediately — there is no fallback and no grace
+   period. If anything in production is currently calling
+   POST /inbound/orders with the old shared secret, check with me before
+   running this push, since it breaks that caller the moment this deploys,
+   not later when the env var gets cleaned up in step 7.
+   Run the Drizzle push to apply the new tables/columns (and the
+   order_items drop, per 3a) to the live database.
+5. Generate the real Bestellenbij credential by running
+   scripts/src/provision-inbound-credential.ts with INBOUND_SOURCE=bestellenbij
+   set (see the script's header comment for exact usage) — don't hand-roll
+   this, the script exists specifically so you don't invent a new hashing
+   scheme. It prints the raw key exactly once. Do NOT log or print it
+   anywhere persistent — hand it back to me directly so I can pass it to
+   whoever configures the Babeldish side (see the companion prompt for that
+   repo).
+6. Seed the placeholder restaurant for parked orders by running
+   scripts/src/seed-unmapped-restaurant.ts (idempotent, safe to re-run).
+7. Remove the now-unused INBOUND_SHARED_SECRET env var. This is cleanup,
+   not the cutover itself — the code already stopped accepting it back in
+   step 4 — so this step just tidies up a stale Replit secret, nothing more.
+
+Report back: what you verified, what you changed in the live environment,
+the new credential (out of band, not in any log), what the orders table
+actually contained and whether you truncated it or stopped to ask, what
+order_items actually contained and whether you dropped it or stopped to
+ask, and anything above that didn't match reality.
