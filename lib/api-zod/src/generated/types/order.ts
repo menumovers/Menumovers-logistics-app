@@ -21,6 +21,18 @@ export interface Order {
   /** @nullable */
   customerEmail?: string | null;
   deliveryAddress: string;
+  street?: string;
+  /** @nullable */
+  houseNumber?: string | null;
+  /** @nullable */
+  addition?: string | null;
+  postalCode?: string;
+  city?: string;
+  country?: string;
+  /** @nullable */
+  latitude?: string | null;
+  /** @nullable */
+  longitude?: string | null;
   /** @nullable */
   deliveryInstructions?: string | null;
   deliveryFee: string;

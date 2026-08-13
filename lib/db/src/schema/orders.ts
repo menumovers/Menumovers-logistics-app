@@ -55,6 +55,18 @@ export const ordersTable = pgTable(
     customerPhone: text("customer_phone").notNull(),
     customerEmail: text("customer_email"),
     deliveryAddress: text("delivery_address").notNull(),
+    // Structured address components, sent alongside deliveryAddress rather
+    // than replacing it — deliveryAddress stays the single display string
+    // for anything still reading it directly. Whether to eventually drop it
+    // is an open decision, not acted on here.
+    street: text("street").notNull(),
+    houseNumber: text("house_number"),
+    addition: text("addition"),
+    postalCode: text("postal_code").notNull(),
+    city: text("city").notNull(),
+    country: text("country").notNull(),
+    latitude: numeric("latitude"),
+    longitude: numeric("longitude"),
     deliveryInstructions: text("delivery_instructions"),
     deliveryFee: numeric("delivery_fee").notNull().default("0"),
     totalAmount: numeric("total_amount").notNull().default("0"),

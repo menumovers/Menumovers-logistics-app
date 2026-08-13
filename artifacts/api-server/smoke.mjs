@@ -40,7 +40,7 @@ import("@workspace/db").then(async ({ db, restaurantsTable, usersTable, ridersTa
   const orderId = `ext-smoke-${Date.now()}`;
   const ingest = await j("POST","/inbound/orders",{
     orderId, externalRestaurantId: EXTERNAL_RESTAURANT_ID,
-    customer: { name:"Klaas", phone:"+31600000001", address:"Kerkstraat 9" },
+    customer: { name:"Klaas", phone:"+31600000001", address:"Kerkstraat 9", street:"Kerkstraat", houseNumber:"9", postalCode:"1012AB", city:"Amsterdam", country:"NL" },
     items: [{ name:"Pizza", quantity:2, price:"12.50"},{name:"Cola",quantity:1,price:"3.00"}],
     deliveryFee:"4.00", totalAmount:"32.00", deliveryInstructions:"Bel aan"
   }, { "x-inbound-secret": RAW_SECRET });
@@ -49,7 +49,7 @@ import("@workspace/db").then(async ({ db, restaurantsTable, usersTable, ridersTa
   // Idempotency replay
   const replay = await j("POST","/inbound/orders",{
     orderId, externalRestaurantId: EXTERNAL_RESTAURANT_ID,
-    customer: { name:"Klaas", phone:"+31600000001", address:"Kerkstraat 9" },
+    customer: { name:"Klaas", phone:"+31600000001", address:"Kerkstraat 9", street:"Kerkstraat", houseNumber:"9", postalCode:"1012AB", city:"Amsterdam", country:"NL" },
     items: [{name:"Pizza",quantity:2,price:"12.50"}],
     deliveryFee:"4.00", totalAmount:"29.00"
   }, { "x-inbound-secret": RAW_SECRET });
@@ -58,7 +58,7 @@ import("@workspace/db").then(async ({ db, restaurantsTable, usersTable, ridersTa
   const parkedOrderId = `ext-smoke-parked-${Date.now()}`;
   const parked = await j("POST","/inbound/orders",{
     orderId: parkedOrderId, externalRestaurantId: "does-not-exist",
-    customer: { name:"Onbekend", phone:"+31600000002", address:"Onbekendstraat 1" },
+    customer: { name:"Onbekend", phone:"+31600000002", address:"Onbekendstraat 1", street:"Onbekendstraat", houseNumber:"1", postalCode:"1013CD", city:"Amsterdam", country:"NL" },
     items: [{ name:"Broodje", quantity:1, price:"5.00"}],
     deliveryFee:"2.00", totalAmount:"7.00"
   }, { "x-inbound-secret": RAW_SECRET });
@@ -66,7 +66,7 @@ import("@workspace/db").then(async ({ db, restaurantsTable, usersTable, ridersTa
   // Invalid credential → 401
   const badSecret = await j("POST","/inbound/orders",{
     orderId: `ext-smoke-badsecret-${Date.now()}`, externalRestaurantId: EXTERNAL_RESTAURANT_ID,
-    customer: { name:"X", phone:"+31600000003", address:"Y" },
+    customer: { name:"X", phone:"+31600000003", address:"Y", street:"Y", postalCode:"1000AA", city:"Amsterdam", country:"NL" },
     items: [{ name:"Item", quantity:1, price:"1.00"}],
     deliveryFee:"0.00", totalAmount:"1.00"
   }, { "x-inbound-secret": "not-a-real-secret" });

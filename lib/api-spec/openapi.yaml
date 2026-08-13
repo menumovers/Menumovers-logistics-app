@@ -1036,7 +1036,7 @@ components:
             source. Unresolved values do not fail the request — see the endpoint description.
         customer:
           type: object
-          required: [name, phone, address]
+          required: [name, phone, address, street, postalCode, city, country]
           properties:
             name:
               type: string
@@ -1046,6 +1046,24 @@ components:
               type: ["string", "null"]
             address:
               type: string
+              description: Single-line display address. Structured components below are separate, not derived from this.
+            street:
+              type: string
+            houseNumber:
+              type: ["string", "null"]
+            addition:
+              type: ["string", "null"]
+            postalCode:
+              type: string
+            city:
+              type: string
+            country:
+              type: string
+            latitude:
+              type: ["string", "null"]
+              description: Decimal degrees as a string, matching this app's numeric-as-string convention (see deliveryFee).
+            longitude:
+              type: ["string", "null"]
         items:
           type: array
           items:
@@ -1091,6 +1109,22 @@ components:
           type: ["string", "null"]
         deliveryAddress:
           type: string
+        street:
+          type: string
+        houseNumber:
+          type: ["string", "null"]
+        addition:
+          type: ["string", "null"]
+        postalCode:
+          type: string
+        city:
+          type: string
+        country:
+          type: string
+        latitude:
+          type: ["string", "null"]
+        longitude:
+          type: ["string", "null"]
         deliveryInstructions:
           type: ["string", "null"]
         deliveryFee:
