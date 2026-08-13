@@ -7,7 +7,6 @@ export * from "./push-subscriptions";
 export * from "./webhook-retry-queue";
 export * from "./item-overrides";
 export * from "./system-settings";
-export * from "./order-items";
 export * from "./rider-assignments";
 export * from "./pickup-time-adjustments";
 export * from "./revoked-tokens";

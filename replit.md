@@ -18,7 +18,7 @@ Bestellenbij is an internal Progressive Web App (PWA) for food-delivery logistic
 - Order routing and source-keyed dispatch rules (that is babeldish)
 - Multi-cooperative or multi-region routing logic
 
-**Ecosystem position:** This is a logistics app. It sits downstream of babeldish (the distribution middleware): babeldish routes inbound orders to this app via a shared-secret POST endpoint (live). This app sends order status updates back to babeldish via outbound webhooks (live; URL is operator-configurable). Other logistics apps may exist as siblings serving different operational models — babeldish coordinates between them. Contract for the inbound direction: `lib/api-spec/openapi.yaml` (inbound endpoint) + `INBOUND_SHARED_SECRET`. Contract for the outbound direction: babeldish's webhook receiver + `WEBHOOK_URL` / `system_settings.outbound_webhook_url`.
+**Ecosystem position:** This is a logistics app. It sits downstream of babeldish (the distribution middleware): babeldish routes inbound orders to this app via a shared-secret POST endpoint (planned/stub — code and schema are in place, but no source has been switched over in production yet; see the Bestellenbij integration plan). This app sends order status updates back to babeldish via outbound webhooks (live; URL is operator-configurable). Other logistics apps may exist as siblings serving different operational models — babeldish coordinates between them. Contract for the inbound direction: `lib/api-spec/openapi.yaml` (inbound endpoint) + `INBOUND_SHARED_SECRET`. Contract for the outbound direction: babeldish's webhook receiver + `WEBHOOK_URL` / `system_settings.outbound_webhook_url`.
 
 ---
 

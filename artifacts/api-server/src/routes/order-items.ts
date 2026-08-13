@@ -21,8 +21,9 @@ async function loadOrderOr404(id: string) {
   return order;
 }
 
-function parseItemIndex(value: string | undefined): number {
-  const index = Number.parseInt(value ?? "", 10);
+function parseItemIndex(value: string | string[] | undefined): number {
+  const raw = Array.isArray(value) ? value[0] : value;
+  const index = Number.parseInt(raw ?? "", 10);
   if (!Number.isInteger(index) || index < 0) {
     throw httpError(400, "INVALID_ITEM_INDEX", "Item index out of range");
   }
