@@ -114,9 +114,9 @@ What the system explicitly does not do:
 ### 5.1 Inbound order ingestion
 
 1. Distribution service `POST`s to `/api/inbound/orders` with `x-inbound-secret`.
-2. `inboundLimiter` (60/min) and `requireInboundSecret` gate the request.
+2. `inboundLimiter` (60/min) and `requireInboundCredential` gate the request — the secret is matched against a per-source hashed credential in `api_credentials`, and the matched row's source becomes `req.inboundSource`.
 3. The Zod schema `IngestOrderBody` validates the body.
-4. The handler resolves the restaurant by external id, computes the ASAP pickup time as `now + restaurant.minDeliveryTime` (defaulting to 30 minutes), and either inserts the order or updates an existing row by `orderId` (idempotent). The original payload is stored in `orders.originalPayload` (jsonb).
+4. The handler resolves the restaurant via `restaurant_external_ids` (scoped to `req.inboundSource` + the payload's `externalRestaurantId`). If it doesn't resolve, the order is **not rejected** — it's stored against a placeholder "Unmapped" restaurant with `isParked: true` and a `parkedReason` instead. Either way, the handler computes the ASAP pickup time as `now + restaurant.minDeliveryTime` (defaulting to 30 minutes), and either inserts the order or updates an existing row by `orderId` (idempotent). The original payload is stored in `orders.originalPayload` (jsonb).
 5. `pickup_time_original` is written on insert and never touched afterwards.
 6. `audienceForNewOrder()` resolves to coordinators + admins + the order's restaurant staff. `push.ts` sends a push to each.
 7. `enqueueOutbound("order.created", ...)` writes the event to `webhook_retry_queue` and immediately attempts delivery.
@@ -148,7 +148,7 @@ What the system explicitly does not do:
 ### 5.5 Item overrides
 
 - A coordinator can hide an item by index (the kitchen is out) or add a new item.
-- The original `order_items` rows are immutable. Overrides go in `item_overrides` with `type ∈ {hide, add}`.
+- The original `orders.items` (JSONB array) is immutable. Overrides go in `item_overrides` with `type ∈ {hide, add}`, referencing an item by its index into that array. (A separate `order_items` table existed in the schema as an alternate, never-adopted design — nothing ever read or wrote it — and has since been removed. Don't confuse it with `orders.items` if you see it mentioned elsewhere.)
 - `applyItemOverrides` produces the displayed list at serialize time.
 
 ### 5.6 Outbound webhooks with retry
@@ -180,7 +180,7 @@ What the system explicitly does not do:
 
 | Integration | Direction | Auth | Failure handling |
 | --- | --- | --- | --- |
-| Distribution service inbound | They → us | Header `x-inbound-secret` matched against `INBOUND_SHARED_SECRET`; rate-limited 60/min | 4xx on bad secret / validation; idempotent on duplicate orderId |
+| Distribution service inbound | They → us | Header `x-inbound-secret` matched against a per-source hashed credential in `api_credentials` (not a single shared secret — see §7 Inbound); rate-limited 60/min | 4xx on bad secret / validation; idempotent on duplicate orderId |
 | Distribution service outbound | Us → them | None (URL is operator-configured); payload is JSON | Persistent queue with 30 s / 2 min / 5 min backoff, max 4 attempts; 4xx is permanent |
 | Web Push (browser push services) | Us → user device | VAPID JWT; `web-push` library | Auto-prune 410/404 subscriptions; silent no-op when VAPID unset |
 | PostgreSQL | Us | Connection string `DATABASE_URL` | Errors bubble; no retry layer (single primary) |
@@ -205,7 +205,7 @@ What the system explicitly does not do:
 
 ### Inbound
 
-- `requireInboundSecret` matches the `x-inbound-secret` header against `INBOUND_SHARED_SECRET`. No JWT involved.
+- `requireInboundCredential` matches the `x-inbound-secret` header against a hashed per-source secret in `api_credentials`, and sets `req.inboundSource` from the matched row — the caller's identity comes from which credential matched, never from the request body. No JWT involved. This replaced an earlier single-shared-secret mechanism (`requireInboundSecret` / `INBOUND_SHARED_SECRET`) in a direct swap, not an addition alongside it — there is no fallback to the old secret once this code is deployed.
 
 ## 8. Known limitations and design trade-offs
 

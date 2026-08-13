@@ -24,8 +24,8 @@ This is the single highest-leverage investment for stability.
 ### 3. Centralized error handling
 Today errors are handled per-route with varying response shapes. Introduce a single Express error middleware that produces a consistent body (`{ error, code, requestId }`), maps known error classes to HTTP status codes, logs structurally with stack traces in development only, and never leaks internal details in production.
 
-### 4. Rate limiting
-Add rate limiting to the inbound order endpoint (which is exposed to an external service via shared-secret) and to the auth endpoints (`/auth/login`, `/auth/change-password`) to slow down brute-force attempts. The shared-secret check on the inbound endpoint should be defense-in-depth, not the only barrier.
+### 4. Rate limiting — DONE
+Rate limiting is implemented on both the inbound order endpoint (`inboundLimiter` on `/api/inbound/orders`) and the auth endpoints (`authLimiter` on `/api/auth`) — see `artifacts/api-server/src/middlewares/rate-limit.ts` and their wiring in `app.ts`. The inbound endpoint's auth also moved from a single shared secret to a per-source hashed credential (`api_credentials`) since this item was written; rate limiting remains defense-in-depth alongside that, not the only barrier.
 
 ### 5. Timezone handling
 The system currently assumes server times are UTC and the client renders in `nl-NL` without explicit conversion. Store a timezone per restaurant (or per order, captured at ingestion), and apply it when computing pickup countdowns and rendering clock times. Make sure DST transitions are handled correctly so a 19:00 pickup in October still reads 19:00 in November.

@@ -64,9 +64,9 @@ The structure for each entry: **Name**, **Location**, **What it does**, **Formul
 
 ### Item overrides application
 - **Location**: `artifacts/api-server/src/lib/order-serialize.ts` → `applyItemOverrides`
-- **What it does**: Applies hide-by-index and add-new overrides to the original `order_items` to produce the displayed list, while preserving the originals on the order.
+- **What it does**: Applies hide-by-index and add-new overrides to `orders.items` (the JSONB array — `applyItemOverrides(order.items ?? [], overrides)`) to produce the displayed list, while preserving the originals on the order. A separate `order_items` table existed in the schema as an alternate, never-adopted design (nothing ever read or wrote it) and has since been removed — don't confuse the two if you see `order_items` mentioned elsewhere.
 - **Callers**: `serializeOrderDetail`, `serializeOrderListItems`.
-- **Do not**: mutate `order_items`. Overrides are an additive layer.
+- **Do not**: mutate `orders.items` directly. Overrides are an additive layer.
 
 ### Currency rendering
 - **Location**: `artifacts/bestellenbij/src/lib/format.ts` → `formatCurrency`
@@ -96,8 +96,8 @@ The structure for each entry: **Name**, **Location**, **What it does**, **Formul
 - **Do not**: call `jsonwebtoken` from anywhere else.
 
 ### Auth middlewares
-- **Location**: `artifacts/api-server/src/lib/auth.ts` → `requireAuth`, `requireRole`, `requireInboundSecret`
-- **What it does**: `requireAuth` validates the bearer token (or `auth_token` cookie), checks revocation, loads the user, and resolves `riderId` for rider users. `requireRole(...roles)` gates by role. `requireInboundSecret` matches `x-inbound-secret` against `INBOUND_SHARED_SECRET`.
+- **Location**: `artifacts/api-server/src/lib/auth.ts` → `requireAuth`, `requireRole`, `requireInboundCredential`
+- **What it does**: `requireAuth` validates the bearer token (or `auth_token` cookie), checks revocation, loads the user, and resolves `riderId` for rider users. `requireRole(...roles)` gates by role. `requireInboundCredential` matches the `x-inbound-secret` header against a hashed per-source secret in `api_credentials` and sets `req.inboundSource` from the matched row — the caller's source comes from which credential matched, never from the request body. This replaced an earlier single-shared-secret mechanism (`requireInboundSecret` / `INBOUND_SHARED_SECRET`) in a direct swap, not an addition alongside it — there's no fallback to the old secret once this code is deployed.
 - **Do not**: implement role checks inline in handlers. Do not protect inbound endpoints with `requireAuth`.
 
 ### JTI revocation
