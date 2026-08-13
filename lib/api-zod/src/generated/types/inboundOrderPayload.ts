@@ -5,6 +5,8 @@
  * Bestellenbij logistics platform API
  * OpenAPI spec version: 0.1.0
  */
+import type { DeliveryMethod } from "./deliveryMethod";
+import type { InboundOrderPayloadCashPayment } from "./inboundOrderPayloadCashPayment";
 import type { InboundOrderPayloadCustomer } from "./inboundOrderPayloadCustomer";
 import type { OrderItem } from "./orderItem";
 
@@ -19,6 +21,20 @@ source. Unresolved values do not fail the request — see the endpoint descripti
   items: OrderItem[];
   deliveryFee: string;
   totalAmount: string;
+  tipRider: string;
+  tipRestaurant: string;
+  supTotal: string;
+  statiegeldTotal: string;
+  administrationCosts: string;
+  deliveryMethod: DeliveryMethod;
+  paymentMethod: string;
+  /**
+   * Present when paymentMethod indicates cash. All fields raw captures from the source.
+   * @nullable
+   */
+  cashPayment?: InboundOrderPayloadCashPayment;
+  /** @nullable */
+  kitchenNotes?: string | null;
   /** @nullable */
   deliveryInstructions?: string | null;
 }

@@ -856,6 +856,9 @@ components:
     PickupTimeSource:
       type: string
       enum: [rider, restaurant, override]
+    DeliveryMethod:
+      type: string
+      enum: [delivery, pickup, happy_hour]
     LoginRequest:
       type: object
       required: [email, password]
@@ -1016,6 +1019,12 @@ components:
           type: string
         notes:
           type: ["string", "null"]
+        totalPrice:
+          type: ["string", "null"]
+          description: Line total as sent by the source, not computed here. Absent for items added later via the admin add-item flow.
+        externalId:
+          type: ["string", "null"]
+          description: POS/kitchen article id, when the source provides one.
     InboundOrderPayload:
       type: object
       required:
@@ -1025,6 +1034,13 @@ components:
         - items
         - deliveryFee
         - totalAmount
+        - tipRider
+        - tipRestaurant
+        - supTotal
+        - statiegeldTotal
+        - administrationCosts
+        - deliveryMethod
+        - paymentMethod
       properties:
         orderId:
           type: string
@@ -1072,6 +1088,36 @@ components:
           type: string
         totalAmount:
           type: string
+        tipRider:
+          type: string
+        tipRestaurant:
+          type: string
+        supTotal:
+          type: string
+        statiegeldTotal:
+          type: string
+        administrationCosts:
+          type: string
+        deliveryMethod:
+          $ref: "#/components/schemas/DeliveryMethod"
+        paymentMethod:
+          type: string
+        cashPayment:
+          type: ["object", "null"]
+          description: Present when paymentMethod indicates cash. All fields raw captures from the source.
+          properties:
+            type:
+              type: ["string", "null"]
+              description: "exact | custom | tikkie | qr"
+            changeAmount:
+              type: ["string", "null"]
+            changeRequired:
+              type: ["string", "null"]
+            label:
+              type: ["string", "null"]
+              description: Bestellenbij's own ready-made Dutch display string.
+        kitchenNotes:
+          type: ["string", "null"]
         deliveryInstructions:
           type: ["string", "null"]
     Order:
@@ -1084,8 +1130,19 @@ components:
         - customerName
         - customerPhone
         - deliveryAddress
+        - street
+        - postalCode
+        - city
+        - country
         - deliveryFee
         - totalAmount
+        - tipRider
+        - tipRestaurant
+        - supTotal
+        - statiegeldTotal
+        - administrationCosts
+        - deliveryMethod
+        - paymentMethod
         - items
         - pickupTimeOriginal
         - effectivePickupTime
@@ -1131,6 +1188,33 @@ components:
           type: string
         totalAmount:
           type: string
+        tipRider:
+          type: string
+        tipRestaurant:
+          type: string
+        supTotal:
+          type: string
+        statiegeldTotal:
+          type: string
+        administrationCosts:
+          type: string
+        deliveryMethod:
+          $ref: "#/components/schemas/DeliveryMethod"
+        paymentMethod:
+          type: string
+        cashPayment:
+          type: ["object", "null"]
+          properties:
+            type:
+              type: ["string", "null"]
+            changeAmount:
+              type: ["string", "null"]
+            changeRequired:
+              type: ["string", "null"]
+            label:
+              type: ["string", "null"]
+        kitchenNotes:
+          type: ["string", "null"]
         items:
           type: array
           items:

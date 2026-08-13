@@ -22,6 +22,8 @@ export type SerializedOrderItem = {
   quantity: number;
   price: Numeric;
   notes?: string | null;
+  totalPrice?: Numeric | null;
+  externalId?: string | null;
 };
 
 function toSerializedItem(item: OrderItem): SerializedOrderItem {
@@ -30,6 +32,8 @@ function toSerializedItem(item: OrderItem): SerializedOrderItem {
     quantity: item.quantity,
     price: item.price,
     notes: item.notes ?? null,
+    totalPrice: item.totalPrice ?? null,
+    externalId: item.externalId ?? null,
   };
 }
 
@@ -94,6 +98,26 @@ function baseOrderFields(
     deliveryInstructions: order.deliveryInstructions,
     deliveryFee: order.deliveryFee,
     totalAmount: order.totalAmount,
+    tipRider: order.tipRider,
+    tipRestaurant: order.tipRestaurant,
+    supTotal: order.supTotal,
+    statiegeldTotal: order.statiegeldTotal,
+    administrationCosts: order.administrationCosts,
+    deliveryMethod: order.deliveryMethod,
+    paymentMethod: order.paymentMethod,
+    cashPayment:
+      order.cashPaymentType ??
+      order.cashPaymentChangeAmount ??
+      order.cashPaymentChangeRequired ??
+      order.cashPaymentLabel
+        ? {
+            type: order.cashPaymentType,
+            changeAmount: order.cashPaymentChangeAmount,
+            changeRequired: order.cashPaymentChangeRequired,
+            label: order.cashPaymentLabel,
+          }
+        : null,
+    kitchenNotes: order.kitchenNotes,
     items,
     pickupTimeOriginal: order.pickupTimeOriginal,
     pickupTimeRider: order.pickupTimeRider,

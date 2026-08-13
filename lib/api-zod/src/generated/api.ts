@@ -105,10 +105,42 @@ export const IngestOrderBody = zod.object({
       quantity: zod.number(),
       price: zod.string(),
       notes: zod.string().nullish(),
+      totalPrice: zod
+        .string()
+        .nullish()
+        .describe(
+          "Line total as sent by the source, not computed here. Absent for items added later via the admin add-item flow.",
+        ),
+      externalId: zod
+        .string()
+        .nullish()
+        .describe("POS\/kitchen article id, when the source provides one."),
     }),
   ),
   deliveryFee: zod.string(),
   totalAmount: zod.string(),
+  tipRider: zod.string(),
+  tipRestaurant: zod.string(),
+  supTotal: zod.string(),
+  statiegeldTotal: zod.string(),
+  administrationCosts: zod.string(),
+  deliveryMethod: zod.enum(["delivery", "pickup", "happy_hour"]),
+  paymentMethod: zod.string(),
+  cashPayment: zod
+    .object({
+      type: zod.string().nullish().describe("exact | custom | tikkie | qr"),
+      changeAmount: zod.string().nullish(),
+      changeRequired: zod.string().nullish(),
+      label: zod
+        .string()
+        .nullish()
+        .describe("Bestellenbij's own ready-made Dutch display string."),
+    })
+    .nullish()
+    .describe(
+      "Present when paymentMethod indicates cash. All fields raw captures from the source.",
+    ),
+  kitchenNotes: zod.string().nullish(),
   deliveryInstructions: zod.string().nullish(),
 });
 
@@ -131,23 +163,49 @@ export const IngestOrderResponse = zod.object({
   customerPhone: zod.string(),
   customerEmail: zod.string().nullish(),
   deliveryAddress: zod.string(),
-  street: zod.string().optional(),
+  street: zod.string(),
   houseNumber: zod.string().nullish(),
   addition: zod.string().nullish(),
-  postalCode: zod.string().optional(),
-  city: zod.string().optional(),
-  country: zod.string().optional(),
+  postalCode: zod.string(),
+  city: zod.string(),
+  country: zod.string(),
   latitude: zod.string().nullish(),
   longitude: zod.string().nullish(),
   deliveryInstructions: zod.string().nullish(),
   deliveryFee: zod.string(),
   totalAmount: zod.string(),
+  tipRider: zod.string(),
+  tipRestaurant: zod.string(),
+  supTotal: zod.string(),
+  statiegeldTotal: zod.string(),
+  administrationCosts: zod.string(),
+  deliveryMethod: zod.enum(["delivery", "pickup", "happy_hour"]),
+  paymentMethod: zod.string(),
+  cashPayment: zod
+    .object({
+      type: zod.string().nullish(),
+      changeAmount: zod.string().nullish(),
+      changeRequired: zod.string().nullish(),
+      label: zod.string().nullish(),
+    })
+    .nullish(),
+  kitchenNotes: zod.string().nullish(),
   items: zod.array(
     zod.object({
       name: zod.string(),
       quantity: zod.number(),
       price: zod.string(),
       notes: zod.string().nullish(),
+      totalPrice: zod
+        .string()
+        .nullish()
+        .describe(
+          "Line total as sent by the source, not computed here. Absent for items added later via the admin add-item flow.",
+        ),
+      externalId: zod
+        .string()
+        .nullish()
+        .describe("POS\/kitchen article id, when the source provides one."),
     }),
   ),
   pickupTimeOriginal: zod.coerce.date(),
@@ -222,23 +280,49 @@ export const ListOrdersResponseItem = zod
     customerPhone: zod.string(),
     customerEmail: zod.string().nullish(),
     deliveryAddress: zod.string(),
-    street: zod.string().optional(),
+    street: zod.string(),
     houseNumber: zod.string().nullish(),
     addition: zod.string().nullish(),
-    postalCode: zod.string().optional(),
-    city: zod.string().optional(),
-    country: zod.string().optional(),
+    postalCode: zod.string(),
+    city: zod.string(),
+    country: zod.string(),
     latitude: zod.string().nullish(),
     longitude: zod.string().nullish(),
     deliveryInstructions: zod.string().nullish(),
     deliveryFee: zod.string(),
     totalAmount: zod.string(),
+    tipRider: zod.string(),
+    tipRestaurant: zod.string(),
+    supTotal: zod.string(),
+    statiegeldTotal: zod.string(),
+    administrationCosts: zod.string(),
+    deliveryMethod: zod.enum(["delivery", "pickup", "happy_hour"]),
+    paymentMethod: zod.string(),
+    cashPayment: zod
+      .object({
+        type: zod.string().nullish(),
+        changeAmount: zod.string().nullish(),
+        changeRequired: zod.string().nullish(),
+        label: zod.string().nullish(),
+      })
+      .nullish(),
+    kitchenNotes: zod.string().nullish(),
     items: zod.array(
       zod.object({
         name: zod.string(),
         quantity: zod.number(),
         price: zod.string(),
         notes: zod.string().nullish(),
+        totalPrice: zod
+          .string()
+          .nullish()
+          .describe(
+            "Line total as sent by the source, not computed here. Absent for items added later via the admin add-item flow.",
+          ),
+        externalId: zod
+          .string()
+          .nullish()
+          .describe("POS\/kitchen article id, when the source provides one."),
       }),
     ),
     pickupTimeOriginal: zod.coerce.date(),
@@ -308,23 +392,49 @@ export const GetOrderResponse = zod
     customerPhone: zod.string(),
     customerEmail: zod.string().nullish(),
     deliveryAddress: zod.string(),
-    street: zod.string().optional(),
+    street: zod.string(),
     houseNumber: zod.string().nullish(),
     addition: zod.string().nullish(),
-    postalCode: zod.string().optional(),
-    city: zod.string().optional(),
-    country: zod.string().optional(),
+    postalCode: zod.string(),
+    city: zod.string(),
+    country: zod.string(),
     latitude: zod.string().nullish(),
     longitude: zod.string().nullish(),
     deliveryInstructions: zod.string().nullish(),
     deliveryFee: zod.string(),
     totalAmount: zod.string(),
+    tipRider: zod.string(),
+    tipRestaurant: zod.string(),
+    supTotal: zod.string(),
+    statiegeldTotal: zod.string(),
+    administrationCosts: zod.string(),
+    deliveryMethod: zod.enum(["delivery", "pickup", "happy_hour"]),
+    paymentMethod: zod.string(),
+    cashPayment: zod
+      .object({
+        type: zod.string().nullish(),
+        changeAmount: zod.string().nullish(),
+        changeRequired: zod.string().nullish(),
+        label: zod.string().nullish(),
+      })
+      .nullish(),
+    kitchenNotes: zod.string().nullish(),
     items: zod.array(
       zod.object({
         name: zod.string(),
         quantity: zod.number(),
         price: zod.string(),
         notes: zod.string().nullish(),
+        totalPrice: zod
+          .string()
+          .nullish()
+          .describe(
+            "Line total as sent by the source, not computed here. Absent for items added later via the admin add-item flow.",
+          ),
+        externalId: zod
+          .string()
+          .nullish()
+          .describe("POS\/kitchen article id, when the source provides one."),
       }),
     ),
     pickupTimeOriginal: zod.coerce.date(),
@@ -414,6 +524,18 @@ export const GetOrderResponse = zod
                 quantity: zod.number(),
                 price: zod.string(),
                 notes: zod.string().nullish(),
+                totalPrice: zod
+                  .string()
+                  .nullish()
+                  .describe(
+                    "Line total as sent by the source, not computed here. Absent for items added later via the admin add-item flow.",
+                  ),
+                externalId: zod
+                  .string()
+                  .nullish()
+                  .describe(
+                    "POS\/kitchen article id, when the source provides one.",
+                  ),
               }),
               zod.null(),
             ])
@@ -466,23 +588,49 @@ export const TransitionOrderStatusResponse = zod
     customerPhone: zod.string(),
     customerEmail: zod.string().nullish(),
     deliveryAddress: zod.string(),
-    street: zod.string().optional(),
+    street: zod.string(),
     houseNumber: zod.string().nullish(),
     addition: zod.string().nullish(),
-    postalCode: zod.string().optional(),
-    city: zod.string().optional(),
-    country: zod.string().optional(),
+    postalCode: zod.string(),
+    city: zod.string(),
+    country: zod.string(),
     latitude: zod.string().nullish(),
     longitude: zod.string().nullish(),
     deliveryInstructions: zod.string().nullish(),
     deliveryFee: zod.string(),
     totalAmount: zod.string(),
+    tipRider: zod.string(),
+    tipRestaurant: zod.string(),
+    supTotal: zod.string(),
+    statiegeldTotal: zod.string(),
+    administrationCosts: zod.string(),
+    deliveryMethod: zod.enum(["delivery", "pickup", "happy_hour"]),
+    paymentMethod: zod.string(),
+    cashPayment: zod
+      .object({
+        type: zod.string().nullish(),
+        changeAmount: zod.string().nullish(),
+        changeRequired: zod.string().nullish(),
+        label: zod.string().nullish(),
+      })
+      .nullish(),
+    kitchenNotes: zod.string().nullish(),
     items: zod.array(
       zod.object({
         name: zod.string(),
         quantity: zod.number(),
         price: zod.string(),
         notes: zod.string().nullish(),
+        totalPrice: zod
+          .string()
+          .nullish()
+          .describe(
+            "Line total as sent by the source, not computed here. Absent for items added later via the admin add-item flow.",
+          ),
+        externalId: zod
+          .string()
+          .nullish()
+          .describe("POS\/kitchen article id, when the source provides one."),
       }),
     ),
     pickupTimeOriginal: zod.coerce.date(),
@@ -572,6 +720,18 @@ export const TransitionOrderStatusResponse = zod
                 quantity: zod.number(),
                 price: zod.string(),
                 notes: zod.string().nullish(),
+                totalPrice: zod
+                  .string()
+                  .nullish()
+                  .describe(
+                    "Line total as sent by the source, not computed here. Absent for items added later via the admin add-item flow.",
+                  ),
+                externalId: zod
+                  .string()
+                  .nullish()
+                  .describe(
+                    "POS\/kitchen article id, when the source provides one.",
+                  ),
               }),
               zod.null(),
             ])
@@ -613,23 +773,49 @@ export const AssignOrderResponse = zod
     customerPhone: zod.string(),
     customerEmail: zod.string().nullish(),
     deliveryAddress: zod.string(),
-    street: zod.string().optional(),
+    street: zod.string(),
     houseNumber: zod.string().nullish(),
     addition: zod.string().nullish(),
-    postalCode: zod.string().optional(),
-    city: zod.string().optional(),
-    country: zod.string().optional(),
+    postalCode: zod.string(),
+    city: zod.string(),
+    country: zod.string(),
     latitude: zod.string().nullish(),
     longitude: zod.string().nullish(),
     deliveryInstructions: zod.string().nullish(),
     deliveryFee: zod.string(),
     totalAmount: zod.string(),
+    tipRider: zod.string(),
+    tipRestaurant: zod.string(),
+    supTotal: zod.string(),
+    statiegeldTotal: zod.string(),
+    administrationCosts: zod.string(),
+    deliveryMethod: zod.enum(["delivery", "pickup", "happy_hour"]),
+    paymentMethod: zod.string(),
+    cashPayment: zod
+      .object({
+        type: zod.string().nullish(),
+        changeAmount: zod.string().nullish(),
+        changeRequired: zod.string().nullish(),
+        label: zod.string().nullish(),
+      })
+      .nullish(),
+    kitchenNotes: zod.string().nullish(),
     items: zod.array(
       zod.object({
         name: zod.string(),
         quantity: zod.number(),
         price: zod.string(),
         notes: zod.string().nullish(),
+        totalPrice: zod
+          .string()
+          .nullish()
+          .describe(
+            "Line total as sent by the source, not computed here. Absent for items added later via the admin add-item flow.",
+          ),
+        externalId: zod
+          .string()
+          .nullish()
+          .describe("POS\/kitchen article id, when the source provides one."),
       }),
     ),
     pickupTimeOriginal: zod.coerce.date(),
@@ -719,6 +905,18 @@ export const AssignOrderResponse = zod
                 quantity: zod.number(),
                 price: zod.string(),
                 notes: zod.string().nullish(),
+                totalPrice: zod
+                  .string()
+                  .nullish()
+                  .describe(
+                    "Line total as sent by the source, not computed here. Absent for items added later via the admin add-item flow.",
+                  ),
+                externalId: zod
+                  .string()
+                  .nullish()
+                  .describe(
+                    "POS\/kitchen article id, when the source provides one.",
+                  ),
               }),
               zod.null(),
             ])
@@ -761,23 +959,49 @@ export const UpdatePickupTimeResponse = zod
     customerPhone: zod.string(),
     customerEmail: zod.string().nullish(),
     deliveryAddress: zod.string(),
-    street: zod.string().optional(),
+    street: zod.string(),
     houseNumber: zod.string().nullish(),
     addition: zod.string().nullish(),
-    postalCode: zod.string().optional(),
-    city: zod.string().optional(),
-    country: zod.string().optional(),
+    postalCode: zod.string(),
+    city: zod.string(),
+    country: zod.string(),
     latitude: zod.string().nullish(),
     longitude: zod.string().nullish(),
     deliveryInstructions: zod.string().nullish(),
     deliveryFee: zod.string(),
     totalAmount: zod.string(),
+    tipRider: zod.string(),
+    tipRestaurant: zod.string(),
+    supTotal: zod.string(),
+    statiegeldTotal: zod.string(),
+    administrationCosts: zod.string(),
+    deliveryMethod: zod.enum(["delivery", "pickup", "happy_hour"]),
+    paymentMethod: zod.string(),
+    cashPayment: zod
+      .object({
+        type: zod.string().nullish(),
+        changeAmount: zod.string().nullish(),
+        changeRequired: zod.string().nullish(),
+        label: zod.string().nullish(),
+      })
+      .nullish(),
+    kitchenNotes: zod.string().nullish(),
     items: zod.array(
       zod.object({
         name: zod.string(),
         quantity: zod.number(),
         price: zod.string(),
         notes: zod.string().nullish(),
+        totalPrice: zod
+          .string()
+          .nullish()
+          .describe(
+            "Line total as sent by the source, not computed here. Absent for items added later via the admin add-item flow.",
+          ),
+        externalId: zod
+          .string()
+          .nullish()
+          .describe("POS\/kitchen article id, when the source provides one."),
       }),
     ),
     pickupTimeOriginal: zod.coerce.date(),
@@ -867,6 +1091,18 @@ export const UpdatePickupTimeResponse = zod
                 quantity: zod.number(),
                 price: zod.string(),
                 notes: zod.string().nullish(),
+                totalPrice: zod
+                  .string()
+                  .nullish()
+                  .describe(
+                    "Line total as sent by the source, not computed here. Absent for items added later via the admin add-item flow.",
+                  ),
+                externalId: zod
+                  .string()
+                  .nullish()
+                  .describe(
+                    "POS\/kitchen article id, when the source provides one.",
+                  ),
               }),
               zod.null(),
             ])
@@ -908,23 +1144,49 @@ export const HideOrderItemResponse = zod
     customerPhone: zod.string(),
     customerEmail: zod.string().nullish(),
     deliveryAddress: zod.string(),
-    street: zod.string().optional(),
+    street: zod.string(),
     houseNumber: zod.string().nullish(),
     addition: zod.string().nullish(),
-    postalCode: zod.string().optional(),
-    city: zod.string().optional(),
-    country: zod.string().optional(),
+    postalCode: zod.string(),
+    city: zod.string(),
+    country: zod.string(),
     latitude: zod.string().nullish(),
     longitude: zod.string().nullish(),
     deliveryInstructions: zod.string().nullish(),
     deliveryFee: zod.string(),
     totalAmount: zod.string(),
+    tipRider: zod.string(),
+    tipRestaurant: zod.string(),
+    supTotal: zod.string(),
+    statiegeldTotal: zod.string(),
+    administrationCosts: zod.string(),
+    deliveryMethod: zod.enum(["delivery", "pickup", "happy_hour"]),
+    paymentMethod: zod.string(),
+    cashPayment: zod
+      .object({
+        type: zod.string().nullish(),
+        changeAmount: zod.string().nullish(),
+        changeRequired: zod.string().nullish(),
+        label: zod.string().nullish(),
+      })
+      .nullish(),
+    kitchenNotes: zod.string().nullish(),
     items: zod.array(
       zod.object({
         name: zod.string(),
         quantity: zod.number(),
         price: zod.string(),
         notes: zod.string().nullish(),
+        totalPrice: zod
+          .string()
+          .nullish()
+          .describe(
+            "Line total as sent by the source, not computed here. Absent for items added later via the admin add-item flow.",
+          ),
+        externalId: zod
+          .string()
+          .nullish()
+          .describe("POS\/kitchen article id, when the source provides one."),
       }),
     ),
     pickupTimeOriginal: zod.coerce.date(),
@@ -1014,6 +1276,18 @@ export const HideOrderItemResponse = zod
                 quantity: zod.number(),
                 price: zod.string(),
                 notes: zod.string().nullish(),
+                totalPrice: zod
+                  .string()
+                  .nullish()
+                  .describe(
+                    "Line total as sent by the source, not computed here. Absent for items added later via the admin add-item flow.",
+                  ),
+                externalId: zod
+                  .string()
+                  .nullish()
+                  .describe(
+                    "POS\/kitchen article id, when the source provides one.",
+                  ),
               }),
               zod.null(),
             ])
@@ -1037,6 +1311,16 @@ export const AddOrderItemBody = zod.object({
     quantity: zod.number(),
     price: zod.string(),
     notes: zod.string().nullish(),
+    totalPrice: zod
+      .string()
+      .nullish()
+      .describe(
+        "Line total as sent by the source, not computed here. Absent for items added later via the admin add-item flow.",
+      ),
+    externalId: zod
+      .string()
+      .nullish()
+      .describe("POS\/kitchen article id, when the source provides one."),
   }),
 });
 
@@ -1060,23 +1344,49 @@ export const AddOrderItemResponse = zod
     customerPhone: zod.string(),
     customerEmail: zod.string().nullish(),
     deliveryAddress: zod.string(),
-    street: zod.string().optional(),
+    street: zod.string(),
     houseNumber: zod.string().nullish(),
     addition: zod.string().nullish(),
-    postalCode: zod.string().optional(),
-    city: zod.string().optional(),
-    country: zod.string().optional(),
+    postalCode: zod.string(),
+    city: zod.string(),
+    country: zod.string(),
     latitude: zod.string().nullish(),
     longitude: zod.string().nullish(),
     deliveryInstructions: zod.string().nullish(),
     deliveryFee: zod.string(),
     totalAmount: zod.string(),
+    tipRider: zod.string(),
+    tipRestaurant: zod.string(),
+    supTotal: zod.string(),
+    statiegeldTotal: zod.string(),
+    administrationCosts: zod.string(),
+    deliveryMethod: zod.enum(["delivery", "pickup", "happy_hour"]),
+    paymentMethod: zod.string(),
+    cashPayment: zod
+      .object({
+        type: zod.string().nullish(),
+        changeAmount: zod.string().nullish(),
+        changeRequired: zod.string().nullish(),
+        label: zod.string().nullish(),
+      })
+      .nullish(),
+    kitchenNotes: zod.string().nullish(),
     items: zod.array(
       zod.object({
         name: zod.string(),
         quantity: zod.number(),
         price: zod.string(),
         notes: zod.string().nullish(),
+        totalPrice: zod
+          .string()
+          .nullish()
+          .describe(
+            "Line total as sent by the source, not computed here. Absent for items added later via the admin add-item flow.",
+          ),
+        externalId: zod
+          .string()
+          .nullish()
+          .describe("POS\/kitchen article id, when the source provides one."),
       }),
     ),
     pickupTimeOriginal: zod.coerce.date(),
@@ -1166,6 +1476,18 @@ export const AddOrderItemResponse = zod
                 quantity: zod.number(),
                 price: zod.string(),
                 notes: zod.string().nullish(),
+                totalPrice: zod
+                  .string()
+                  .nullish()
+                  .describe(
+                    "Line total as sent by the source, not computed here. Absent for items added later via the admin add-item flow.",
+                  ),
+                externalId: zod
+                  .string()
+                  .nullish()
+                  .describe(
+                    "POS\/kitchen article id, when the source provides one.",
+                  ),
               }),
               zod.null(),
             ])
@@ -1207,23 +1529,49 @@ export const SetRiderNotificationResponse = zod
     customerPhone: zod.string(),
     customerEmail: zod.string().nullish(),
     deliveryAddress: zod.string(),
-    street: zod.string().optional(),
+    street: zod.string(),
     houseNumber: zod.string().nullish(),
     addition: zod.string().nullish(),
-    postalCode: zod.string().optional(),
-    city: zod.string().optional(),
-    country: zod.string().optional(),
+    postalCode: zod.string(),
+    city: zod.string(),
+    country: zod.string(),
     latitude: zod.string().nullish(),
     longitude: zod.string().nullish(),
     deliveryInstructions: zod.string().nullish(),
     deliveryFee: zod.string(),
     totalAmount: zod.string(),
+    tipRider: zod.string(),
+    tipRestaurant: zod.string(),
+    supTotal: zod.string(),
+    statiegeldTotal: zod.string(),
+    administrationCosts: zod.string(),
+    deliveryMethod: zod.enum(["delivery", "pickup", "happy_hour"]),
+    paymentMethod: zod.string(),
+    cashPayment: zod
+      .object({
+        type: zod.string().nullish(),
+        changeAmount: zod.string().nullish(),
+        changeRequired: zod.string().nullish(),
+        label: zod.string().nullish(),
+      })
+      .nullish(),
+    kitchenNotes: zod.string().nullish(),
     items: zod.array(
       zod.object({
         name: zod.string(),
         quantity: zod.number(),
         price: zod.string(),
         notes: zod.string().nullish(),
+        totalPrice: zod
+          .string()
+          .nullish()
+          .describe(
+            "Line total as sent by the source, not computed here. Absent for items added later via the admin add-item flow.",
+          ),
+        externalId: zod
+          .string()
+          .nullish()
+          .describe("POS\/kitchen article id, when the source provides one."),
       }),
     ),
     pickupTimeOriginal: zod.coerce.date(),
@@ -1313,6 +1661,18 @@ export const SetRiderNotificationResponse = zod
                 quantity: zod.number(),
                 price: zod.string(),
                 notes: zod.string().nullish(),
+                totalPrice: zod
+                  .string()
+                  .nullish()
+                  .describe(
+                    "Line total as sent by the source, not computed here. Absent for items added later via the admin add-item flow.",
+                  ),
+                externalId: zod
+                  .string()
+                  .nullish()
+                  .describe(
+                    "POS\/kitchen article id, when the source provides one.",
+                  ),
               }),
               zod.null(),
             ])
@@ -1358,23 +1718,49 @@ export const UpdateOrderContactResponse = zod
     customerPhone: zod.string(),
     customerEmail: zod.string().nullish(),
     deliveryAddress: zod.string(),
-    street: zod.string().optional(),
+    street: zod.string(),
     houseNumber: zod.string().nullish(),
     addition: zod.string().nullish(),
-    postalCode: zod.string().optional(),
-    city: zod.string().optional(),
-    country: zod.string().optional(),
+    postalCode: zod.string(),
+    city: zod.string(),
+    country: zod.string(),
     latitude: zod.string().nullish(),
     longitude: zod.string().nullish(),
     deliveryInstructions: zod.string().nullish(),
     deliveryFee: zod.string(),
     totalAmount: zod.string(),
+    tipRider: zod.string(),
+    tipRestaurant: zod.string(),
+    supTotal: zod.string(),
+    statiegeldTotal: zod.string(),
+    administrationCosts: zod.string(),
+    deliveryMethod: zod.enum(["delivery", "pickup", "happy_hour"]),
+    paymentMethod: zod.string(),
+    cashPayment: zod
+      .object({
+        type: zod.string().nullish(),
+        changeAmount: zod.string().nullish(),
+        changeRequired: zod.string().nullish(),
+        label: zod.string().nullish(),
+      })
+      .nullish(),
+    kitchenNotes: zod.string().nullish(),
     items: zod.array(
       zod.object({
         name: zod.string(),
         quantity: zod.number(),
         price: zod.string(),
         notes: zod.string().nullish(),
+        totalPrice: zod
+          .string()
+          .nullish()
+          .describe(
+            "Line total as sent by the source, not computed here. Absent for items added later via the admin add-item flow.",
+          ),
+        externalId: zod
+          .string()
+          .nullish()
+          .describe("POS\/kitchen article id, when the source provides one."),
       }),
     ),
     pickupTimeOriginal: zod.coerce.date(),
@@ -1464,6 +1850,18 @@ export const UpdateOrderContactResponse = zod
                 quantity: zod.number(),
                 price: zod.string(),
                 notes: zod.string().nullish(),
+                totalPrice: zod
+                  .string()
+                  .nullish()
+                  .describe(
+                    "Line total as sent by the source, not computed here. Absent for items added later via the admin add-item flow.",
+                  ),
+                externalId: zod
+                  .string()
+                  .nullish()
+                  .describe(
+                    "POS\/kitchen article id, when the source provides one.",
+                  ),
               }),
               zod.null(),
             ])
@@ -1798,23 +2196,51 @@ export const GetTripResponse = zod
             customerPhone: zod.string(),
             customerEmail: zod.string().nullish(),
             deliveryAddress: zod.string(),
-            street: zod.string().optional(),
+            street: zod.string(),
             houseNumber: zod.string().nullish(),
             addition: zod.string().nullish(),
-            postalCode: zod.string().optional(),
-            city: zod.string().optional(),
-            country: zod.string().optional(),
+            postalCode: zod.string(),
+            city: zod.string(),
+            country: zod.string(),
             latitude: zod.string().nullish(),
             longitude: zod.string().nullish(),
             deliveryInstructions: zod.string().nullish(),
             deliveryFee: zod.string(),
             totalAmount: zod.string(),
+            tipRider: zod.string(),
+            tipRestaurant: zod.string(),
+            supTotal: zod.string(),
+            statiegeldTotal: zod.string(),
+            administrationCosts: zod.string(),
+            deliveryMethod: zod.enum(["delivery", "pickup", "happy_hour"]),
+            paymentMethod: zod.string(),
+            cashPayment: zod
+              .object({
+                type: zod.string().nullish(),
+                changeAmount: zod.string().nullish(),
+                changeRequired: zod.string().nullish(),
+                label: zod.string().nullish(),
+              })
+              .nullish(),
+            kitchenNotes: zod.string().nullish(),
             items: zod.array(
               zod.object({
                 name: zod.string(),
                 quantity: zod.number(),
                 price: zod.string(),
                 notes: zod.string().nullish(),
+                totalPrice: zod
+                  .string()
+                  .nullish()
+                  .describe(
+                    "Line total as sent by the source, not computed here. Absent for items added later via the admin add-item flow.",
+                  ),
+                externalId: zod
+                  .string()
+                  .nullish()
+                  .describe(
+                    "POS\/kitchen article id, when the source provides one.",
+                  ),
               }),
             ),
             pickupTimeOriginal: zod.coerce.date(),
@@ -1944,23 +2370,51 @@ export const UpdateTripResponse = zod
             customerPhone: zod.string(),
             customerEmail: zod.string().nullish(),
             deliveryAddress: zod.string(),
-            street: zod.string().optional(),
+            street: zod.string(),
             houseNumber: zod.string().nullish(),
             addition: zod.string().nullish(),
-            postalCode: zod.string().optional(),
-            city: zod.string().optional(),
-            country: zod.string().optional(),
+            postalCode: zod.string(),
+            city: zod.string(),
+            country: zod.string(),
             latitude: zod.string().nullish(),
             longitude: zod.string().nullish(),
             deliveryInstructions: zod.string().nullish(),
             deliveryFee: zod.string(),
             totalAmount: zod.string(),
+            tipRider: zod.string(),
+            tipRestaurant: zod.string(),
+            supTotal: zod.string(),
+            statiegeldTotal: zod.string(),
+            administrationCosts: zod.string(),
+            deliveryMethod: zod.enum(["delivery", "pickup", "happy_hour"]),
+            paymentMethod: zod.string(),
+            cashPayment: zod
+              .object({
+                type: zod.string().nullish(),
+                changeAmount: zod.string().nullish(),
+                changeRequired: zod.string().nullish(),
+                label: zod.string().nullish(),
+              })
+              .nullish(),
+            kitchenNotes: zod.string().nullish(),
             items: zod.array(
               zod.object({
                 name: zod.string(),
                 quantity: zod.number(),
                 price: zod.string(),
                 notes: zod.string().nullish(),
+                totalPrice: zod
+                  .string()
+                  .nullish()
+                  .describe(
+                    "Line total as sent by the source, not computed here. Absent for items added later via the admin add-item flow.",
+                  ),
+                externalId: zod
+                  .string()
+                  .nullish()
+                  .describe(
+                    "POS\/kitchen article id, when the source provides one.",
+                  ),
               }),
             ),
             pickupTimeOriginal: zod.coerce.date(),
@@ -2090,23 +2544,51 @@ export const ReplaceTripStopsResponse = zod
             customerPhone: zod.string(),
             customerEmail: zod.string().nullish(),
             deliveryAddress: zod.string(),
-            street: zod.string().optional(),
+            street: zod.string(),
             houseNumber: zod.string().nullish(),
             addition: zod.string().nullish(),
-            postalCode: zod.string().optional(),
-            city: zod.string().optional(),
-            country: zod.string().optional(),
+            postalCode: zod.string(),
+            city: zod.string(),
+            country: zod.string(),
             latitude: zod.string().nullish(),
             longitude: zod.string().nullish(),
             deliveryInstructions: zod.string().nullish(),
             deliveryFee: zod.string(),
             totalAmount: zod.string(),
+            tipRider: zod.string(),
+            tipRestaurant: zod.string(),
+            supTotal: zod.string(),
+            statiegeldTotal: zod.string(),
+            administrationCosts: zod.string(),
+            deliveryMethod: zod.enum(["delivery", "pickup", "happy_hour"]),
+            paymentMethod: zod.string(),
+            cashPayment: zod
+              .object({
+                type: zod.string().nullish(),
+                changeAmount: zod.string().nullish(),
+                changeRequired: zod.string().nullish(),
+                label: zod.string().nullish(),
+              })
+              .nullish(),
+            kitchenNotes: zod.string().nullish(),
             items: zod.array(
               zod.object({
                 name: zod.string(),
                 quantity: zod.number(),
                 price: zod.string(),
                 notes: zod.string().nullish(),
+                totalPrice: zod
+                  .string()
+                  .nullish()
+                  .describe(
+                    "Line total as sent by the source, not computed here. Absent for items added later via the admin add-item flow.",
+                  ),
+                externalId: zod
+                  .string()
+                  .nullish()
+                  .describe(
+                    "POS\/kitchen article id, when the source provides one.",
+                  ),
               }),
             ),
             pickupTimeOriginal: zod.coerce.date(),
@@ -2225,23 +2707,51 @@ export const DissolveTripResponse = zod
             customerPhone: zod.string(),
             customerEmail: zod.string().nullish(),
             deliveryAddress: zod.string(),
-            street: zod.string().optional(),
+            street: zod.string(),
             houseNumber: zod.string().nullish(),
             addition: zod.string().nullish(),
-            postalCode: zod.string().optional(),
-            city: zod.string().optional(),
-            country: zod.string().optional(),
+            postalCode: zod.string(),
+            city: zod.string(),
+            country: zod.string(),
             latitude: zod.string().nullish(),
             longitude: zod.string().nullish(),
             deliveryInstructions: zod.string().nullish(),
             deliveryFee: zod.string(),
             totalAmount: zod.string(),
+            tipRider: zod.string(),
+            tipRestaurant: zod.string(),
+            supTotal: zod.string(),
+            statiegeldTotal: zod.string(),
+            administrationCosts: zod.string(),
+            deliveryMethod: zod.enum(["delivery", "pickup", "happy_hour"]),
+            paymentMethod: zod.string(),
+            cashPayment: zod
+              .object({
+                type: zod.string().nullish(),
+                changeAmount: zod.string().nullish(),
+                changeRequired: zod.string().nullish(),
+                label: zod.string().nullish(),
+              })
+              .nullish(),
+            kitchenNotes: zod.string().nullish(),
             items: zod.array(
               zod.object({
                 name: zod.string(),
                 quantity: zod.number(),
                 price: zod.string(),
                 notes: zod.string().nullish(),
+                totalPrice: zod
+                  .string()
+                  .nullish()
+                  .describe(
+                    "Line total as sent by the source, not computed here. Absent for items added later via the admin add-item flow.",
+                  ),
+                externalId: zod
+                  .string()
+                  .nullish()
+                  .describe(
+                    "POS\/kitchen article id, when the source provides one.",
+                  ),
               }),
             ),
             pickupTimeOriginal: zod.coerce.date(),

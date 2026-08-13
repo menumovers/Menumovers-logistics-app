@@ -5,6 +5,8 @@
  * Bestellenbij logistics platform API
  * OpenAPI spec version: 0.1.0
  */
+import type { DeliveryMethod } from "./deliveryMethod";
+import type { OrderCashPayment } from "./orderCashPayment";
 import type { OrderItem } from "./orderItem";
 import type { OrderStatus } from "./orderStatus";
 import type { PickupTimeSource } from "./pickupTimeSource";
@@ -21,14 +23,14 @@ export interface Order {
   /** @nullable */
   customerEmail?: string | null;
   deliveryAddress: string;
-  street?: string;
+  street: string;
   /** @nullable */
   houseNumber?: string | null;
   /** @nullable */
   addition?: string | null;
-  postalCode?: string;
-  city?: string;
-  country?: string;
+  postalCode: string;
+  city: string;
+  country: string;
   /** @nullable */
   latitude?: string | null;
   /** @nullable */
@@ -37,6 +39,17 @@ export interface Order {
   deliveryInstructions?: string | null;
   deliveryFee: string;
   totalAmount: string;
+  tipRider: string;
+  tipRestaurant: string;
+  supTotal: string;
+  statiegeldTotal: string;
+  administrationCosts: string;
+  deliveryMethod: DeliveryMethod;
+  paymentMethod: string;
+  /** @nullable */
+  cashPayment?: OrderCashPayment;
+  /** @nullable */
+  kitchenNotes?: string | null;
   items: OrderItem[];
   pickupTimeOriginal: Date;
   /** @nullable */

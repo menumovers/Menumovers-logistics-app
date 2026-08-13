@@ -35,6 +35,12 @@ export type OrderItem = {
   quantity: number;
   price: string; // string to avoid float math
   notes?: string;
+  // Line total (price * quantity, as sent raw by the source — not computed
+  // here). Optional because items added later via the admin add-item flow
+  // don't carry one.
+  totalPrice?: string;
+  // POS/kitchen article id, when the source provides one.
+  externalId?: string;
 };
 
 export const ordersTable = pgTable(
@@ -70,6 +76,19 @@ export const ordersTable = pgTable(
     deliveryInstructions: text("delivery_instructions"),
     deliveryFee: numeric("delivery_fee").notNull().default("0"),
     totalAmount: numeric("total_amount").notNull().default("0"),
+    // Raw captures from the source — no computation logic, stored as-sent.
+    tipRider: text("tip_rider").notNull(),
+    tipRestaurant: text("tip_restaurant").notNull(),
+    supTotal: text("sup_total").notNull(),
+    statiegeldTotal: text("statiegeld_total").notNull(),
+    administrationCosts: text("administration_costs").notNull(),
+    deliveryMethod: text("delivery_method").notNull(),
+    paymentMethod: text("payment_method").notNull(),
+    cashPaymentType: text("cash_payment_type"),
+    cashPaymentChangeAmount: text("cash_payment_change_amount"),
+    cashPaymentChangeRequired: text("cash_payment_change_required"),
+    cashPaymentLabel: text("cash_payment_label"),
+    kitchenNotes: text("kitchen_notes"),
     // Original immutable items from upstream payload.
     items: jsonb("items").notNull().$type<OrderItem[]>().default([]),
     // The full original upstream payload, kept for forensic / replay use.

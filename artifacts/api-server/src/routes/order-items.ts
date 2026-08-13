@@ -35,6 +35,8 @@ function serializeOriginalItem(item: OrderItem) {
     quantity: item.quantity,
     price: item.price,
     notes: item.notes ?? null,
+    totalPrice: item.totalPrice ?? null,
+    externalId: item.externalId ?? null,
   };
 }
 

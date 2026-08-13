@@ -79,6 +79,15 @@ export const PickupTimeSource = {
   override: "override",
 } as const;
 
+export type DeliveryMethod =
+  (typeof DeliveryMethod)[keyof typeof DeliveryMethod];
+
+export const DeliveryMethod = {
+  delivery: "delivery",
+  pickup: "pickup",
+  happy_hour: "happy_hour",
+} as const;
+
 export interface LoginRequest {
   email: string;
   password: string;
@@ -217,6 +226,16 @@ export interface OrderItem {
   price: string;
   /** @nullable */
   notes?: string | null;
+  /**
+   * Line total as sent by the source, not computed here. Absent for items added later via the admin add-item flow.
+   * @nullable
+   */
+  totalPrice?: string | null;
+  /**
+   * POS/kitchen article id, when the source provides one.
+   * @nullable
+   */
+  externalId?: string | null;
 }
 
 export type InboundOrderPayloadCustomer = {
@@ -243,6 +262,27 @@ export type InboundOrderPayloadCustomer = {
   longitude?: string | null;
 };
 
+/**
+ * Present when paymentMethod indicates cash. All fields raw captures from the source.
+ * @nullable
+ */
+export type InboundOrderPayloadCashPayment = {
+  /**
+   * exact | custom | tikkie | qr
+   * @nullable
+   */
+  type?: string | null;
+  /** @nullable */
+  changeAmount?: string | null;
+  /** @nullable */
+  changeRequired?: string | null;
+  /**
+   * Bestellenbij's own ready-made Dutch display string.
+   * @nullable
+   */
+  label?: string | null;
+} | null | null;
+
 export interface InboundOrderPayload {
   orderId: string;
   /** The restaurant identifier as known to the caller's system. Resolved to an
@@ -254,9 +294,37 @@ source. Unresolved values do not fail the request — see the endpoint descripti
   items: OrderItem[];
   deliveryFee: string;
   totalAmount: string;
+  tipRider: string;
+  tipRestaurant: string;
+  supTotal: string;
+  statiegeldTotal: string;
+  administrationCosts: string;
+  deliveryMethod: DeliveryMethod;
+  paymentMethod: string;
+  /**
+   * Present when paymentMethod indicates cash. All fields raw captures from the source.
+   * @nullable
+   */
+  cashPayment?: InboundOrderPayloadCashPayment;
+  /** @nullable */
+  kitchenNotes?: string | null;
   /** @nullable */
   deliveryInstructions?: string | null;
 }
+
+/**
+ * @nullable
+ */
+export type OrderCashPayment = {
+  /** @nullable */
+  type?: string | null;
+  /** @nullable */
+  changeAmount?: string | null;
+  /** @nullable */
+  changeRequired?: string | null;
+  /** @nullable */
+  label?: string | null;
+} | null;
 
 export interface Order {
   id: string;
@@ -270,14 +338,14 @@ export interface Order {
   /** @nullable */
   customerEmail?: string | null;
   deliveryAddress: string;
-  street?: string;
+  street: string;
   /** @nullable */
   houseNumber?: string | null;
   /** @nullable */
   addition?: string | null;
-  postalCode?: string;
-  city?: string;
-  country?: string;
+  postalCode: string;
+  city: string;
+  country: string;
   /** @nullable */
   latitude?: string | null;
   /** @nullable */
@@ -286,6 +354,17 @@ export interface Order {
   deliveryInstructions?: string | null;
   deliveryFee: string;
   totalAmount: string;
+  tipRider: string;
+  tipRestaurant: string;
+  supTotal: string;
+  statiegeldTotal: string;
+  administrationCosts: string;
+  deliveryMethod: DeliveryMethod;
+  paymentMethod: string;
+  /** @nullable */
+  cashPayment?: OrderCashPayment;
+  /** @nullable */
+  kitchenNotes?: string | null;
   items: OrderItem[];
   pickupTimeOriginal: string;
   /** @nullable */
