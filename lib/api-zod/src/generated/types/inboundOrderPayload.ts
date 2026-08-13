@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { DeliveryMethod } from "./deliveryMethod";
+import type { DeliveryTimeType } from "./deliveryTimeType";
 import type { InboundOrderPayloadCashPayment } from "./inboundOrderPayloadCashPayment";
 import type { InboundOrderPayloadCustomer } from "./inboundOrderPayloadCustomer";
 import type { OrderItem } from "./orderItem";
@@ -37,4 +38,21 @@ source. Unresolved values do not fail the request — see the endpoint descripti
   kitchenNotes?: string | null;
   /** @nullable */
   deliveryInstructions?: string | null;
+  sourceCreatedAt: Date;
+  requestedDeliveryTime: Date;
+  deliveryTimeType: DeliveryTimeType;
+  /** @nullable */
+  sourceRestaurantReadyTime?: Date | null;
+  /** @nullable */
+  restaurantMinDeliveryTime?: number | null;
+  /** @nullable */
+  restaurantMinPickupTime?: number | null;
+  /** @nullable */
+  restaurantMinPrepTime?: number | null;
+  /** @nullable */
+  deliveryTeamMinDeliveryTime?: number | null;
+  /** @nullable */
+  deliveryTeamMinPickupTime?: number | null;
+  /** @nullable */
+  deliveryTeamMinPrepTime?: number | null;
 }

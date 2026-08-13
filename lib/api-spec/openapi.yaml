@@ -859,6 +859,9 @@ components:
     DeliveryMethod:
       type: string
       enum: [delivery, pickup, happy_hour]
+    DeliveryTimeType:
+      type: string
+      enum: [asap, later_today, other_day]
     LoginRequest:
       type: object
       required: [email, password]
@@ -1041,6 +1044,9 @@ components:
         - administrationCosts
         - deliveryMethod
         - paymentMethod
+        - sourceCreatedAt
+        - requestedDeliveryTime
+        - deliveryTimeType
       properties:
         orderId:
           type: string
@@ -1120,6 +1126,29 @@ components:
           type: ["string", "null"]
         deliveryInstructions:
           type: ["string", "null"]
+        sourceCreatedAt:
+          type: string
+          format: date-time
+        requestedDeliveryTime:
+          type: string
+          format: date-time
+        deliveryTimeType:
+          $ref: "#/components/schemas/DeliveryTimeType"
+        sourceRestaurantReadyTime:
+          type: ["string", "null"]
+          format: date-time
+        restaurantMinDeliveryTime:
+          type: ["integer", "null"]
+        restaurantMinPickupTime:
+          type: ["integer", "null"]
+        restaurantMinPrepTime:
+          type: ["integer", "null"]
+        deliveryTeamMinDeliveryTime:
+          type: ["integer", "null"]
+        deliveryTeamMinPickupTime:
+          type: ["integer", "null"]
+        deliveryTeamMinPrepTime:
+          type: ["integer", "null"]
     Order:
       type: object
       required:
@@ -1145,6 +1174,9 @@ components:
         - paymentMethod
         - items
         - pickupTimeOriginal
+        - sourceCreatedAt
+        - requestedDeliveryTime
+        - deliveryTimeType
         - effectivePickupTime
         - createdAt
       properties:
@@ -1231,6 +1263,29 @@ components:
         pickupTimeOverride:
           type: ["string", "null"]
           format: date-time
+        sourceCreatedAt:
+          type: string
+          format: date-time
+        requestedDeliveryTime:
+          type: string
+          format: date-time
+        deliveryTimeType:
+          $ref: "#/components/schemas/DeliveryTimeType"
+        sourceRestaurantReadyTime:
+          type: ["string", "null"]
+          format: date-time
+        restaurantMinDeliveryTime:
+          type: ["integer", "null"]
+        restaurantMinPickupTime:
+          type: ["integer", "null"]
+        restaurantMinPrepTime:
+          type: ["integer", "null"]
+        deliveryTeamMinDeliveryTime:
+          type: ["integer", "null"]
+        deliveryTeamMinPickupTime:
+          type: ["integer", "null"]
+        deliveryTeamMinPrepTime:
+          type: ["integer", "null"]
         effectivePickupTime:
           type: string
           format: date-time

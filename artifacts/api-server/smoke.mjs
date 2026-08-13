@@ -42,7 +42,7 @@ import("@workspace/db").then(async ({ db, restaurantsTable, usersTable, ridersTa
     orderId, externalRestaurantId: EXTERNAL_RESTAURANT_ID,
     customer: { name:"Klaas", phone:"+31600000001", address:"Kerkstraat 9", street:"Kerkstraat", houseNumber:"9", postalCode:"1012AB", city:"Amsterdam", country:"NL" },
     items: [{ name:"Pizza", quantity:2, price:"12.50"},{name:"Cola",quantity:1,price:"3.00"}],
-    deliveryFee:"4.00", totalAmount:"32.00", deliveryInstructions:"Bel aan", tipRider:"1.00", tipRestaurant:"0.50", supTotal:"0.00", statiegeldTotal:"0.00", administrationCosts:"0.35", deliveryMethod:"delivery", paymentMethod:"ideal"
+    deliveryFee:"4.00", totalAmount:"32.00", deliveryInstructions:"Bel aan", tipRider:"1.00", tipRestaurant:"0.50", supTotal:"0.00", statiegeldTotal:"0.00", administrationCosts:"0.35", deliveryMethod:"delivery", paymentMethod:"ideal", sourceCreatedAt:new Date().toISOString(), requestedDeliveryTime:new Date(Date.now()+30*60000).toISOString(), deliveryTimeType:"asap"
   }, { "x-inbound-secret": RAW_SECRET });
   console.log("ingest:", ingest.status, ingest.body.id, "items:", ingest.body.items?.length, "status:", ingest.body.status, "isParked:", ingest.body.isParked);
   const id = ingest.body.id;
@@ -51,7 +51,7 @@ import("@workspace/db").then(async ({ db, restaurantsTable, usersTable, ridersTa
     orderId, externalRestaurantId: EXTERNAL_RESTAURANT_ID,
     customer: { name:"Klaas", phone:"+31600000001", address:"Kerkstraat 9", street:"Kerkstraat", houseNumber:"9", postalCode:"1012AB", city:"Amsterdam", country:"NL" },
     items: [{name:"Pizza",quantity:2,price:"12.50"}],
-    deliveryFee:"4.00", totalAmount:"29.00", tipRider:"1.00", tipRestaurant:"0.50", supTotal:"0.00", statiegeldTotal:"0.00", administrationCosts:"0.35", deliveryMethod:"delivery", paymentMethod:"ideal"
+    deliveryFee:"4.00", totalAmount:"29.00", tipRider:"1.00", tipRestaurant:"0.50", supTotal:"0.00", statiegeldTotal:"0.00", administrationCosts:"0.35", deliveryMethod:"delivery", paymentMethod:"ideal", sourceCreatedAt:new Date().toISOString(), requestedDeliveryTime:new Date(Date.now()+30*60000).toISOString(), deliveryTimeType:"asap"
   }, { "x-inbound-secret": RAW_SECRET });
   console.log("replay (same id):", replay.status, replay.body.id, "same:", replay.body.id===id);
   // Unknown external restaurant → parked, not rejected
@@ -60,7 +60,7 @@ import("@workspace/db").then(async ({ db, restaurantsTable, usersTable, ridersTa
     orderId: parkedOrderId, externalRestaurantId: "does-not-exist",
     customer: { name:"Onbekend", phone:"+31600000002", address:"Onbekendstraat 1", street:"Onbekendstraat", houseNumber:"1", postalCode:"1013CD", city:"Amsterdam", country:"NL" },
     items: [{ name:"Broodje", quantity:1, price:"5.00"}],
-    deliveryFee:"2.00", totalAmount:"7.00", tipRider:"1.00", tipRestaurant:"0.50", supTotal:"0.00", statiegeldTotal:"0.00", administrationCosts:"0.35", deliveryMethod:"delivery", paymentMethod:"ideal"
+    deliveryFee:"2.00", totalAmount:"7.00", tipRider:"1.00", tipRestaurant:"0.50", supTotal:"0.00", statiegeldTotal:"0.00", administrationCosts:"0.35", deliveryMethod:"delivery", paymentMethod:"ideal", sourceCreatedAt:new Date().toISOString(), requestedDeliveryTime:new Date(Date.now()+30*60000).toISOString(), deliveryTimeType:"asap"
   }, { "x-inbound-secret": RAW_SECRET });
   console.log("parked (unknown restaurant, expect 200 + isParked=true):", parked.status, parked.body.isParked, parked.body.parkedReason);
   // Invalid credential → 401
@@ -68,7 +68,7 @@ import("@workspace/db").then(async ({ db, restaurantsTable, usersTable, ridersTa
     orderId: `ext-smoke-badsecret-${Date.now()}`, externalRestaurantId: EXTERNAL_RESTAURANT_ID,
     customer: { name:"X", phone:"+31600000003", address:"Y", street:"Y", postalCode:"1000AA", city:"Amsterdam", country:"NL" },
     items: [{ name:"Item", quantity:1, price:"1.00"}],
-    deliveryFee:"0.00", totalAmount:"1.00", tipRider:"1.00", tipRestaurant:"0.50", supTotal:"0.00", statiegeldTotal:"0.00", administrationCosts:"0.35", deliveryMethod:"delivery", paymentMethod:"ideal"
+    deliveryFee:"0.00", totalAmount:"1.00", tipRider:"1.00", tipRestaurant:"0.50", supTotal:"0.00", statiegeldTotal:"0.00", administrationCosts:"0.35", deliveryMethod:"delivery", paymentMethod:"ideal", sourceCreatedAt:new Date().toISOString(), requestedDeliveryTime:new Date(Date.now()+30*60000).toISOString(), deliveryTimeType:"asap"
   }, { "x-inbound-secret": "not-a-real-secret" });
   console.log("bad secret (expect 401):", badSecret.status, badSecret.body.code);
   // List

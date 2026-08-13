@@ -7,6 +7,7 @@ import {
   numeric,
   jsonb,
   boolean,
+  integer,
   uniqueIndex,
   index,
 } from "drizzle-orm/pg-core";
@@ -98,6 +99,19 @@ export const ordersTable = pgTable(
     pickupTimeRider: timestamp("pickup_time_rider", { withTimezone: true }),
     pickupTimeRestaurant: timestamp("pickup_time_restaurant", { withTimezone: true }),
     pickupTimeOverride: timestamp("pickup_time_override", { withTimezone: true }),
+    // Raw time data from the source. Landed for storage only — pickupTimeOriginal's
+    // computation still reads only restaurant.minDeliveryTime; wiring these in is a
+    // separate, still-open decision (exact formula not decided yet).
+    sourceCreatedAt: timestamp("source_created_at", { withTimezone: true }).notNull(),
+    requestedDeliveryTime: timestamp("requested_delivery_time", { withTimezone: true }).notNull(),
+    deliveryTimeType: text("delivery_time_type").notNull(),
+    sourceRestaurantReadyTime: timestamp("source_restaurant_ready_time", { withTimezone: true }),
+    restaurantMinDeliveryTime: integer("restaurant_min_delivery_time"),
+    restaurantMinPickupTime: integer("restaurant_min_pickup_time"),
+    restaurantMinPrepTime: integer("restaurant_min_prep_time"),
+    deliveryTeamMinDeliveryTime: integer("delivery_team_min_delivery_time"),
+    deliveryTeamMinPickupTime: integer("delivery_team_min_pickup_time"),
+    deliveryTeamMinPrepTime: integer("delivery_team_min_prep_time"),
     pendingRiderNotification: text("pending_rider_notification"),
     failureReason: text("failure_reason"),
     // Set when the inbound restaurant identifier couldn't be resolved via

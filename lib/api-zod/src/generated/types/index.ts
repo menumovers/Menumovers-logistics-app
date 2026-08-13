@@ -17,6 +17,7 @@ export * from "./createUserRequest";
 export * from "./currentUser";
 export * from "./currentUserPreferredLocale";
 export * from "./deliveryMethod";
+export * from "./deliveryTimeType";
 export * from "./errorResponse";
 export * from "./healthStatus";
 export * from "./hideItemRequest";

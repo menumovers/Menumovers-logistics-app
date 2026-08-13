@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { DeliveryMethod } from "./deliveryMethod";
+import type { DeliveryTimeType } from "./deliveryTimeType";
 import type { OrderCashPayment } from "./orderCashPayment";
 import type { OrderItem } from "./orderItem";
 import type { OrderStatus } from "./orderStatus";
@@ -58,6 +59,23 @@ export interface Order {
   pickupTimeRestaurant?: Date | null;
   /** @nullable */
   pickupTimeOverride?: Date | null;
+  sourceCreatedAt: Date;
+  requestedDeliveryTime: Date;
+  deliveryTimeType: DeliveryTimeType;
+  /** @nullable */
+  sourceRestaurantReadyTime?: Date | null;
+  /** @nullable */
+  restaurantMinDeliveryTime?: number | null;
+  /** @nullable */
+  restaurantMinPickupTime?: number | null;
+  /** @nullable */
+  restaurantMinPrepTime?: number | null;
+  /** @nullable */
+  deliveryTeamMinDeliveryTime?: number | null;
+  /** @nullable */
+  deliveryTeamMinPickupTime?: number | null;
+  /** @nullable */
+  deliveryTeamMinPrepTime?: number | null;
   effectivePickupTime: Date;
   effectivePickupSource?: PickupTimeSource;
   /** @nullable */

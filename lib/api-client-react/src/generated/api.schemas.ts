@@ -88,6 +88,15 @@ export const DeliveryMethod = {
   happy_hour: "happy_hour",
 } as const;
 
+export type DeliveryTimeType =
+  (typeof DeliveryTimeType)[keyof typeof DeliveryTimeType];
+
+export const DeliveryTimeType = {
+  asap: "asap",
+  later_today: "later_today",
+  other_day: "other_day",
+} as const;
+
 export interface LoginRequest {
   email: string;
   password: string;
@@ -310,6 +319,23 @@ source. Unresolved values do not fail the request — see the endpoint descripti
   kitchenNotes?: string | null;
   /** @nullable */
   deliveryInstructions?: string | null;
+  sourceCreatedAt: string;
+  requestedDeliveryTime: string;
+  deliveryTimeType: DeliveryTimeType;
+  /** @nullable */
+  sourceRestaurantReadyTime?: string | null;
+  /** @nullable */
+  restaurantMinDeliveryTime?: number | null;
+  /** @nullable */
+  restaurantMinPickupTime?: number | null;
+  /** @nullable */
+  restaurantMinPrepTime?: number | null;
+  /** @nullable */
+  deliveryTeamMinDeliveryTime?: number | null;
+  /** @nullable */
+  deliveryTeamMinPickupTime?: number | null;
+  /** @nullable */
+  deliveryTeamMinPrepTime?: number | null;
 }
 
 /**
@@ -373,6 +399,23 @@ export interface Order {
   pickupTimeRestaurant?: string | null;
   /** @nullable */
   pickupTimeOverride?: string | null;
+  sourceCreatedAt: string;
+  requestedDeliveryTime: string;
+  deliveryTimeType: DeliveryTimeType;
+  /** @nullable */
+  sourceRestaurantReadyTime?: string | null;
+  /** @nullable */
+  restaurantMinDeliveryTime?: number | null;
+  /** @nullable */
+  restaurantMinPickupTime?: number | null;
+  /** @nullable */
+  restaurantMinPrepTime?: number | null;
+  /** @nullable */
+  deliveryTeamMinDeliveryTime?: number | null;
+  /** @nullable */
+  deliveryTeamMinPickupTime?: number | null;
+  /** @nullable */
+  deliveryTeamMinPrepTime?: number | null;
   effectivePickupTime: string;
   effectivePickupSource?: PickupTimeSource;
   /** @nullable */
