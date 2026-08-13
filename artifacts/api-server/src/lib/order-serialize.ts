@@ -22,6 +22,8 @@ export type SerializedOrderItem = {
   quantity: number;
   price: Numeric;
   notes?: string | null;
+  totalPrice?: Numeric | null;
+  externalId?: string | null;
 };
 
 function toSerializedItem(item: OrderItem): SerializedOrderItem {
@@ -30,6 +32,8 @@ function toSerializedItem(item: OrderItem): SerializedOrderItem {
     quantity: item.quantity,
     price: item.price,
     notes: item.notes ?? null,
+    totalPrice: item.totalPrice ?? null,
+    externalId: item.externalId ?? null,
   };
 }
 
@@ -83,18 +87,58 @@ function baseOrderFields(
     customerPhone: order.customerPhone,
     customerEmail: order.customerEmail,
     deliveryAddress: order.deliveryAddress,
+    street: order.street,
+    houseNumber: order.houseNumber,
+    addition: order.addition,
+    postalCode: order.postalCode,
+    city: order.city,
+    country: order.country,
+    latitude: order.latitude,
+    longitude: order.longitude,
     deliveryInstructions: order.deliveryInstructions,
     deliveryFee: order.deliveryFee,
     totalAmount: order.totalAmount,
+    tipRider: order.tipRider,
+    tipRestaurant: order.tipRestaurant,
+    supTotal: order.supTotal,
+    statiegeldTotal: order.statiegeldTotal,
+    administrationCosts: order.administrationCosts,
+    deliveryMethod: order.deliveryMethod,
+    paymentMethod: order.paymentMethod,
+    cashPayment:
+      order.cashPaymentType ??
+      order.cashPaymentChangeAmount ??
+      order.cashPaymentChangeRequired ??
+      order.cashPaymentLabel
+        ? {
+            type: order.cashPaymentType,
+            changeAmount: order.cashPaymentChangeAmount,
+            changeRequired: order.cashPaymentChangeRequired,
+            label: order.cashPaymentLabel,
+          }
+        : null,
+    kitchenNotes: order.kitchenNotes,
     items,
     pickupTimeOriginal: order.pickupTimeOriginal,
     pickupTimeRider: order.pickupTimeRider,
     pickupTimeRestaurant: order.pickupTimeRestaurant,
     pickupTimeOverride: order.pickupTimeOverride,
+    sourceCreatedAt: order.sourceCreatedAt,
+    requestedDeliveryTime: order.requestedDeliveryTime,
+    deliveryTimeType: order.deliveryTimeType,
+    sourceRestaurantReadyTime: order.sourceRestaurantReadyTime,
+    restaurantMinDeliveryTime: order.restaurantMinDeliveryTime,
+    restaurantMinPickupTime: order.restaurantMinPickupTime,
+    restaurantMinPrepTime: order.restaurantMinPrepTime,
+    deliveryTeamMinDeliveryTime: order.deliveryTeamMinDeliveryTime,
+    deliveryTeamMinPickupTime: order.deliveryTeamMinPickupTime,
+    deliveryTeamMinPrepTime: order.deliveryTeamMinPrepTime,
     effectivePickupTime: eff.effectivePickupTime,
     effectivePickupSource: eff.effectivePickupSource,
     pendingRiderNotification: order.pendingRiderNotification,
     failureReason: order.failureReason,
+    isParked: order.isParked,
+    parkedReason: order.parkedReason,
     tripId: order.tripId,
     tripNumber,
     bundlePickupTime,

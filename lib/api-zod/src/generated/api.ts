@@ -55,8 +55,13 @@ export const GetCurrentUserResponse = zod.object({
 });
 
 /**
- * Authenticated via the `x-inbound-secret` header. Idempotent on `externalOrderId`:
-re-sending the same payload updates the existing order record instead of creating a duplicate.
+ * Authenticated via the `x-inbound-secret` header, matched against a provisioned
+per-source credential (see `api_credentials`) rather than a single shared secret.
+Idempotent on `externalOrderId`: re-sending the same payload updates the existing
+order record instead of creating a duplicate. If `externalRestaurantId` doesn't
+resolve to a known restaurant for the credential's source, the order is still
+accepted — it's filed against a placeholder restaurant and marked parked
+(`isParked: true`) instead of being rejected.
 
  * @summary Receive a new order from the upstream distribution service
  */
@@ -66,12 +71,33 @@ export const IngestOrderHeader = zod.object({
 
 export const IngestOrderBody = zod.object({
   orderId: zod.string(),
-  restaurantId: zod.string(),
+  externalRestaurantId: zod
+    .string()
+    .describe(
+      "The restaurant identifier as known to the caller's system. Resolved to an\ninternal restaurant via restaurant_external_ids, scoped to the credential's\nsource. Unresolved values do not fail the request — see the endpoint description.\n",
+    ),
   customer: zod.object({
     name: zod.string(),
     phone: zod.string(),
     email: zod.string().nullish(),
-    address: zod.string(),
+    address: zod
+      .string()
+      .describe(
+        "Single-line display address. Structured components below are separate, not derived from this.",
+      ),
+    street: zod.string(),
+    houseNumber: zod.string().nullish(),
+    addition: zod.string().nullish(),
+    postalCode: zod.string(),
+    city: zod.string(),
+    country: zod.string(),
+    latitude: zod
+      .string()
+      .nullish()
+      .describe(
+        "Decimal degrees as a string, matching this app's numeric-as-string convention (see deliveryFee).",
+      ),
+    longitude: zod.string().nullish(),
   }),
   items: zod.array(
     zod.object({
@@ -79,11 +105,53 @@ export const IngestOrderBody = zod.object({
       quantity: zod.number(),
       price: zod.string(),
       notes: zod.string().nullish(),
+      totalPrice: zod
+        .string()
+        .nullish()
+        .describe(
+          "Line total as sent by the source, not computed here. Absent for items added later via the admin add-item flow.",
+        ),
+      externalId: zod
+        .string()
+        .nullish()
+        .describe("POS\/kitchen article id, when the source provides one."),
     }),
   ),
   deliveryFee: zod.string(),
   totalAmount: zod.string(),
+  tipRider: zod.string(),
+  tipRestaurant: zod.string(),
+  supTotal: zod.string(),
+  statiegeldTotal: zod.string(),
+  administrationCosts: zod.string(),
+  deliveryMethod: zod.enum(["delivery", "pickup", "happy_hour"]),
+  paymentMethod: zod.string(),
+  cashPayment: zod
+    .object({
+      type: zod.string().nullish().describe("exact | custom | tikkie | qr"),
+      changeAmount: zod.string().nullish(),
+      changeRequired: zod.string().nullish(),
+      label: zod
+        .string()
+        .nullish()
+        .describe("Bestellenbij's own ready-made Dutch display string."),
+    })
+    .nullish()
+    .describe(
+      "Present when paymentMethod indicates cash. All fields raw captures from the source.",
+    ),
+  kitchenNotes: zod.string().nullish(),
   deliveryInstructions: zod.string().nullish(),
+  sourceCreatedAt: zod.coerce.date(),
+  requestedDeliveryTime: zod.coerce.date(),
+  deliveryTimeType: zod.enum(["asap", "later_today", "other_day"]),
+  sourceRestaurantReadyTime: zod.coerce.date().nullish(),
+  restaurantMinDeliveryTime: zod.number().nullish(),
+  restaurantMinPickupTime: zod.number().nullish(),
+  restaurantMinPrepTime: zod.number().nullish(),
+  deliveryTeamMinDeliveryTime: zod.number().nullish(),
+  deliveryTeamMinPickupTime: zod.number().nullish(),
+  deliveryTeamMinPrepTime: zod.number().nullish(),
 });
 
 export const IngestOrderResponse = zod.object({
@@ -105,27 +173,78 @@ export const IngestOrderResponse = zod.object({
   customerPhone: zod.string(),
   customerEmail: zod.string().nullish(),
   deliveryAddress: zod.string(),
+  street: zod.string(),
+  houseNumber: zod.string().nullish(),
+  addition: zod.string().nullish(),
+  postalCode: zod.string(),
+  city: zod.string(),
+  country: zod.string(),
+  latitude: zod.string().nullish(),
+  longitude: zod.string().nullish(),
   deliveryInstructions: zod.string().nullish(),
   deliveryFee: zod.string(),
   totalAmount: zod.string(),
+  tipRider: zod.string(),
+  tipRestaurant: zod.string(),
+  supTotal: zod.string(),
+  statiegeldTotal: zod.string(),
+  administrationCosts: zod.string(),
+  deliveryMethod: zod.enum(["delivery", "pickup", "happy_hour"]),
+  paymentMethod: zod.string(),
+  cashPayment: zod
+    .object({
+      type: zod.string().nullish(),
+      changeAmount: zod.string().nullish(),
+      changeRequired: zod.string().nullish(),
+      label: zod.string().nullish(),
+    })
+    .nullish(),
+  kitchenNotes: zod.string().nullish(),
   items: zod.array(
     zod.object({
       name: zod.string(),
       quantity: zod.number(),
       price: zod.string(),
       notes: zod.string().nullish(),
+      totalPrice: zod
+        .string()
+        .nullish()
+        .describe(
+          "Line total as sent by the source, not computed here. Absent for items added later via the admin add-item flow.",
+        ),
+      externalId: zod
+        .string()
+        .nullish()
+        .describe("POS\/kitchen article id, when the source provides one."),
     }),
   ),
   pickupTimeOriginal: zod.coerce.date(),
   pickupTimeRider: zod.coerce.date().nullish(),
   pickupTimeRestaurant: zod.coerce.date().nullish(),
   pickupTimeOverride: zod.coerce.date().nullish(),
+  sourceCreatedAt: zod.coerce.date(),
+  requestedDeliveryTime: zod.coerce.date(),
+  deliveryTimeType: zod.enum(["asap", "later_today", "other_day"]),
+  sourceRestaurantReadyTime: zod.coerce.date().nullish(),
+  restaurantMinDeliveryTime: zod.number().nullish(),
+  restaurantMinPickupTime: zod.number().nullish(),
+  restaurantMinPrepTime: zod.number().nullish(),
+  deliveryTeamMinDeliveryTime: zod.number().nullish(),
+  deliveryTeamMinPickupTime: zod.number().nullish(),
+  deliveryTeamMinPrepTime: zod.number().nullish(),
   effectivePickupTime: zod.coerce.date(),
   effectivePickupSource: zod
     .enum(["rider", "restaurant", "override"])
     .optional(),
   pendingRiderNotification: zod.string().nullish(),
   failureReason: zod.string().nullish(),
+  isParked: zod
+    .boolean()
+    .optional()
+    .describe(
+      "True when the inbound restaurant identifier couldn't be resolved and this\norder was filed against the placeholder restaurant instead of being rejected.\n",
+    ),
+  parkedReason: zod.string().nullish(),
   tripId: zod.string().nullish(),
   tripNumber: zod
     .number()
@@ -181,27 +300,78 @@ export const ListOrdersResponseItem = zod
     customerPhone: zod.string(),
     customerEmail: zod.string().nullish(),
     deliveryAddress: zod.string(),
+    street: zod.string(),
+    houseNumber: zod.string().nullish(),
+    addition: zod.string().nullish(),
+    postalCode: zod.string(),
+    city: zod.string(),
+    country: zod.string(),
+    latitude: zod.string().nullish(),
+    longitude: zod.string().nullish(),
     deliveryInstructions: zod.string().nullish(),
     deliveryFee: zod.string(),
     totalAmount: zod.string(),
+    tipRider: zod.string(),
+    tipRestaurant: zod.string(),
+    supTotal: zod.string(),
+    statiegeldTotal: zod.string(),
+    administrationCosts: zod.string(),
+    deliveryMethod: zod.enum(["delivery", "pickup", "happy_hour"]),
+    paymentMethod: zod.string(),
+    cashPayment: zod
+      .object({
+        type: zod.string().nullish(),
+        changeAmount: zod.string().nullish(),
+        changeRequired: zod.string().nullish(),
+        label: zod.string().nullish(),
+      })
+      .nullish(),
+    kitchenNotes: zod.string().nullish(),
     items: zod.array(
       zod.object({
         name: zod.string(),
         quantity: zod.number(),
         price: zod.string(),
         notes: zod.string().nullish(),
+        totalPrice: zod
+          .string()
+          .nullish()
+          .describe(
+            "Line total as sent by the source, not computed here. Absent for items added later via the admin add-item flow.",
+          ),
+        externalId: zod
+          .string()
+          .nullish()
+          .describe("POS\/kitchen article id, when the source provides one."),
       }),
     ),
     pickupTimeOriginal: zod.coerce.date(),
     pickupTimeRider: zod.coerce.date().nullish(),
     pickupTimeRestaurant: zod.coerce.date().nullish(),
     pickupTimeOverride: zod.coerce.date().nullish(),
+    sourceCreatedAt: zod.coerce.date(),
+    requestedDeliveryTime: zod.coerce.date(),
+    deliveryTimeType: zod.enum(["asap", "later_today", "other_day"]),
+    sourceRestaurantReadyTime: zod.coerce.date().nullish(),
+    restaurantMinDeliveryTime: zod.number().nullish(),
+    restaurantMinPickupTime: zod.number().nullish(),
+    restaurantMinPrepTime: zod.number().nullish(),
+    deliveryTeamMinDeliveryTime: zod.number().nullish(),
+    deliveryTeamMinPickupTime: zod.number().nullish(),
+    deliveryTeamMinPrepTime: zod.number().nullish(),
     effectivePickupTime: zod.coerce.date(),
     effectivePickupSource: zod
       .enum(["rider", "restaurant", "override"])
       .optional(),
     pendingRiderNotification: zod.string().nullish(),
     failureReason: zod.string().nullish(),
+    isParked: zod
+      .boolean()
+      .optional()
+      .describe(
+        "True when the inbound restaurant identifier couldn't be resolved and this\norder was filed against the placeholder restaurant instead of being rejected.\n",
+      ),
+    parkedReason: zod.string().nullish(),
     tripId: zod.string().nullish(),
     tripNumber: zod
       .number()
@@ -252,27 +422,78 @@ export const GetOrderResponse = zod
     customerPhone: zod.string(),
     customerEmail: zod.string().nullish(),
     deliveryAddress: zod.string(),
+    street: zod.string(),
+    houseNumber: zod.string().nullish(),
+    addition: zod.string().nullish(),
+    postalCode: zod.string(),
+    city: zod.string(),
+    country: zod.string(),
+    latitude: zod.string().nullish(),
+    longitude: zod.string().nullish(),
     deliveryInstructions: zod.string().nullish(),
     deliveryFee: zod.string(),
     totalAmount: zod.string(),
+    tipRider: zod.string(),
+    tipRestaurant: zod.string(),
+    supTotal: zod.string(),
+    statiegeldTotal: zod.string(),
+    administrationCosts: zod.string(),
+    deliveryMethod: zod.enum(["delivery", "pickup", "happy_hour"]),
+    paymentMethod: zod.string(),
+    cashPayment: zod
+      .object({
+        type: zod.string().nullish(),
+        changeAmount: zod.string().nullish(),
+        changeRequired: zod.string().nullish(),
+        label: zod.string().nullish(),
+      })
+      .nullish(),
+    kitchenNotes: zod.string().nullish(),
     items: zod.array(
       zod.object({
         name: zod.string(),
         quantity: zod.number(),
         price: zod.string(),
         notes: zod.string().nullish(),
+        totalPrice: zod
+          .string()
+          .nullish()
+          .describe(
+            "Line total as sent by the source, not computed here. Absent for items added later via the admin add-item flow.",
+          ),
+        externalId: zod
+          .string()
+          .nullish()
+          .describe("POS\/kitchen article id, when the source provides one."),
       }),
     ),
     pickupTimeOriginal: zod.coerce.date(),
     pickupTimeRider: zod.coerce.date().nullish(),
     pickupTimeRestaurant: zod.coerce.date().nullish(),
     pickupTimeOverride: zod.coerce.date().nullish(),
+    sourceCreatedAt: zod.coerce.date(),
+    requestedDeliveryTime: zod.coerce.date(),
+    deliveryTimeType: zod.enum(["asap", "later_today", "other_day"]),
+    sourceRestaurantReadyTime: zod.coerce.date().nullish(),
+    restaurantMinDeliveryTime: zod.number().nullish(),
+    restaurantMinPickupTime: zod.number().nullish(),
+    restaurantMinPrepTime: zod.number().nullish(),
+    deliveryTeamMinDeliveryTime: zod.number().nullish(),
+    deliveryTeamMinPickupTime: zod.number().nullish(),
+    deliveryTeamMinPrepTime: zod.number().nullish(),
     effectivePickupTime: zod.coerce.date(),
     effectivePickupSource: zod
       .enum(["rider", "restaurant", "override"])
       .optional(),
     pendingRiderNotification: zod.string().nullish(),
     failureReason: zod.string().nullish(),
+    isParked: zod
+      .boolean()
+      .optional()
+      .describe(
+        "True when the inbound restaurant identifier couldn't be resolved and this\norder was filed against the placeholder restaurant instead of being rejected.\n",
+      ),
+    parkedReason: zod.string().nullish(),
     tripId: zod.string().nullish(),
     tripNumber: zod
       .number()
@@ -343,6 +564,18 @@ export const GetOrderResponse = zod
                 quantity: zod.number(),
                 price: zod.string(),
                 notes: zod.string().nullish(),
+                totalPrice: zod
+                  .string()
+                  .nullish()
+                  .describe(
+                    "Line total as sent by the source, not computed here. Absent for items added later via the admin add-item flow.",
+                  ),
+                externalId: zod
+                  .string()
+                  .nullish()
+                  .describe(
+                    "POS\/kitchen article id, when the source provides one.",
+                  ),
               }),
               zod.null(),
             ])
@@ -395,27 +628,78 @@ export const TransitionOrderStatusResponse = zod
     customerPhone: zod.string(),
     customerEmail: zod.string().nullish(),
     deliveryAddress: zod.string(),
+    street: zod.string(),
+    houseNumber: zod.string().nullish(),
+    addition: zod.string().nullish(),
+    postalCode: zod.string(),
+    city: zod.string(),
+    country: zod.string(),
+    latitude: zod.string().nullish(),
+    longitude: zod.string().nullish(),
     deliveryInstructions: zod.string().nullish(),
     deliveryFee: zod.string(),
     totalAmount: zod.string(),
+    tipRider: zod.string(),
+    tipRestaurant: zod.string(),
+    supTotal: zod.string(),
+    statiegeldTotal: zod.string(),
+    administrationCosts: zod.string(),
+    deliveryMethod: zod.enum(["delivery", "pickup", "happy_hour"]),
+    paymentMethod: zod.string(),
+    cashPayment: zod
+      .object({
+        type: zod.string().nullish(),
+        changeAmount: zod.string().nullish(),
+        changeRequired: zod.string().nullish(),
+        label: zod.string().nullish(),
+      })
+      .nullish(),
+    kitchenNotes: zod.string().nullish(),
     items: zod.array(
       zod.object({
         name: zod.string(),
         quantity: zod.number(),
         price: zod.string(),
         notes: zod.string().nullish(),
+        totalPrice: zod
+          .string()
+          .nullish()
+          .describe(
+            "Line total as sent by the source, not computed here. Absent for items added later via the admin add-item flow.",
+          ),
+        externalId: zod
+          .string()
+          .nullish()
+          .describe("POS\/kitchen article id, when the source provides one."),
       }),
     ),
     pickupTimeOriginal: zod.coerce.date(),
     pickupTimeRider: zod.coerce.date().nullish(),
     pickupTimeRestaurant: zod.coerce.date().nullish(),
     pickupTimeOverride: zod.coerce.date().nullish(),
+    sourceCreatedAt: zod.coerce.date(),
+    requestedDeliveryTime: zod.coerce.date(),
+    deliveryTimeType: zod.enum(["asap", "later_today", "other_day"]),
+    sourceRestaurantReadyTime: zod.coerce.date().nullish(),
+    restaurantMinDeliveryTime: zod.number().nullish(),
+    restaurantMinPickupTime: zod.number().nullish(),
+    restaurantMinPrepTime: zod.number().nullish(),
+    deliveryTeamMinDeliveryTime: zod.number().nullish(),
+    deliveryTeamMinPickupTime: zod.number().nullish(),
+    deliveryTeamMinPrepTime: zod.number().nullish(),
     effectivePickupTime: zod.coerce.date(),
     effectivePickupSource: zod
       .enum(["rider", "restaurant", "override"])
       .optional(),
     pendingRiderNotification: zod.string().nullish(),
     failureReason: zod.string().nullish(),
+    isParked: zod
+      .boolean()
+      .optional()
+      .describe(
+        "True when the inbound restaurant identifier couldn't be resolved and this\norder was filed against the placeholder restaurant instead of being rejected.\n",
+      ),
+    parkedReason: zod.string().nullish(),
     tripId: zod.string().nullish(),
     tripNumber: zod
       .number()
@@ -486,6 +770,18 @@ export const TransitionOrderStatusResponse = zod
                 quantity: zod.number(),
                 price: zod.string(),
                 notes: zod.string().nullish(),
+                totalPrice: zod
+                  .string()
+                  .nullish()
+                  .describe(
+                    "Line total as sent by the source, not computed here. Absent for items added later via the admin add-item flow.",
+                  ),
+                externalId: zod
+                  .string()
+                  .nullish()
+                  .describe(
+                    "POS\/kitchen article id, when the source provides one.",
+                  ),
               }),
               zod.null(),
             ])
@@ -527,27 +823,78 @@ export const AssignOrderResponse = zod
     customerPhone: zod.string(),
     customerEmail: zod.string().nullish(),
     deliveryAddress: zod.string(),
+    street: zod.string(),
+    houseNumber: zod.string().nullish(),
+    addition: zod.string().nullish(),
+    postalCode: zod.string(),
+    city: zod.string(),
+    country: zod.string(),
+    latitude: zod.string().nullish(),
+    longitude: zod.string().nullish(),
     deliveryInstructions: zod.string().nullish(),
     deliveryFee: zod.string(),
     totalAmount: zod.string(),
+    tipRider: zod.string(),
+    tipRestaurant: zod.string(),
+    supTotal: zod.string(),
+    statiegeldTotal: zod.string(),
+    administrationCosts: zod.string(),
+    deliveryMethod: zod.enum(["delivery", "pickup", "happy_hour"]),
+    paymentMethod: zod.string(),
+    cashPayment: zod
+      .object({
+        type: zod.string().nullish(),
+        changeAmount: zod.string().nullish(),
+        changeRequired: zod.string().nullish(),
+        label: zod.string().nullish(),
+      })
+      .nullish(),
+    kitchenNotes: zod.string().nullish(),
     items: zod.array(
       zod.object({
         name: zod.string(),
         quantity: zod.number(),
         price: zod.string(),
         notes: zod.string().nullish(),
+        totalPrice: zod
+          .string()
+          .nullish()
+          .describe(
+            "Line total as sent by the source, not computed here. Absent for items added later via the admin add-item flow.",
+          ),
+        externalId: zod
+          .string()
+          .nullish()
+          .describe("POS\/kitchen article id, when the source provides one."),
       }),
     ),
     pickupTimeOriginal: zod.coerce.date(),
     pickupTimeRider: zod.coerce.date().nullish(),
     pickupTimeRestaurant: zod.coerce.date().nullish(),
     pickupTimeOverride: zod.coerce.date().nullish(),
+    sourceCreatedAt: zod.coerce.date(),
+    requestedDeliveryTime: zod.coerce.date(),
+    deliveryTimeType: zod.enum(["asap", "later_today", "other_day"]),
+    sourceRestaurantReadyTime: zod.coerce.date().nullish(),
+    restaurantMinDeliveryTime: zod.number().nullish(),
+    restaurantMinPickupTime: zod.number().nullish(),
+    restaurantMinPrepTime: zod.number().nullish(),
+    deliveryTeamMinDeliveryTime: zod.number().nullish(),
+    deliveryTeamMinPickupTime: zod.number().nullish(),
+    deliveryTeamMinPrepTime: zod.number().nullish(),
     effectivePickupTime: zod.coerce.date(),
     effectivePickupSource: zod
       .enum(["rider", "restaurant", "override"])
       .optional(),
     pendingRiderNotification: zod.string().nullish(),
     failureReason: zod.string().nullish(),
+    isParked: zod
+      .boolean()
+      .optional()
+      .describe(
+        "True when the inbound restaurant identifier couldn't be resolved and this\norder was filed against the placeholder restaurant instead of being rejected.\n",
+      ),
+    parkedReason: zod.string().nullish(),
     tripId: zod.string().nullish(),
     tripNumber: zod
       .number()
@@ -618,6 +965,18 @@ export const AssignOrderResponse = zod
                 quantity: zod.number(),
                 price: zod.string(),
                 notes: zod.string().nullish(),
+                totalPrice: zod
+                  .string()
+                  .nullish()
+                  .describe(
+                    "Line total as sent by the source, not computed here. Absent for items added later via the admin add-item flow.",
+                  ),
+                externalId: zod
+                  .string()
+                  .nullish()
+                  .describe(
+                    "POS\/kitchen article id, when the source provides one.",
+                  ),
               }),
               zod.null(),
             ])
@@ -660,27 +1019,78 @@ export const UpdatePickupTimeResponse = zod
     customerPhone: zod.string(),
     customerEmail: zod.string().nullish(),
     deliveryAddress: zod.string(),
+    street: zod.string(),
+    houseNumber: zod.string().nullish(),
+    addition: zod.string().nullish(),
+    postalCode: zod.string(),
+    city: zod.string(),
+    country: zod.string(),
+    latitude: zod.string().nullish(),
+    longitude: zod.string().nullish(),
     deliveryInstructions: zod.string().nullish(),
     deliveryFee: zod.string(),
     totalAmount: zod.string(),
+    tipRider: zod.string(),
+    tipRestaurant: zod.string(),
+    supTotal: zod.string(),
+    statiegeldTotal: zod.string(),
+    administrationCosts: zod.string(),
+    deliveryMethod: zod.enum(["delivery", "pickup", "happy_hour"]),
+    paymentMethod: zod.string(),
+    cashPayment: zod
+      .object({
+        type: zod.string().nullish(),
+        changeAmount: zod.string().nullish(),
+        changeRequired: zod.string().nullish(),
+        label: zod.string().nullish(),
+      })
+      .nullish(),
+    kitchenNotes: zod.string().nullish(),
     items: zod.array(
       zod.object({
         name: zod.string(),
         quantity: zod.number(),
         price: zod.string(),
         notes: zod.string().nullish(),
+        totalPrice: zod
+          .string()
+          .nullish()
+          .describe(
+            "Line total as sent by the source, not computed here. Absent for items added later via the admin add-item flow.",
+          ),
+        externalId: zod
+          .string()
+          .nullish()
+          .describe("POS\/kitchen article id, when the source provides one."),
       }),
     ),
     pickupTimeOriginal: zod.coerce.date(),
     pickupTimeRider: zod.coerce.date().nullish(),
     pickupTimeRestaurant: zod.coerce.date().nullish(),
     pickupTimeOverride: zod.coerce.date().nullish(),
+    sourceCreatedAt: zod.coerce.date(),
+    requestedDeliveryTime: zod.coerce.date(),
+    deliveryTimeType: zod.enum(["asap", "later_today", "other_day"]),
+    sourceRestaurantReadyTime: zod.coerce.date().nullish(),
+    restaurantMinDeliveryTime: zod.number().nullish(),
+    restaurantMinPickupTime: zod.number().nullish(),
+    restaurantMinPrepTime: zod.number().nullish(),
+    deliveryTeamMinDeliveryTime: zod.number().nullish(),
+    deliveryTeamMinPickupTime: zod.number().nullish(),
+    deliveryTeamMinPrepTime: zod.number().nullish(),
     effectivePickupTime: zod.coerce.date(),
     effectivePickupSource: zod
       .enum(["rider", "restaurant", "override"])
       .optional(),
     pendingRiderNotification: zod.string().nullish(),
     failureReason: zod.string().nullish(),
+    isParked: zod
+      .boolean()
+      .optional()
+      .describe(
+        "True when the inbound restaurant identifier couldn't be resolved and this\norder was filed against the placeholder restaurant instead of being rejected.\n",
+      ),
+    parkedReason: zod.string().nullish(),
     tripId: zod.string().nullish(),
     tripNumber: zod
       .number()
@@ -751,6 +1161,18 @@ export const UpdatePickupTimeResponse = zod
                 quantity: zod.number(),
                 price: zod.string(),
                 notes: zod.string().nullish(),
+                totalPrice: zod
+                  .string()
+                  .nullish()
+                  .describe(
+                    "Line total as sent by the source, not computed here. Absent for items added later via the admin add-item flow.",
+                  ),
+                externalId: zod
+                  .string()
+                  .nullish()
+                  .describe(
+                    "POS\/kitchen article id, when the source provides one.",
+                  ),
               }),
               zod.null(),
             ])
@@ -792,27 +1214,78 @@ export const HideOrderItemResponse = zod
     customerPhone: zod.string(),
     customerEmail: zod.string().nullish(),
     deliveryAddress: zod.string(),
+    street: zod.string(),
+    houseNumber: zod.string().nullish(),
+    addition: zod.string().nullish(),
+    postalCode: zod.string(),
+    city: zod.string(),
+    country: zod.string(),
+    latitude: zod.string().nullish(),
+    longitude: zod.string().nullish(),
     deliveryInstructions: zod.string().nullish(),
     deliveryFee: zod.string(),
     totalAmount: zod.string(),
+    tipRider: zod.string(),
+    tipRestaurant: zod.string(),
+    supTotal: zod.string(),
+    statiegeldTotal: zod.string(),
+    administrationCosts: zod.string(),
+    deliveryMethod: zod.enum(["delivery", "pickup", "happy_hour"]),
+    paymentMethod: zod.string(),
+    cashPayment: zod
+      .object({
+        type: zod.string().nullish(),
+        changeAmount: zod.string().nullish(),
+        changeRequired: zod.string().nullish(),
+        label: zod.string().nullish(),
+      })
+      .nullish(),
+    kitchenNotes: zod.string().nullish(),
     items: zod.array(
       zod.object({
         name: zod.string(),
         quantity: zod.number(),
         price: zod.string(),
         notes: zod.string().nullish(),
+        totalPrice: zod
+          .string()
+          .nullish()
+          .describe(
+            "Line total as sent by the source, not computed here. Absent for items added later via the admin add-item flow.",
+          ),
+        externalId: zod
+          .string()
+          .nullish()
+          .describe("POS\/kitchen article id, when the source provides one."),
       }),
     ),
     pickupTimeOriginal: zod.coerce.date(),
     pickupTimeRider: zod.coerce.date().nullish(),
     pickupTimeRestaurant: zod.coerce.date().nullish(),
     pickupTimeOverride: zod.coerce.date().nullish(),
+    sourceCreatedAt: zod.coerce.date(),
+    requestedDeliveryTime: zod.coerce.date(),
+    deliveryTimeType: zod.enum(["asap", "later_today", "other_day"]),
+    sourceRestaurantReadyTime: zod.coerce.date().nullish(),
+    restaurantMinDeliveryTime: zod.number().nullish(),
+    restaurantMinPickupTime: zod.number().nullish(),
+    restaurantMinPrepTime: zod.number().nullish(),
+    deliveryTeamMinDeliveryTime: zod.number().nullish(),
+    deliveryTeamMinPickupTime: zod.number().nullish(),
+    deliveryTeamMinPrepTime: zod.number().nullish(),
     effectivePickupTime: zod.coerce.date(),
     effectivePickupSource: zod
       .enum(["rider", "restaurant", "override"])
       .optional(),
     pendingRiderNotification: zod.string().nullish(),
     failureReason: zod.string().nullish(),
+    isParked: zod
+      .boolean()
+      .optional()
+      .describe(
+        "True when the inbound restaurant identifier couldn't be resolved and this\norder was filed against the placeholder restaurant instead of being rejected.\n",
+      ),
+    parkedReason: zod.string().nullish(),
     tripId: zod.string().nullish(),
     tripNumber: zod
       .number()
@@ -883,6 +1356,18 @@ export const HideOrderItemResponse = zod
                 quantity: zod.number(),
                 price: zod.string(),
                 notes: zod.string().nullish(),
+                totalPrice: zod
+                  .string()
+                  .nullish()
+                  .describe(
+                    "Line total as sent by the source, not computed here. Absent for items added later via the admin add-item flow.",
+                  ),
+                externalId: zod
+                  .string()
+                  .nullish()
+                  .describe(
+                    "POS\/kitchen article id, when the source provides one.",
+                  ),
               }),
               zod.null(),
             ])
@@ -906,6 +1391,16 @@ export const AddOrderItemBody = zod.object({
     quantity: zod.number(),
     price: zod.string(),
     notes: zod.string().nullish(),
+    totalPrice: zod
+      .string()
+      .nullish()
+      .describe(
+        "Line total as sent by the source, not computed here. Absent for items added later via the admin add-item flow.",
+      ),
+    externalId: zod
+      .string()
+      .nullish()
+      .describe("POS\/kitchen article id, when the source provides one."),
   }),
 });
 
@@ -929,27 +1424,78 @@ export const AddOrderItemResponse = zod
     customerPhone: zod.string(),
     customerEmail: zod.string().nullish(),
     deliveryAddress: zod.string(),
+    street: zod.string(),
+    houseNumber: zod.string().nullish(),
+    addition: zod.string().nullish(),
+    postalCode: zod.string(),
+    city: zod.string(),
+    country: zod.string(),
+    latitude: zod.string().nullish(),
+    longitude: zod.string().nullish(),
     deliveryInstructions: zod.string().nullish(),
     deliveryFee: zod.string(),
     totalAmount: zod.string(),
+    tipRider: zod.string(),
+    tipRestaurant: zod.string(),
+    supTotal: zod.string(),
+    statiegeldTotal: zod.string(),
+    administrationCosts: zod.string(),
+    deliveryMethod: zod.enum(["delivery", "pickup", "happy_hour"]),
+    paymentMethod: zod.string(),
+    cashPayment: zod
+      .object({
+        type: zod.string().nullish(),
+        changeAmount: zod.string().nullish(),
+        changeRequired: zod.string().nullish(),
+        label: zod.string().nullish(),
+      })
+      .nullish(),
+    kitchenNotes: zod.string().nullish(),
     items: zod.array(
       zod.object({
         name: zod.string(),
         quantity: zod.number(),
         price: zod.string(),
         notes: zod.string().nullish(),
+        totalPrice: zod
+          .string()
+          .nullish()
+          .describe(
+            "Line total as sent by the source, not computed here. Absent for items added later via the admin add-item flow.",
+          ),
+        externalId: zod
+          .string()
+          .nullish()
+          .describe("POS\/kitchen article id, when the source provides one."),
       }),
     ),
     pickupTimeOriginal: zod.coerce.date(),
     pickupTimeRider: zod.coerce.date().nullish(),
     pickupTimeRestaurant: zod.coerce.date().nullish(),
     pickupTimeOverride: zod.coerce.date().nullish(),
+    sourceCreatedAt: zod.coerce.date(),
+    requestedDeliveryTime: zod.coerce.date(),
+    deliveryTimeType: zod.enum(["asap", "later_today", "other_day"]),
+    sourceRestaurantReadyTime: zod.coerce.date().nullish(),
+    restaurantMinDeliveryTime: zod.number().nullish(),
+    restaurantMinPickupTime: zod.number().nullish(),
+    restaurantMinPrepTime: zod.number().nullish(),
+    deliveryTeamMinDeliveryTime: zod.number().nullish(),
+    deliveryTeamMinPickupTime: zod.number().nullish(),
+    deliveryTeamMinPrepTime: zod.number().nullish(),
     effectivePickupTime: zod.coerce.date(),
     effectivePickupSource: zod
       .enum(["rider", "restaurant", "override"])
       .optional(),
     pendingRiderNotification: zod.string().nullish(),
     failureReason: zod.string().nullish(),
+    isParked: zod
+      .boolean()
+      .optional()
+      .describe(
+        "True when the inbound restaurant identifier couldn't be resolved and this\norder was filed against the placeholder restaurant instead of being rejected.\n",
+      ),
+    parkedReason: zod.string().nullish(),
     tripId: zod.string().nullish(),
     tripNumber: zod
       .number()
@@ -1020,6 +1566,18 @@ export const AddOrderItemResponse = zod
                 quantity: zod.number(),
                 price: zod.string(),
                 notes: zod.string().nullish(),
+                totalPrice: zod
+                  .string()
+                  .nullish()
+                  .describe(
+                    "Line total as sent by the source, not computed here. Absent for items added later via the admin add-item flow.",
+                  ),
+                externalId: zod
+                  .string()
+                  .nullish()
+                  .describe(
+                    "POS\/kitchen article id, when the source provides one.",
+                  ),
               }),
               zod.null(),
             ])
@@ -1061,27 +1619,78 @@ export const SetRiderNotificationResponse = zod
     customerPhone: zod.string(),
     customerEmail: zod.string().nullish(),
     deliveryAddress: zod.string(),
+    street: zod.string(),
+    houseNumber: zod.string().nullish(),
+    addition: zod.string().nullish(),
+    postalCode: zod.string(),
+    city: zod.string(),
+    country: zod.string(),
+    latitude: zod.string().nullish(),
+    longitude: zod.string().nullish(),
     deliveryInstructions: zod.string().nullish(),
     deliveryFee: zod.string(),
     totalAmount: zod.string(),
+    tipRider: zod.string(),
+    tipRestaurant: zod.string(),
+    supTotal: zod.string(),
+    statiegeldTotal: zod.string(),
+    administrationCosts: zod.string(),
+    deliveryMethod: zod.enum(["delivery", "pickup", "happy_hour"]),
+    paymentMethod: zod.string(),
+    cashPayment: zod
+      .object({
+        type: zod.string().nullish(),
+        changeAmount: zod.string().nullish(),
+        changeRequired: zod.string().nullish(),
+        label: zod.string().nullish(),
+      })
+      .nullish(),
+    kitchenNotes: zod.string().nullish(),
     items: zod.array(
       zod.object({
         name: zod.string(),
         quantity: zod.number(),
         price: zod.string(),
         notes: zod.string().nullish(),
+        totalPrice: zod
+          .string()
+          .nullish()
+          .describe(
+            "Line total as sent by the source, not computed here. Absent for items added later via the admin add-item flow.",
+          ),
+        externalId: zod
+          .string()
+          .nullish()
+          .describe("POS\/kitchen article id, when the source provides one."),
       }),
     ),
     pickupTimeOriginal: zod.coerce.date(),
     pickupTimeRider: zod.coerce.date().nullish(),
     pickupTimeRestaurant: zod.coerce.date().nullish(),
     pickupTimeOverride: zod.coerce.date().nullish(),
+    sourceCreatedAt: zod.coerce.date(),
+    requestedDeliveryTime: zod.coerce.date(),
+    deliveryTimeType: zod.enum(["asap", "later_today", "other_day"]),
+    sourceRestaurantReadyTime: zod.coerce.date().nullish(),
+    restaurantMinDeliveryTime: zod.number().nullish(),
+    restaurantMinPickupTime: zod.number().nullish(),
+    restaurantMinPrepTime: zod.number().nullish(),
+    deliveryTeamMinDeliveryTime: zod.number().nullish(),
+    deliveryTeamMinPickupTime: zod.number().nullish(),
+    deliveryTeamMinPrepTime: zod.number().nullish(),
     effectivePickupTime: zod.coerce.date(),
     effectivePickupSource: zod
       .enum(["rider", "restaurant", "override"])
       .optional(),
     pendingRiderNotification: zod.string().nullish(),
     failureReason: zod.string().nullish(),
+    isParked: zod
+      .boolean()
+      .optional()
+      .describe(
+        "True when the inbound restaurant identifier couldn't be resolved and this\norder was filed against the placeholder restaurant instead of being rejected.\n",
+      ),
+    parkedReason: zod.string().nullish(),
     tripId: zod.string().nullish(),
     tripNumber: zod
       .number()
@@ -1152,6 +1761,18 @@ export const SetRiderNotificationResponse = zod
                 quantity: zod.number(),
                 price: zod.string(),
                 notes: zod.string().nullish(),
+                totalPrice: zod
+                  .string()
+                  .nullish()
+                  .describe(
+                    "Line total as sent by the source, not computed here. Absent for items added later via the admin add-item flow.",
+                  ),
+                externalId: zod
+                  .string()
+                  .nullish()
+                  .describe(
+                    "POS\/kitchen article id, when the source provides one.",
+                  ),
               }),
               zod.null(),
             ])
@@ -1197,27 +1818,78 @@ export const UpdateOrderContactResponse = zod
     customerPhone: zod.string(),
     customerEmail: zod.string().nullish(),
     deliveryAddress: zod.string(),
+    street: zod.string(),
+    houseNumber: zod.string().nullish(),
+    addition: zod.string().nullish(),
+    postalCode: zod.string(),
+    city: zod.string(),
+    country: zod.string(),
+    latitude: zod.string().nullish(),
+    longitude: zod.string().nullish(),
     deliveryInstructions: zod.string().nullish(),
     deliveryFee: zod.string(),
     totalAmount: zod.string(),
+    tipRider: zod.string(),
+    tipRestaurant: zod.string(),
+    supTotal: zod.string(),
+    statiegeldTotal: zod.string(),
+    administrationCosts: zod.string(),
+    deliveryMethod: zod.enum(["delivery", "pickup", "happy_hour"]),
+    paymentMethod: zod.string(),
+    cashPayment: zod
+      .object({
+        type: zod.string().nullish(),
+        changeAmount: zod.string().nullish(),
+        changeRequired: zod.string().nullish(),
+        label: zod.string().nullish(),
+      })
+      .nullish(),
+    kitchenNotes: zod.string().nullish(),
     items: zod.array(
       zod.object({
         name: zod.string(),
         quantity: zod.number(),
         price: zod.string(),
         notes: zod.string().nullish(),
+        totalPrice: zod
+          .string()
+          .nullish()
+          .describe(
+            "Line total as sent by the source, not computed here. Absent for items added later via the admin add-item flow.",
+          ),
+        externalId: zod
+          .string()
+          .nullish()
+          .describe("POS\/kitchen article id, when the source provides one."),
       }),
     ),
     pickupTimeOriginal: zod.coerce.date(),
     pickupTimeRider: zod.coerce.date().nullish(),
     pickupTimeRestaurant: zod.coerce.date().nullish(),
     pickupTimeOverride: zod.coerce.date().nullish(),
+    sourceCreatedAt: zod.coerce.date(),
+    requestedDeliveryTime: zod.coerce.date(),
+    deliveryTimeType: zod.enum(["asap", "later_today", "other_day"]),
+    sourceRestaurantReadyTime: zod.coerce.date().nullish(),
+    restaurantMinDeliveryTime: zod.number().nullish(),
+    restaurantMinPickupTime: zod.number().nullish(),
+    restaurantMinPrepTime: zod.number().nullish(),
+    deliveryTeamMinDeliveryTime: zod.number().nullish(),
+    deliveryTeamMinPickupTime: zod.number().nullish(),
+    deliveryTeamMinPrepTime: zod.number().nullish(),
     effectivePickupTime: zod.coerce.date(),
     effectivePickupSource: zod
       .enum(["rider", "restaurant", "override"])
       .optional(),
     pendingRiderNotification: zod.string().nullish(),
     failureReason: zod.string().nullish(),
+    isParked: zod
+      .boolean()
+      .optional()
+      .describe(
+        "True when the inbound restaurant identifier couldn't be resolved and this\norder was filed against the placeholder restaurant instead of being rejected.\n",
+      ),
+    parkedReason: zod.string().nullish(),
     tripId: zod.string().nullish(),
     tripNumber: zod
       .number()
@@ -1288,6 +1960,18 @@ export const UpdateOrderContactResponse = zod
                 quantity: zod.number(),
                 price: zod.string(),
                 notes: zod.string().nullish(),
+                totalPrice: zod
+                  .string()
+                  .nullish()
+                  .describe(
+                    "Line total as sent by the source, not computed here. Absent for items added later via the admin add-item flow.",
+                  ),
+                externalId: zod
+                  .string()
+                  .nullish()
+                  .describe(
+                    "POS\/kitchen article id, when the source provides one.",
+                  ),
               }),
               zod.null(),
             ])
@@ -1622,27 +2306,80 @@ export const GetTripResponse = zod
             customerPhone: zod.string(),
             customerEmail: zod.string().nullish(),
             deliveryAddress: zod.string(),
+            street: zod.string(),
+            houseNumber: zod.string().nullish(),
+            addition: zod.string().nullish(),
+            postalCode: zod.string(),
+            city: zod.string(),
+            country: zod.string(),
+            latitude: zod.string().nullish(),
+            longitude: zod.string().nullish(),
             deliveryInstructions: zod.string().nullish(),
             deliveryFee: zod.string(),
             totalAmount: zod.string(),
+            tipRider: zod.string(),
+            tipRestaurant: zod.string(),
+            supTotal: zod.string(),
+            statiegeldTotal: zod.string(),
+            administrationCosts: zod.string(),
+            deliveryMethod: zod.enum(["delivery", "pickup", "happy_hour"]),
+            paymentMethod: zod.string(),
+            cashPayment: zod
+              .object({
+                type: zod.string().nullish(),
+                changeAmount: zod.string().nullish(),
+                changeRequired: zod.string().nullish(),
+                label: zod.string().nullish(),
+              })
+              .nullish(),
+            kitchenNotes: zod.string().nullish(),
             items: zod.array(
               zod.object({
                 name: zod.string(),
                 quantity: zod.number(),
                 price: zod.string(),
                 notes: zod.string().nullish(),
+                totalPrice: zod
+                  .string()
+                  .nullish()
+                  .describe(
+                    "Line total as sent by the source, not computed here. Absent for items added later via the admin add-item flow.",
+                  ),
+                externalId: zod
+                  .string()
+                  .nullish()
+                  .describe(
+                    "POS\/kitchen article id, when the source provides one.",
+                  ),
               }),
             ),
             pickupTimeOriginal: zod.coerce.date(),
             pickupTimeRider: zod.coerce.date().nullish(),
             pickupTimeRestaurant: zod.coerce.date().nullish(),
             pickupTimeOverride: zod.coerce.date().nullish(),
+            sourceCreatedAt: zod.coerce.date(),
+            requestedDeliveryTime: zod.coerce.date(),
+            deliveryTimeType: zod.enum(["asap", "later_today", "other_day"]),
+            sourceRestaurantReadyTime: zod.coerce.date().nullish(),
+            restaurantMinDeliveryTime: zod.number().nullish(),
+            restaurantMinPickupTime: zod.number().nullish(),
+            restaurantMinPrepTime: zod.number().nullish(),
+            deliveryTeamMinDeliveryTime: zod.number().nullish(),
+            deliveryTeamMinPickupTime: zod.number().nullish(),
+            deliveryTeamMinPrepTime: zod.number().nullish(),
             effectivePickupTime: zod.coerce.date(),
             effectivePickupSource: zod
               .enum(["rider", "restaurant", "override"])
               .optional(),
             pendingRiderNotification: zod.string().nullish(),
             failureReason: zod.string().nullish(),
+            isParked: zod
+              .boolean()
+              .optional()
+              .describe(
+                "True when the inbound restaurant identifier couldn't be resolved and this\norder was filed against the placeholder restaurant instead of being rejected.\n",
+              ),
+            parkedReason: zod.string().nullish(),
             tripId: zod.string().nullish(),
             tripNumber: zod
               .number()
@@ -1753,27 +2490,80 @@ export const UpdateTripResponse = zod
             customerPhone: zod.string(),
             customerEmail: zod.string().nullish(),
             deliveryAddress: zod.string(),
+            street: zod.string(),
+            houseNumber: zod.string().nullish(),
+            addition: zod.string().nullish(),
+            postalCode: zod.string(),
+            city: zod.string(),
+            country: zod.string(),
+            latitude: zod.string().nullish(),
+            longitude: zod.string().nullish(),
             deliveryInstructions: zod.string().nullish(),
             deliveryFee: zod.string(),
             totalAmount: zod.string(),
+            tipRider: zod.string(),
+            tipRestaurant: zod.string(),
+            supTotal: zod.string(),
+            statiegeldTotal: zod.string(),
+            administrationCosts: zod.string(),
+            deliveryMethod: zod.enum(["delivery", "pickup", "happy_hour"]),
+            paymentMethod: zod.string(),
+            cashPayment: zod
+              .object({
+                type: zod.string().nullish(),
+                changeAmount: zod.string().nullish(),
+                changeRequired: zod.string().nullish(),
+                label: zod.string().nullish(),
+              })
+              .nullish(),
+            kitchenNotes: zod.string().nullish(),
             items: zod.array(
               zod.object({
                 name: zod.string(),
                 quantity: zod.number(),
                 price: zod.string(),
                 notes: zod.string().nullish(),
+                totalPrice: zod
+                  .string()
+                  .nullish()
+                  .describe(
+                    "Line total as sent by the source, not computed here. Absent for items added later via the admin add-item flow.",
+                  ),
+                externalId: zod
+                  .string()
+                  .nullish()
+                  .describe(
+                    "POS\/kitchen article id, when the source provides one.",
+                  ),
               }),
             ),
             pickupTimeOriginal: zod.coerce.date(),
             pickupTimeRider: zod.coerce.date().nullish(),
             pickupTimeRestaurant: zod.coerce.date().nullish(),
             pickupTimeOverride: zod.coerce.date().nullish(),
+            sourceCreatedAt: zod.coerce.date(),
+            requestedDeliveryTime: zod.coerce.date(),
+            deliveryTimeType: zod.enum(["asap", "later_today", "other_day"]),
+            sourceRestaurantReadyTime: zod.coerce.date().nullish(),
+            restaurantMinDeliveryTime: zod.number().nullish(),
+            restaurantMinPickupTime: zod.number().nullish(),
+            restaurantMinPrepTime: zod.number().nullish(),
+            deliveryTeamMinDeliveryTime: zod.number().nullish(),
+            deliveryTeamMinPickupTime: zod.number().nullish(),
+            deliveryTeamMinPrepTime: zod.number().nullish(),
             effectivePickupTime: zod.coerce.date(),
             effectivePickupSource: zod
               .enum(["rider", "restaurant", "override"])
               .optional(),
             pendingRiderNotification: zod.string().nullish(),
             failureReason: zod.string().nullish(),
+            isParked: zod
+              .boolean()
+              .optional()
+              .describe(
+                "True when the inbound restaurant identifier couldn't be resolved and this\norder was filed against the placeholder restaurant instead of being rejected.\n",
+              ),
+            parkedReason: zod.string().nullish(),
             tripId: zod.string().nullish(),
             tripNumber: zod
               .number()
@@ -1884,27 +2674,80 @@ export const ReplaceTripStopsResponse = zod
             customerPhone: zod.string(),
             customerEmail: zod.string().nullish(),
             deliveryAddress: zod.string(),
+            street: zod.string(),
+            houseNumber: zod.string().nullish(),
+            addition: zod.string().nullish(),
+            postalCode: zod.string(),
+            city: zod.string(),
+            country: zod.string(),
+            latitude: zod.string().nullish(),
+            longitude: zod.string().nullish(),
             deliveryInstructions: zod.string().nullish(),
             deliveryFee: zod.string(),
             totalAmount: zod.string(),
+            tipRider: zod.string(),
+            tipRestaurant: zod.string(),
+            supTotal: zod.string(),
+            statiegeldTotal: zod.string(),
+            administrationCosts: zod.string(),
+            deliveryMethod: zod.enum(["delivery", "pickup", "happy_hour"]),
+            paymentMethod: zod.string(),
+            cashPayment: zod
+              .object({
+                type: zod.string().nullish(),
+                changeAmount: zod.string().nullish(),
+                changeRequired: zod.string().nullish(),
+                label: zod.string().nullish(),
+              })
+              .nullish(),
+            kitchenNotes: zod.string().nullish(),
             items: zod.array(
               zod.object({
                 name: zod.string(),
                 quantity: zod.number(),
                 price: zod.string(),
                 notes: zod.string().nullish(),
+                totalPrice: zod
+                  .string()
+                  .nullish()
+                  .describe(
+                    "Line total as sent by the source, not computed here. Absent for items added later via the admin add-item flow.",
+                  ),
+                externalId: zod
+                  .string()
+                  .nullish()
+                  .describe(
+                    "POS\/kitchen article id, when the source provides one.",
+                  ),
               }),
             ),
             pickupTimeOriginal: zod.coerce.date(),
             pickupTimeRider: zod.coerce.date().nullish(),
             pickupTimeRestaurant: zod.coerce.date().nullish(),
             pickupTimeOverride: zod.coerce.date().nullish(),
+            sourceCreatedAt: zod.coerce.date(),
+            requestedDeliveryTime: zod.coerce.date(),
+            deliveryTimeType: zod.enum(["asap", "later_today", "other_day"]),
+            sourceRestaurantReadyTime: zod.coerce.date().nullish(),
+            restaurantMinDeliveryTime: zod.number().nullish(),
+            restaurantMinPickupTime: zod.number().nullish(),
+            restaurantMinPrepTime: zod.number().nullish(),
+            deliveryTeamMinDeliveryTime: zod.number().nullish(),
+            deliveryTeamMinPickupTime: zod.number().nullish(),
+            deliveryTeamMinPrepTime: zod.number().nullish(),
             effectivePickupTime: zod.coerce.date(),
             effectivePickupSource: zod
               .enum(["rider", "restaurant", "override"])
               .optional(),
             pendingRiderNotification: zod.string().nullish(),
             failureReason: zod.string().nullish(),
+            isParked: zod
+              .boolean()
+              .optional()
+              .describe(
+                "True when the inbound restaurant identifier couldn't be resolved and this\norder was filed against the placeholder restaurant instead of being rejected.\n",
+              ),
+            parkedReason: zod.string().nullish(),
             tripId: zod.string().nullish(),
             tripNumber: zod
               .number()
@@ -2004,27 +2847,80 @@ export const DissolveTripResponse = zod
             customerPhone: zod.string(),
             customerEmail: zod.string().nullish(),
             deliveryAddress: zod.string(),
+            street: zod.string(),
+            houseNumber: zod.string().nullish(),
+            addition: zod.string().nullish(),
+            postalCode: zod.string(),
+            city: zod.string(),
+            country: zod.string(),
+            latitude: zod.string().nullish(),
+            longitude: zod.string().nullish(),
             deliveryInstructions: zod.string().nullish(),
             deliveryFee: zod.string(),
             totalAmount: zod.string(),
+            tipRider: zod.string(),
+            tipRestaurant: zod.string(),
+            supTotal: zod.string(),
+            statiegeldTotal: zod.string(),
+            administrationCosts: zod.string(),
+            deliveryMethod: zod.enum(["delivery", "pickup", "happy_hour"]),
+            paymentMethod: zod.string(),
+            cashPayment: zod
+              .object({
+                type: zod.string().nullish(),
+                changeAmount: zod.string().nullish(),
+                changeRequired: zod.string().nullish(),
+                label: zod.string().nullish(),
+              })
+              .nullish(),
+            kitchenNotes: zod.string().nullish(),
             items: zod.array(
               zod.object({
                 name: zod.string(),
                 quantity: zod.number(),
                 price: zod.string(),
                 notes: zod.string().nullish(),
+                totalPrice: zod
+                  .string()
+                  .nullish()
+                  .describe(
+                    "Line total as sent by the source, not computed here. Absent for items added later via the admin add-item flow.",
+                  ),
+                externalId: zod
+                  .string()
+                  .nullish()
+                  .describe(
+                    "POS\/kitchen article id, when the source provides one.",
+                  ),
               }),
             ),
             pickupTimeOriginal: zod.coerce.date(),
             pickupTimeRider: zod.coerce.date().nullish(),
             pickupTimeRestaurant: zod.coerce.date().nullish(),
             pickupTimeOverride: zod.coerce.date().nullish(),
+            sourceCreatedAt: zod.coerce.date(),
+            requestedDeliveryTime: zod.coerce.date(),
+            deliveryTimeType: zod.enum(["asap", "later_today", "other_day"]),
+            sourceRestaurantReadyTime: zod.coerce.date().nullish(),
+            restaurantMinDeliveryTime: zod.number().nullish(),
+            restaurantMinPickupTime: zod.number().nullish(),
+            restaurantMinPrepTime: zod.number().nullish(),
+            deliveryTeamMinDeliveryTime: zod.number().nullish(),
+            deliveryTeamMinPickupTime: zod.number().nullish(),
+            deliveryTeamMinPrepTime: zod.number().nullish(),
             effectivePickupTime: zod.coerce.date(),
             effectivePickupSource: zod
               .enum(["rider", "restaurant", "override"])
               .optional(),
             pendingRiderNotification: zod.string().nullish(),
             failureReason: zod.string().nullish(),
+            isParked: zod
+              .boolean()
+              .optional()
+              .describe(
+                "True when the inbound restaurant identifier couldn't be resolved and this\norder was filed against the placeholder restaurant instead of being rejected.\n",
+              ),
+            parkedReason: zod.string().nullish(),
             tripId: zod.string().nullish(),
             tripNumber: zod
               .number()

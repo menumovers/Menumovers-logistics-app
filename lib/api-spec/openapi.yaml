@@ -92,8 +92,13 @@ paths:
       security: []
       summary: Receive a new order from the upstream distribution service
       description: |
-        Authenticated via the `x-inbound-secret` header. Idempotent on `externalOrderId`:
-        re-sending the same payload updates the existing order record instead of creating a duplicate.
+        Authenticated via the `x-inbound-secret` header, matched against a provisioned
+        per-source credential (see `api_credentials`) rather than a single shared secret.
+        Idempotent on `externalOrderId`: re-sending the same payload updates the existing
+        order record instead of creating a duplicate. If `externalRestaurantId` doesn't
+        resolve to a known restaurant for the credential's source, the order is still
+        accepted — it's filed against a placeholder restaurant and marked parked
+        (`isParked: true`) instead of being rejected.
       parameters:
         - in: header
           name: x-inbound-secret
@@ -120,7 +125,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
         "401":
-          description: Invalid inbound secret
+          description: Missing or invalid inbound credential
           content:
             application/json:
               schema:
@@ -851,6 +856,12 @@ components:
     PickupTimeSource:
       type: string
       enum: [rider, restaurant, override]
+    DeliveryMethod:
+      type: string
+      enum: [delivery, pickup, happy_hour]
+    DeliveryTimeType:
+      type: string
+      enum: [asap, later_today, other_day]
     LoginRequest:
       type: object
       required: [email, password]
@@ -1011,23 +1022,43 @@ components:
           type: string
         notes:
           type: ["string", "null"]
+        totalPrice:
+          type: ["string", "null"]
+          description: Line total as sent by the source, not computed here. Absent for items added later via the admin add-item flow.
+        externalId:
+          type: ["string", "null"]
+          description: POS/kitchen article id, when the source provides one.
     InboundOrderPayload:
       type: object
       required:
         - orderId
-        - restaurantId
+        - externalRestaurantId
         - customer
         - items
         - deliveryFee
         - totalAmount
+        - tipRider
+        - tipRestaurant
+        - supTotal
+        - statiegeldTotal
+        - administrationCosts
+        - deliveryMethod
+        - paymentMethod
+        - sourceCreatedAt
+        - requestedDeliveryTime
+        - deliveryTimeType
       properties:
         orderId:
           type: string
-        restaurantId:
+        externalRestaurantId:
           type: string
+          description: |
+            The restaurant identifier as known to the caller's system. Resolved to an
+            internal restaurant via restaurant_external_ids, scoped to the credential's
+            source. Unresolved values do not fail the request — see the endpoint description.
         customer:
           type: object
-          required: [name, phone, address]
+          required: [name, phone, address, street, postalCode, city, country]
           properties:
             name:
               type: string
@@ -1037,6 +1068,24 @@ components:
               type: ["string", "null"]
             address:
               type: string
+              description: Single-line display address. Structured components below are separate, not derived from this.
+            street:
+              type: string
+            houseNumber:
+              type: ["string", "null"]
+            addition:
+              type: ["string", "null"]
+            postalCode:
+              type: string
+            city:
+              type: string
+            country:
+              type: string
+            latitude:
+              type: ["string", "null"]
+              description: Decimal degrees as a string, matching this app's numeric-as-string convention (see deliveryFee).
+            longitude:
+              type: ["string", "null"]
         items:
           type: array
           items:
@@ -1045,8 +1094,61 @@ components:
           type: string
         totalAmount:
           type: string
+        tipRider:
+          type: string
+        tipRestaurant:
+          type: string
+        supTotal:
+          type: string
+        statiegeldTotal:
+          type: string
+        administrationCosts:
+          type: string
+        deliveryMethod:
+          $ref: "#/components/schemas/DeliveryMethod"
+        paymentMethod:
+          type: string
+        cashPayment:
+          type: ["object", "null"]
+          description: Present when paymentMethod indicates cash. All fields raw captures from the source.
+          properties:
+            type:
+              type: ["string", "null"]
+              description: "exact | custom | tikkie | qr"
+            changeAmount:
+              type: ["string", "null"]
+            changeRequired:
+              type: ["string", "null"]
+            label:
+              type: ["string", "null"]
+              description: Bestellenbij's own ready-made Dutch display string.
+        kitchenNotes:
+          type: ["string", "null"]
         deliveryInstructions:
           type: ["string", "null"]
+        sourceCreatedAt:
+          type: string
+          format: date-time
+        requestedDeliveryTime:
+          type: string
+          format: date-time
+        deliveryTimeType:
+          $ref: "#/components/schemas/DeliveryTimeType"
+        sourceRestaurantReadyTime:
+          type: ["string", "null"]
+          format: date-time
+        restaurantMinDeliveryTime:
+          type: ["integer", "null"]
+        restaurantMinPickupTime:
+          type: ["integer", "null"]
+        restaurantMinPrepTime:
+          type: ["integer", "null"]
+        deliveryTeamMinDeliveryTime:
+          type: ["integer", "null"]
+        deliveryTeamMinPickupTime:
+          type: ["integer", "null"]
+        deliveryTeamMinPrepTime:
+          type: ["integer", "null"]
     Order:
       type: object
       required:
@@ -1057,10 +1159,24 @@ components:
         - customerName
         - customerPhone
         - deliveryAddress
+        - street
+        - postalCode
+        - city
+        - country
         - deliveryFee
         - totalAmount
+        - tipRider
+        - tipRestaurant
+        - supTotal
+        - statiegeldTotal
+        - administrationCosts
+        - deliveryMethod
+        - paymentMethod
         - items
         - pickupTimeOriginal
+        - sourceCreatedAt
+        - requestedDeliveryTime
+        - deliveryTimeType
         - effectivePickupTime
         - createdAt
       properties:
@@ -1082,12 +1198,55 @@ components:
           type: ["string", "null"]
         deliveryAddress:
           type: string
+        street:
+          type: string
+        houseNumber:
+          type: ["string", "null"]
+        addition:
+          type: ["string", "null"]
+        postalCode:
+          type: string
+        city:
+          type: string
+        country:
+          type: string
+        latitude:
+          type: ["string", "null"]
+        longitude:
+          type: ["string", "null"]
         deliveryInstructions:
           type: ["string", "null"]
         deliveryFee:
           type: string
         totalAmount:
           type: string
+        tipRider:
+          type: string
+        tipRestaurant:
+          type: string
+        supTotal:
+          type: string
+        statiegeldTotal:
+          type: string
+        administrationCosts:
+          type: string
+        deliveryMethod:
+          $ref: "#/components/schemas/DeliveryMethod"
+        paymentMethod:
+          type: string
+        cashPayment:
+          type: ["object", "null"]
+          properties:
+            type:
+              type: ["string", "null"]
+            changeAmount:
+              type: ["string", "null"]
+            changeRequired:
+              type: ["string", "null"]
+            label:
+              type: ["string", "null"]
+        kitchenNotes:
+          type: ["string", "null"]
         items:
           type: array
           items:
@@ -1104,6 +1263,29 @@ components:
         pickupTimeOverride:
           type: ["string", "null"]
           format: date-time
+        sourceCreatedAt:
+          type: string
+          format: date-time
+        requestedDeliveryTime:
+          type: string
+          format: date-time
+        deliveryTimeType:
+          $ref: "#/components/schemas/DeliveryTimeType"
+        sourceRestaurantReadyTime:
+          type: ["string", "null"]
+          format: date-time
+        restaurantMinDeliveryTime:
+          type: ["integer", "null"]
+        restaurantMinPickupTime:
+          type: ["integer", "null"]
+        restaurantMinPrepTime:
+          type: ["integer", "null"]
+        deliveryTeamMinDeliveryTime:
+          type: ["integer", "null"]
+        deliveryTeamMinPickupTime:
+          type: ["integer", "null"]
+        deliveryTeamMinPrepTime:
+          type: ["integer", "null"]
         effectivePickupTime:
           type: string
           format: date-time
@@ -1112,6 +1294,13 @@ components:
         pendingRiderNotification:
           type: ["string", "null"]
         failureReason:
+          type: ["string", "null"]
+        isParked:
+          type: boolean
+          description: |
+            True when the inbound restaurant identifier couldn't be resolved and this
+            order was filed against the placeholder restaurant instead of being rejected.
+        parkedReason:
           type: ["string", "null"]
         tripId:
           type: ["string", "null"]

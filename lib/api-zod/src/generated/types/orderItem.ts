@@ -12,4 +12,14 @@ export interface OrderItem {
   price: string;
   /** @nullable */
   notes?: string | null;
+  /**
+   * Line total as sent by the source, not computed here. Absent for items added later via the admin add-item flow.
+   * @nullable
+   */
+  totalPrice?: string | null;
+  /**
+   * POS/kitchen article id, when the source provides one.
+   * @nullable
+   */
+  externalId?: string | null;
 }

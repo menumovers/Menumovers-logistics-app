@@ -11,5 +11,21 @@ export type InboundOrderPayloadCustomer = {
   phone: string;
   /** @nullable */
   email?: string | null;
+  /** Single-line display address. Structured components below are separate, not derived from this. */
   address: string;
+  street: string;
+  /** @nullable */
+  houseNumber?: string | null;
+  /** @nullable */
+  addition?: string | null;
+  postalCode: string;
+  city: string;
+  country: string;
+  /**
+   * Decimal degrees as a string, matching this app's numeric-as-string convention (see deliveryFee).
+   * @nullable
+   */
+  latitude?: string | null;
+  /** @nullable */
+  longitude?: string | null;
 };

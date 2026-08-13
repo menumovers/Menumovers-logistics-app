@@ -5,6 +5,9 @@
  * Bestellenbij logistics platform API
  * OpenAPI spec version: 0.1.0
  */
+import type { DeliveryMethod } from "./deliveryMethod";
+import type { DeliveryTimeType } from "./deliveryTimeType";
+import type { OrderCashPayment } from "./orderCashPayment";
 import type { OrderItem } from "./orderItem";
 import type { OrderStatus } from "./orderStatus";
 import type { PickupTimeSource } from "./pickupTimeSource";
@@ -21,10 +24,33 @@ export interface Order {
   /** @nullable */
   customerEmail?: string | null;
   deliveryAddress: string;
+  street: string;
+  /** @nullable */
+  houseNumber?: string | null;
+  /** @nullable */
+  addition?: string | null;
+  postalCode: string;
+  city: string;
+  country: string;
+  /** @nullable */
+  latitude?: string | null;
+  /** @nullable */
+  longitude?: string | null;
   /** @nullable */
   deliveryInstructions?: string | null;
   deliveryFee: string;
   totalAmount: string;
+  tipRider: string;
+  tipRestaurant: string;
+  supTotal: string;
+  statiegeldTotal: string;
+  administrationCosts: string;
+  deliveryMethod: DeliveryMethod;
+  paymentMethod: string;
+  /** @nullable */
+  cashPayment?: OrderCashPayment;
+  /** @nullable */
+  kitchenNotes?: string | null;
   items: OrderItem[];
   pickupTimeOriginal: Date;
   /** @nullable */
@@ -33,12 +59,35 @@ export interface Order {
   pickupTimeRestaurant?: Date | null;
   /** @nullable */
   pickupTimeOverride?: Date | null;
+  sourceCreatedAt: Date;
+  requestedDeliveryTime: Date;
+  deliveryTimeType: DeliveryTimeType;
+  /** @nullable */
+  sourceRestaurantReadyTime?: Date | null;
+  /** @nullable */
+  restaurantMinDeliveryTime?: number | null;
+  /** @nullable */
+  restaurantMinPickupTime?: number | null;
+  /** @nullable */
+  restaurantMinPrepTime?: number | null;
+  /** @nullable */
+  deliveryTeamMinDeliveryTime?: number | null;
+  /** @nullable */
+  deliveryTeamMinPickupTime?: number | null;
+  /** @nullable */
+  deliveryTeamMinPrepTime?: number | null;
   effectivePickupTime: Date;
   effectivePickupSource?: PickupTimeSource;
   /** @nullable */
   pendingRiderNotification?: string | null;
   /** @nullable */
   failureReason?: string | null;
+  /** True when the inbound restaurant identifier couldn't be resolved and this
+order was filed against the placeholder restaurant instead of being rejected.
+ */
+  isParked?: boolean;
+  /** @nullable */
+  parkedReason?: string | null;
   /** @nullable */
   tripId?: string | null;
   /**

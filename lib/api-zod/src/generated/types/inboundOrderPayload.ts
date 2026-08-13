@@ -5,16 +5,54 @@
  * Bestellenbij logistics platform API
  * OpenAPI spec version: 0.1.0
  */
+import type { DeliveryMethod } from "./deliveryMethod";
+import type { DeliveryTimeType } from "./deliveryTimeType";
+import type { InboundOrderPayloadCashPayment } from "./inboundOrderPayloadCashPayment";
 import type { InboundOrderPayloadCustomer } from "./inboundOrderPayloadCustomer";
 import type { OrderItem } from "./orderItem";
 
 export interface InboundOrderPayload {
   orderId: string;
-  restaurantId: string;
+  /** The restaurant identifier as known to the caller's system. Resolved to an
+internal restaurant via restaurant_external_ids, scoped to the credential's
+source. Unresolved values do not fail the request — see the endpoint description.
+ */
+  externalRestaurantId: string;
   customer: InboundOrderPayloadCustomer;
   items: OrderItem[];
   deliveryFee: string;
   totalAmount: string;
+  tipRider: string;
+  tipRestaurant: string;
+  supTotal: string;
+  statiegeldTotal: string;
+  administrationCosts: string;
+  deliveryMethod: DeliveryMethod;
+  paymentMethod: string;
+  /**
+   * Present when paymentMethod indicates cash. All fields raw captures from the source.
+   * @nullable
+   */
+  cashPayment?: InboundOrderPayloadCashPayment;
+  /** @nullable */
+  kitchenNotes?: string | null;
   /** @nullable */
   deliveryInstructions?: string | null;
+  sourceCreatedAt: Date;
+  requestedDeliveryTime: Date;
+  deliveryTimeType: DeliveryTimeType;
+  /** @nullable */
+  sourceRestaurantReadyTime?: Date | null;
+  /** @nullable */
+  restaurantMinDeliveryTime?: number | null;
+  /** @nullable */
+  restaurantMinPickupTime?: number | null;
+  /** @nullable */
+  restaurantMinPrepTime?: number | null;
+  /** @nullable */
+  deliveryTeamMinDeliveryTime?: number | null;
+  /** @nullable */
+  deliveryTeamMinPickupTime?: number | null;
+  /** @nullable */
+  deliveryTeamMinPrepTime?: number | null;
 }
