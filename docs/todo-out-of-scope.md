@@ -156,6 +156,34 @@ These were listed as out of scope but represent decisions made — not things to
 
 ---
 
+## Bestellenbij Integration
+
+### Parked-order dispatch/visibility mechanics
+- **Source**: Bestellenbij data-comparison plan (Phase 1)
+- **In docs/todo-roadmap.md**: No
+- **Kind**: Deferred feature
+- **Notes**: When an inbound order's `externalRestaurantId` doesn't resolve via `restaurant_external_ids`, it's stored against a placeholder restaurant with `isParked: true` and a `parkedReason`, instead of being rejected. That's deliberately the minimum — no status/permissions model was designed for who can see or act on parked orders, or how dispatch logic should treat them (currently nothing excludes them from anything). Worth flagging as higher priority than a typical "someday" item: the Phase 6 rollout is already routing real restaurants that depend on `restaurant_external_ids` rows being seeded, so parked orders will start actually occurring, not just being theoretically possible, once that rollout is live.
+
+### `pickupTimeOriginal` derivation formula
+- **Source**: Bestellenbij data-comparison plan (Phase 4)
+- **In docs/todo-roadmap.md**: No
+- **Kind**: Deferred feature
+- **Notes**: Phase 4 landed 10 raw time-data columns (`sourceCreatedAt`, `requestedDeliveryTime`, `deliveryTimeType`, `sourceRestaurantReadyTime`, and six `*MinDeliveryTime`/`*MinPickupTime`/`*MinPrepTime` fields split by restaurant vs. delivery team) so the data is available, but `pickupTimeOriginal`'s computation still only reads `restaurants.minDeliveryTime`, untouched. No functional impact today — just no formula yet for using the richer data. Low urgency; the columns can sit unused as long as needed.
+
+### Scheduled-order UX/logic
+- **Source**: Bestellenbij data-comparison plan (Phase 4)
+- **In docs/todo-roadmap.md**: No
+- **Kind**: Deferred feature
+- **Notes**: The raw fields needed to eventually support scheduled (non-ASAP) orders exist (`deliveryTimeType`, `requestedDeliveryTime`), but no UX or dispatch logic for that mode has been built — this plan only landed the data, not the feature.
+
+### Legacy `deliveryAddress` text column
+- **Source**: Bestellenbij data-comparison plan (Phase 2)
+- **In docs/todo-roadmap.md**: No
+- **Kind**: Deferred decision
+- **Notes**: `orders.deliveryAddress` (the original flat text field) was kept as-is alongside the new structured address columns (`street`, `postalCode`, `city`, `country`, `latitude`, `longitude`) added in Phase 2. Not decided whether to keep it as a computed display string for anything still reading it directly, or drop it once all readers are updated onto the structured fields — needs a call-site audit before either choice is safe. No functional urgency; it's just sitting there unused by the new columns.
+
+---
+
 ## Documentation
 
 ### replit.md content-migration pass
