@@ -2178,6 +2178,12 @@ export const GetSettingsResponse = zod.object({
       "Master switch for outbound delivery. Off by default — the receiving\nend is not built yet. When off, no event is dispatched or queued and\nthe retry loop does no work. An unset URL counts as disabled\nregardless of this flag.\n",
     ),
   allowRiderSelfClaim: zod.boolean(),
+  pickupTravelOverrideMinutes: zod
+    .number()
+    .nullish()
+    .describe(
+      "Minutes from leaving the restaurant to reaching the customer, used to\nderive the original pickup time. Null means use the per-order estimates\nfrom the inbound payload; a value overrides them outright.\n",
+    ),
   vapidConfigured: zod.boolean(),
   inboundSecretConfigured: zod.boolean().optional(),
 });
@@ -2186,6 +2192,7 @@ export const UpdateSettingsBody = zod.object({
   outboundWebhookUrl: zod.string().nullish(),
   outboundWebhookEnabled: zod.boolean().optional(),
   allowRiderSelfClaim: zod.boolean().optional(),
+  pickupTravelOverrideMinutes: zod.number().nullish(),
 });
 
 export const UpdateSettingsResponse = zod.object({
@@ -2197,6 +2204,12 @@ export const UpdateSettingsResponse = zod.object({
       "Master switch for outbound delivery. Off by default — the receiving\nend is not built yet. When off, no event is dispatched or queued and\nthe retry loop does no work. An unset URL counts as disabled\nregardless of this flag.\n",
     ),
   allowRiderSelfClaim: zod.boolean(),
+  pickupTravelOverrideMinutes: zod
+    .number()
+    .nullish()
+    .describe(
+      "Minutes from leaving the restaurant to reaching the customer, used to\nderive the original pickup time. Null means use the per-order estimates\nfrom the inbound payload; a value overrides them outright.\n",
+    ),
   vapidConfigured: zod.boolean(),
   inboundSecretConfigured: zod.boolean().optional(),
 });

@@ -33,6 +33,7 @@ async function buildSettings() {
     outboundWebhookUrlSource: resolved.outboundWebhookUrl.source,
     outboundWebhookEnabled: resolved.outboundWebhookEnabled.value,
     allowRiderSelfClaim: resolved.allowRiderSelfClaim.value,
+    pickupTravelOverrideMinutes: resolved.pickupTravelOverrideMinutes.value,
     vapidConfigured: Boolean(
       process.env["VAPID_PUBLIC_KEY"] && process.env["VAPID_PRIVATE_KEY"],
     ),
@@ -79,6 +80,13 @@ router.patch(
 
     if (parsed.data.allowRiderSelfClaim !== undefined) {
       await writeSetting(SETTINGS.allowRiderSelfClaim, parsed.data.allowRiderSelfClaim);
+    }
+
+    if (parsed.data.pickupTravelOverrideMinutes !== undefined) {
+      await writeSetting(
+        SETTINGS.pickupTravelOverrideMinutes,
+        parsed.data.pickupTravelOverrideMinutes,
+      );
     }
 
     res.json(await buildSettings());

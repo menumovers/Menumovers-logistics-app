@@ -32,6 +32,8 @@ import {
 } from "../lib/order-serialize";
 import { enqueueOutboundEvent } from "../lib/webhook";
 import { getAllowRiderSelfClaim } from "../lib/settings-readers";
+import { resolveOriginalPickupTime } from "../lib/pickup-time";
+import { SETTINGS, readSetting } from "../lib/settings-registry";
 import {
   sendPushToRoles,
   sendPushToRider,
@@ -169,8 +171,23 @@ router.post(
       ? `Unresolved restaurantNameCode: ${payload.restaurantNameCode ?? "(absent)"}`
       : null;
 
-    const minMinutes = restaurant.minDeliveryTime ?? 30;
-    const pickupTimeOriginal = new Date(Date.now() + minMinutes * 60_000);
+    // pickup_time_original is immutable after insert — computed here and never
+    // recomputed on replay. ASAP orders count forward from now; scheduled ones
+    // work backwards from the time the customer was promised. See
+    // docs/workflow-decisions.md D4.
+    const travelOverrideMinutes = await readSetting(
+      SETTINGS.pickupTravelOverrideMinutes,
+    );
+    const { pickupTimeOriginal, travelMinutes, basis } = resolveOriginalPickupTime({
+      deliveryTimeType: payload.deliveryTimeType,
+      requestedDeliveryTime: payload.requestedDeliveryTime,
+      sourceRestaurantReadyTime: payload.sourceRestaurantReadyTime ?? null,
+      restaurantMinDeliveryTime: payload.restaurantMinDeliveryTime ?? null,
+      deliveryTeamMinDeliveryTime: payload.deliveryTeamMinDeliveryTime ?? null,
+      restaurantDefaultMinDeliveryTime: restaurant.minDeliveryTime ?? 30,
+      travelOverrideMinutes,
+      now: new Date(),
+    });
 
     const items = payload.items.map((it) => ({
       name: it.name,
@@ -290,6 +307,19 @@ router.post(
     if (!row) throw httpError(500, "DB_ERROR", "Failed to insert or update order");
 
     if (isNew) {
+      // How the pickup time was derived, so a wrong one can be diagnosed from
+      // logs alone rather than by reconstructing the payload.
+      req.log.info(
+        {
+          orderId: row.id,
+          externalOrderId: row.externalOrderId,
+          deliveryTimeType: payload.deliveryTimeType,
+          pickupBasis: basis,
+          travelMinutes,
+          pickupTimeOriginal: pickupTimeOriginal.toISOString(),
+        },
+        "Computed original pickup time",
+      );
       await db.insert(orderStatusLogsTable).values({
         orderId: row.id,
         fromStatus: null,

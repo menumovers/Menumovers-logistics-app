@@ -72,6 +72,37 @@ function defineString(
   };
 }
 
+function defineInteger(
+  key: string,
+  opts: {
+    fallback: number | null;
+    envVar?: string;
+    validate?: (value: number | null) => void;
+  },
+): SettingDefinition<number | null> {
+  return {
+    key,
+    parse: (raw) => {
+      const parsed = Number.parseInt(raw, 10);
+      return Number.isFinite(parsed) ? parsed : opts.fallback;
+    },
+    // null means "unset" — delete the row so the declared default applies again.
+    serialize: (value) => (value === null ? null : String(value)),
+    fallback: opts.fallback,
+    ...(opts.envVar !== undefined ? { envVar: opts.envVar } : {}),
+    ...(opts.validate !== undefined ? { validate: opts.validate } : {}),
+  };
+}
+
+function assertNonNegativeInteger(field: string) {
+  return (value: number | null): void => {
+    if (value === null) return;
+    if (!Number.isInteger(value) || value < 0) {
+      throw httpError(400, "INVALID_SETTING", `${field} must be a whole number of minutes, or null`);
+    }
+  };
+}
+
 function assertHttpUrl(field: string) {
   return (value: string | null): void => {
     if (value === null || value === "") return;
@@ -109,6 +140,19 @@ export const SETTINGS = {
   allowRiderSelfClaim: defineBoolean(SETTING_KEYS.ALLOW_RIDER_SELF_CLAIM, {
     fallback: true,
   }),
+  /**
+   * Minutes from leaving the restaurant to reaching the customer, used to
+   * derive `pickup_time_original`. Null means "use the per-order estimates";
+   * setting it overrides them outright, so an operator can correct bad
+   * upstream figures without waiting on the source. See workflow-decisions D4.
+   */
+  pickupTravelOverrideMinutes: defineInteger(
+    SETTING_KEYS.PICKUP_TRAVEL_OVERRIDE_MINUTES,
+    {
+      fallback: null,
+      validate: assertNonNegativeInteger("pickupTravelOverrideMinutes"),
+    },
+  ),
 } as const;
 
 export type SettingName = keyof typeof SETTINGS;

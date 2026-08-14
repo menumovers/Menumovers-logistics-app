@@ -9,7 +9,7 @@ import {
   getListUsersQueryKey, getListRestaurantsQueryKey, getListRidersQueryKey, getGetSettingsQueryKey,
   UserRole, RiderAvailability,
   type Restaurant, type RiderWithWorkload, type User as ApiUser, type UserRole as UserRoleType,
-  type RiderAvailability as RiderAvailabilityType,
+  type RiderAvailability as RiderAvailabilityType, type Settings as ApiSettings,
 } from "@workspace/api-client-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -351,6 +351,82 @@ function RiderRow({ rider: r, onUpdate, onInvalidate }: { rider: RiderWithWorklo
   );
 }
 
+/**
+ * Global travel-time override. Empty means "use the estimates that arrive with
+ * each order"; a value overrides them for every restaurant.
+ */
+function PickupTimingCard({ settings }: { settings: ApiSettings }) {
+  const { t } = useTranslation();
+  const qc = useQueryClient();
+  const update = useUpdateSettings();
+  const { toast } = useToast();
+  const stored = settings.pickupTravelOverrideMinutes;
+  const [draft, setDraft] = useState<string | null>(null);
+  const value = draft ?? (stored == null ? "" : String(stored));
+  const dirty = draft !== null && draft !== (stored == null ? "" : String(stored));
+
+  function save(next: number | null) {
+    update.mutate(
+      { data: { pickupTravelOverrideMinutes: next } },
+      {
+        onSuccess: (data) => {
+          setDraft(null);
+          toast({ title: t("admin.settingsSaved") });
+          qc.setQueryData(getGetSettingsQueryKey(), data);
+        },
+      },
+    );
+  }
+
+  return (
+    <Card>
+      <CardHeader><CardTitle className="text-base">{t("admin.pickupTiming")}</CardTitle></CardHeader>
+      <CardContent className="space-y-3">
+        <Label className="text-xs" htmlFor="pickup-travel-override">
+          {t("admin.pickupTravelOverride")}
+        </Label>
+        <div className="flex items-center gap-2">
+          <Input
+            id="pickup-travel-override"
+            type="number"
+            min={0}
+            step={1}
+            inputMode="numeric"
+            className="w-32 tabular-nums"
+            value={value}
+            onChange={(e) => setDraft(e.target.value)}
+            data-testid="input-pickup-travel-override"
+          />
+          <Button
+            disabled={update.isPending || !dirty}
+            onClick={() => {
+              const trimmed = value.trim();
+              if (trimmed === "") return save(null);
+              const minutes = Number.parseInt(trimmed, 10);
+              if (!Number.isInteger(minutes) || minutes < 0) return;
+              save(minutes);
+            }}
+            data-testid="button-save-pickup-travel-override"
+          >
+            {t("common.save")}
+          </Button>
+          {stored != null ? (
+            <Button
+              variant="ghost"
+              disabled={update.isPending}
+              onClick={() => save(null)}
+              data-testid="button-clear-pickup-travel-override"
+            >
+              {t("admin.pickupTravelOverrideClear")}
+            </Button>
+          ) : null}
+        </div>
+        <p className="text-xs text-muted-foreground">{t("admin.pickupTravelOverrideHelp")}</p>
+      </CardContent>
+    </Card>
+  );
+}
+
 function SettingsPanel() {
   const { t } = useTranslation();
   const qc = useQueryClient();
@@ -463,6 +539,7 @@ function SettingsPanel() {
           </CardContent>
         </Card>
       ) : null}
+      {settings.data ? <PickupTimingCard settings={settings.data} /> : null}
       {settings.data ? (
         <Card>
           <CardContent className="py-4 space-y-2 text-sm">

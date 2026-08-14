@@ -8,6 +8,13 @@ The structure for each entry: **Name**, **Location**, **What it does**, **Formul
 
 ## Calculations
 
+### Original pickup time (ingestion)
+- **Location**: `artifacts/api-server/src/lib/pickup-time.ts` → `resolveOriginalPickupTime`, `resolveTravelMinutes`
+- **What it does**: Computes `orders.pickup_time_original` at ingestion. Called only on insert — the column is immutable and is never recomputed on replay.
+- **Logic**: `sourceRestaurantReadyTime` wins outright when the source supplied one. Otherwise `asap` counts forward (`now + travel`) and `later_today` / `other_day` count backwards from the promise (`requestedDeliveryTime − travel`). Travel minutes resolve as: global admin override → the longest of `restaurantMinDeliveryTime` and `deliveryTeamMinDeliveryTime` → `restaurants.minDeliveryTime`.
+- **Callers**: `artifacts/api-server/src/routes/orders.ts` (`POST /inbound/orders`, insert branch only).
+- **Do not**: clamp the result to the kitchen's prep time. A pickup time earlier than the food can exist means our figures disagree with the storefront's, which is a signal worth surfacing rather than smoothing over — see `docs/workflow-decisions.md` D4. Do not compute a pickup time inline at any other call site, and do not recompute it on replay.
+
 ### Effective pickup time (server)
 - **Location**: `artifacts/api-server/src/lib/pickup-time.ts` → `resolveEffectivePickupTime`
 - **What it does**: Resolves the pickup time the operational UI should display, given the four candidate times stored on the order.

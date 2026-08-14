@@ -225,7 +225,11 @@
     "settingsSaved": "Instellingen bijgewerkt",
     "dispatchPolicy": "Toewijzingsbeleid",
     "allowRiderSelfClaim": "Rijders mogen zelf bestellingen aannemen",
-    "allowRiderSelfClaimHelp": "Indien uitgeschakeld kan alleen een coördinator een rijder aan een bestelling toewijzen"
+    "allowRiderSelfClaimHelp": "Indien uitgeschakeld kan alleen een coördinator een rijder aan een bestelling toewijzen",
+    "pickupTiming": "Ophaaltijden",
+    "pickupTravelOverride": "Overschrijving reistijd (minuten)",
+    "pickupTravelOverrideHelp": "Minuten tussen vertrek bij het restaurant en aankomst bij de klant. Laat leeg om de schattingen uit de bestelling te gebruiken. Een waarde hier overschrijft die voor alle restaurants.",
+    "pickupTravelOverrideClear": "Schattingen per bestelling gebruiken"
   },
   "settings": {
     "title": "Instellingen",

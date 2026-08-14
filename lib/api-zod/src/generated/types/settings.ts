@@ -18,6 +18,14 @@ regardless of this flag.
  */
   outboundWebhookEnabled: boolean;
   allowRiderSelfClaim: boolean;
+  /**
+   * Minutes from leaving the restaurant to reaching the customer, used to
+derive the original pickup time. Null means use the per-order estimates
+from the inbound payload; a value overrides them outright.
+
+   * @nullable
+   */
+  pickupTravelOverrideMinutes?: number | null;
   vapidConfigured: boolean;
   inboundSecretConfigured?: boolean;
 }

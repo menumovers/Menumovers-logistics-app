@@ -22,4 +22,5 @@ export const SETTING_KEYS = {
   OUTBOUND_WEBHOOK_URL: "outbound_webhook_url",
   OUTBOUND_WEBHOOK_ENABLED: "outbound_webhook_enabled",
   ALLOW_RIDER_SELF_CLAIM: "allow_rider_self_claim",
+  PICKUP_TRAVEL_OVERRIDE_MINUTES: "pickup_travel_override_minutes",
 } as const;

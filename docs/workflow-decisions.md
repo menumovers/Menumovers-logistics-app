@@ -106,7 +106,8 @@ and permanently pins the effective pickup time to the moment it was pressed.
 
 ## D4. Pickup time is right for ASAP, wrong for scheduled orders
 
-**Decided 2026-08-14. Not yet built.**
+**Decided 2026-08-14. Built 2026-08-14** — `lib/pickup-time.ts` →
+`resolveOriginalPickupTime`, wired into `POST /inbound/orders`.
 
 `now + minDeliveryTime` is correct when the customer wants the order as soon
 as possible. It fails only when there is a real requested time to work back
@@ -176,7 +177,7 @@ the `RiderTripStops` mockup was never built.
 
 ## D7. The outbound webhook is disabled until it's needed
 
-**Decided 2026-08-14.**
+**Decided 2026-08-14. Built 2026-08-14** — `outbound_webhook_enabled`, default off.
 
 The implementation is complete — four event types, a retry queue with
 backoff, an admin UI — but the receiving end has not been built. It stays off
@@ -216,7 +217,7 @@ undifferentiated wall of knobs. The mitigation is to make adding one cheap
 
 ## D9. A settings registry precedes further overrides
 
-**Decided 2026-08-14. In progress.**
+**Decided 2026-08-14. Built 2026-08-14** — `lib/settings-registry.ts`.
 
 Settings are declared once — key, type, default, optional environment
 fallback — and the reader, the API field, and validation derive from that

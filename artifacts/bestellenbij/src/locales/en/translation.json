@@ -225,7 +225,11 @@
     "settingsSaved": "Settings updated",
     "dispatchPolicy": "Dispatch policy",
     "allowRiderSelfClaim": "Riders may self-claim orders",
-    "allowRiderSelfClaimHelp": "When off, only a coordinator can assign a rider to an order"
+    "allowRiderSelfClaimHelp": "When off, only a coordinator can assign a rider to an order",
+    "pickupTiming": "Pickup timing",
+    "pickupTravelOverride": "Travel time override (minutes)",
+    "pickupTravelOverrideHelp": "Minutes from leaving the restaurant to reaching the customer. Leave empty to use the estimates sent with each order. A value here overrides them for every restaurant.",
+    "pickupTravelOverrideClear": "Use per-order estimates"
   },
   "settings": {
     "title": "Settings",

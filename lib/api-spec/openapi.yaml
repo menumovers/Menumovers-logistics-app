@@ -1526,6 +1526,12 @@ components:
             regardless of this flag.
         allowRiderSelfClaim:
           type: boolean
+        pickupTravelOverrideMinutes:
+          type: ["integer", "null"]
+          description: |
+            Minutes from leaving the restaurant to reaching the customer, used to
+            derive the original pickup time. Null means use the per-order estimates
+            from the inbound payload; a value overrides them outright.
         vapidConfigured:
           type: boolean
         inboundSecretConfigured:
@@ -1545,6 +1551,8 @@ components:
           type: boolean
         allowRiderSelfClaim:
           type: boolean
+        pickupTravelOverrideMinutes:
+          type: ["integer", "null"]
     VapidPublicKey:
       type: object
       required: [publicKey, configured]
