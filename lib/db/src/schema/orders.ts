@@ -114,10 +114,10 @@ export const ordersTable = pgTable(
     deliveryTeamMinPrepTime: integer("delivery_team_min_prep_time"),
     pendingRiderNotification: text("pending_rider_notification"),
     failureReason: text("failure_reason"),
-    // Set when the inbound restaurant identifier couldn't be resolved via
-    // restaurant_external_ids; the order is filed against a placeholder
-    // restaurant instead of being rejected. Not a dispatch-blocking status —
-    // just a queryable marker for manual follow-up.
+    // Set when the inbound restaurantNameCode couldn't be resolved to a known
+    // restaurant; the order is filed against a placeholder restaurant instead
+    // of being rejected. Not a dispatch-blocking status — just a queryable
+    // marker for manual follow-up.
     isParked: boolean("is_parked").notNull().default(false),
     parkedReason: text("parked_reason"),
     // Trip bundling: when set, the order is part of a coordinator-built trip
