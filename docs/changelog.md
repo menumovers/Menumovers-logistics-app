@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-08-14 — Live database schema applied (tasks 20/21 catch-up)
+
+All schema work from earlier tasks that had never been pushed to the live database was applied: `name_code` columns on `restaurants` and `riders`, ~30 new `orders` columns (structured address, payment/tip/time-source fields, `is_parked`/`parked_reason`), new `api_credentials` and `restaurant_external_ids` tables, and the dead `order_items` table dropped. The task 21 agent had committed only a `.replit` change without running `drizzle-kit push`. Applied manually via raw SQL after truncating test rows; post-push drift check confirmed zero delta.
+
+## 2026-08-14 — Composite TypeScript packages must be rebuilt after source changes
+
+`lib/api-client-react` and `lib/api-zod` are TypeScript composite projects (`composite: true`, `emitDeclarationOnly`). TypeScript consumers resolve types from their compiled `.d.ts` output in `dist/`, not from the source. After Task #11 added `nameCode` to the OpenAPI spec and regenerated source files, nobody ran `tsc --build` on these packages — their `.d.ts` files remained stale and every consumer saw incorrect types (no `nameCode` on `Restaurant`, `CreateRestaurantRequest`, etc.). Fixed by running `tsc --build` in both packages. **Pattern established:** any task that runs codegen (`pnpm --filter @workspace/api-spec run codegen`) or edits source in a composite lib package must follow with `tsc --build` in that package before committing. See `docs/todo.md` M6 for the automation track.
+
 ## 2026-08-13 — Per-source inbound credentials replace the single shared secret
 
 The inbound order endpoint (`POST /api/inbound/orders`) previously authenticated every caller against one static `INBOUND_SHARED_SECRET`, with no way to tell which upstream system sent an order — a design that couldn't distinguish Bestellenbij from any future second source. Added an `api_credentials` table (hashed per-source secret → source identifier) and switched the endpoint to authenticate against it via the `x-inbound-secret` header, deriving `source` from the matched credential row rather than trusting the request body. **This was a direct swap, not an addition** — `requireInboundSecret` was replaced by `requireInboundCredential` in the same code slot, so the old shared secret stopped working the moment this code deploys, with no fallback and no grace period. `INBOUND_SHARED_SECRET` retiring as an env var afterward is just cleanup of an already-dead value, not the actual cutover point.

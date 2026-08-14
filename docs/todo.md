@@ -42,6 +42,10 @@ Webhook retry path now propagates a `correlationId` (the originating `req.id`) e
 
 Precedence inverted: the admin-configurable `system_settings.outbound_webhook_url` now wins; `WEBHOOK_URL` is the fallback. `routes/settings.ts` returns a `source` discriminator (`settings` | `env` | `unset`) and the admin UI surfaces it.
 
+### M6. Composite lib packages need `tsc --build` wired into codegen and post-merge
+
+`lib/api-client-react` and `lib/api-zod` are TypeScript composite projects whose `.d.ts` output lives in `dist/`. Codegen (`pnpm --filter @workspace/api-spec run codegen`) regenerates the source files but does not rebuild the declarations — so every consumer continues to see the previous types until `tsc --build` is run manually. This caused `nameCode` to be absent from compiled types for the entire period between Task #11 (added to source) and 2026-08-14 (rebuild manually applied). Two fixes needed: (1) add `tsc --build lib/api-zod lib/api-client-react` as a post-codegen step in `lib/api-spec/package.json`'s `codegen` script, and (2) add the same rebuild to `scripts/post-merge.sh` so it runs automatically on platform-managed merges. Priority: medium.
+
 ## Low
 
 ### L1. Push: rider-targeted notifications when an order has no assigned rider

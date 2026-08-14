@@ -5,7 +5,7 @@
 Bestellenbij is an internal Progressive Web App (PWA) for food-delivery logistics within a Dutch delivery cooperative. It manages the complete order lifecycle — from inbound order ingestion to final delivery — providing role-based interfaces for coordinators, riders, and restaurant staff, with strict server-validated state transitions, trip bundling, outbound status webhooks, and Web Push notifications.
 
 **In scope:**
-- Receiving inbound orders from the upstream distribution middleware (babeldish) via a shared-secret endpoint
+- Receiving inbound orders from the upstream distribution middleware (babeldish) via a per-source credential endpoint
 - Dispatching orders to riders and tracking them through a strict state machine
 - Pickup confirmation from restaurant staff; item overrides (hide/add)
 - Multi-source pickup-time prioritization; trip (order-bundle) management
@@ -25,6 +25,8 @@ Bestellenbij is an internal Progressive Web App (PWA) for food-delivery logistic
 ## 2. Run & Operate
 
 **Migration workflow:** `pnpm --filter @workspace/db run push` applies local schema changes to the database. Schema-drift guard: `pnpm --filter @workspace/db run db:drift` — exits non-zero if `lib/db/src/schema/` has uncommitted changes, signalling that schema was edited but `push` may not have been run. (This project uses `push`, not migrations — the guard catches local edits, not live DB divergence.)
+
+**Codegen workflow:** `pnpm --filter @workspace/api-spec run codegen` regenerates `lib/api-zod/src/generated/` and `lib/api-client-react/src/generated/` from the OpenAPI spec. After codegen, run `tsc --build lib/api-zod lib/api-client-react` to rebuild the compiled declaration files — without this, TypeScript consumers see stale types from the previous `dist/` output. See `docs/todo.md` M6 for the automation track.
 
 **Importing external code (GitHub / PR merges):** the platform runs `scripts/post-merge.sh` (install + `db push`) automatically after *platform-managed* merges — but a **manual** GitHub merge or PR merge on `main` bypasses it, leaving the environment un-reconciled (unlinked deps, unapplied schema changes). When the user says they imported or merged external code:
 1. **Clarify what they actually did first** — a manual GitHub merge, a fresh import, or a rebase? Each reconciles slightly differently; don't assume.
