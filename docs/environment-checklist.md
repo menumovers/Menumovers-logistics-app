@@ -22,16 +22,56 @@ Branch `claude/app-workflow-schema-alignment-n4dnrz`.
 | 2 | Settings registry (`api-server/src/lib/settings-registry.ts`) — settings declared once; reads, admin payload and validation derive from it | D9 |
 | 3 | Outbound webhook off switch, default off, including gating the retry loop | D7 |
 | 4 | Pickup time works scheduled orders back from the promised delivery time | D4 |
+| 5 | The hold family — parked orders are gated, and coordinators can triage them | D2 |
 
-### Schema impact: none, so far
+### Schema impact
 
-**No `drizzle-kit push` is required for anything above.** The only change under
-`lib/db/` is two new entries in the `SETTING_KEYS` constant — no table, column
-or enum was touched. New settings are *rows* in the existing `system_settings`
-key/value table, written lazily the first time an admin saves one. Until then
-the declared defaults apply.
+Items 1–4 need **no** `drizzle-kit push`. Their only `lib/db/` change is two
+new `SETTING_KEYS` constants; settings are *rows* in the existing
+`system_settings` key/value table, written lazily on first save.
 
-This is worth knowing because it will not stay true — see Part 4.
+**Item 5 does.** It adds a `order_hold_state` enum and four columns to
+`orders` (`hold_state`, `hold_reason`, `held_by_user_id`, `held_at`) plus an
+index. See Part 2a for the order of operations — it matters.
+
+---
+
+## Part 2a — Applying the hold family (D2)
+
+The push is additive and safe: four nullable columns and a new enum. **Nothing
+is dropped**, because `isParked` and `parkedReason` are deliberately retained
+in the schema so a push cannot destroy parked rows before they're carried over.
+
+```
+pnpm --filter @workspace/db run push
+```
+
+**The backfill is optional, not a correctness prerequisite.** Readers fall back
+to `isParked` for rows written before the hold family existed, so parked orders
+stay gated whether or not it has run. Run it when convenient, to make
+`hold_state` the single source of truth:
+
+```sql
+UPDATE orders
+   SET hold_state  = 'parked',
+       hold_reason = parked_reason,
+       held_at     = COALESCE(held_at, created_at)
+ WHERE is_parked = true
+   AND hold_state IS NULL;
+```
+
+- [ ] Push applied
+- [ ] Backfill run
+- [ ] **Verify a parked order no longer appears in a rider's open-orders list.**
+      This is the exposure D2 exists to close — before this change, any rider
+      could self-claim an untriaged order.
+- [ ] Verify the dispatch board shows an "On hold" section with a restaurant
+      picker, and that choosing the correct restaurant clears the hold.
+- [ ] Verify `/assign` on a held order returns `409 ORDER_ON_HOLD`.
+
+Once the backfill is confirmed, the deprecated `isParked` / `parkedReason`
+columns and the fallback in `lib/order-hold.ts` can be removed together. That
+removal *is* destructive, so it should be its own deliberate change.
 
 ---
 
@@ -115,18 +155,7 @@ as `todo.md` M6.
 ## Part 5 — Schema work that is coming
 
 The decisions still to be built *do* require database changes. Listed so they
-can be planned rather than discovered.
-
-### D2 — the hold family
-
-- New hold state on `orders` (nullable; `parked` and a manual hold as members),
-  plus a reason, actor and timestamp.
-- **A data migration is needed**, not just DDL: existing rows with
-  `isParked = true` must become `holdState = 'parked'`, and `parkedReason`
-  carried across to the new reason column.
-- `isParked` / `parkedReason` are consumed by nothing in the frontend, so
-  replacing them is safe from the UI's side — but they are in the OpenAPI
-  contract, so the spec and generated clients change with them.
+can be planned rather than discovered. (D2 is now built — see Part 2a.)
 
 ### D3 — restaurant acceptance
 

@@ -16,6 +16,7 @@ import { z } from "zod/v4";
 import { restaurantsTable } from "./restaurants";
 import { ridersTable } from "./riders";
 import { tripsTable } from "./trips";
+import { usersTable } from "./users";
 
 export const ORDER_STATUSES = [
   "pending",
@@ -30,6 +31,24 @@ export const ORDER_STATUSES = [
 export type OrderStatus = (typeof ORDER_STATUSES)[number];
 
 export const orderStatusEnum = pgEnum("order_status", ORDER_STATUSES);
+
+/**
+ * The "on hold" family — the only mechanism that genuinely gates an order.
+ * Order status is a *report* of where things stand and never blocks; a hold
+ * is a deliberate stop. Kept as its own column rather than as extra
+ * `order_status` values so the two axes stay independent: an order can be
+ * simultaneously held and last-reported-en-route.
+ *
+ * NULL means "not held". Members:
+ *   - `parked`  — set automatically when an inbound restaurant code doesn't resolve
+ *   - `on_hold` — set deliberately by an admin or coordinator
+ *
+ * See docs/workflow-decisions.md D2.
+ */
+export const ORDER_HOLD_STATES = ["parked", "on_hold"] as const;
+export type OrderHoldState = (typeof ORDER_HOLD_STATES)[number];
+
+export const orderHoldStateEnum = pgEnum("order_hold_state", ORDER_HOLD_STATES);
 
 export type OrderItem = {
   name: string;
@@ -114,12 +133,22 @@ export const ordersTable = pgTable(
     deliveryTeamMinPrepTime: integer("delivery_team_min_prep_time"),
     pendingRiderNotification: text("pending_rider_notification"),
     failureReason: text("failure_reason"),
-    // Set when the inbound restaurantNameCode couldn't be resolved to a known
-    // restaurant; the order is filed against a placeholder restaurant instead
-    // of being rejected. Not a dispatch-blocking status — just a queryable
-    // marker for manual follow-up.
+    // DEPRECATED — superseded by holdState/holdReason below. Retained so a
+    // `drizzle-kit push` cannot drop the column before the backfill has run;
+    // readers fall back to it for rows written before the hold family existed.
+    // Remove once the backfill is confirmed — see docs/environment-checklist.md.
     isParked: boolean("is_parked").notNull().default(false),
     parkedReason: text("parked_reason"),
+    // The hold family. NULL means the order is not held. A hold blocks *new
+    // assignment only* — an order already being worked keeps accepting status
+    // reports, so a hold never freezes a rider mid-delivery.
+    holdState: orderHoldStateEnum("hold_state"),
+    holdReason: text("hold_reason"),
+    // Null for automatic holds (`parked`), set for deliberate ones.
+    heldByUserId: uuid("held_by_user_id").references(() => usersTable.id, {
+      onDelete: "set null",
+    }),
+    heldAt: timestamp("held_at", { withTimezone: true }),
     // Trip bundling: when set, the order is part of a coordinator-built trip
     // executed alongside other orders by a single rider. Trip is layered
     // above order status — clearing this column does not change `status`.
@@ -138,6 +167,8 @@ export const ordersTable = pgTable(
     restaurantIdx: index("orders_restaurant_idx").on(t.restaurantId),
     riderIdx: index("orders_rider_idx").on(t.riderId),
     tripIdx: index("orders_trip_idx").on(t.tripId),
+    // Held orders are filtered out of rider discovery on every list query.
+    holdIdx: index("orders_hold_state_idx").on(t.holdState),
   }),
 );
 

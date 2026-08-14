@@ -48,7 +48,8 @@
     "morePages": "More pages",
     "previousSlide": "Previous slide",
     "nextSlide": "Next slide",
-    "toggleSidebar": "Toggle sidebar"
+    "toggleSidebar": "Toggle sidebar",
+    "details": "Details"
   },
   "landing": {
     "heading": "Bestellenbij",
@@ -320,5 +321,19 @@
     "submit": "Postpone",
     "submitted": "Order postponed",
     "resume": "Resume"
+  },
+  "hold": {
+    "sectionTitle": "On hold ({{count}})",
+    "state_parked": "Parked",
+    "state_on_hold": "On hold",
+    "noReason": "No reason given",
+    "assignRestaurant": "Correct restaurant",
+    "selectRestaurant": "Choose a restaurant",
+    "resolve": "Resolve",
+    "release": "Release",
+    "hold": "Put on hold",
+    "holdReasonPlaceholder": "Why is this order being held?",
+    "heldNotice": "This order is on hold and will not be offered to riders.",
+    "parkedNotice": "The inbound restaurant code didn't match. Assign the correct restaurant to release it."
   }
 }

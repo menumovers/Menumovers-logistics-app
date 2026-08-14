@@ -28,6 +28,7 @@ import type {
   ErrorResponse,
   HealthStatus,
   HideItemRequest,
+  HoldOrderRequest,
   InboundOrderPayload,
   ListOrdersParams,
   ListTripsParams,
@@ -41,6 +42,7 @@ import type {
   Restaurant,
   RiderWithWorkload,
   SetAvailabilityRequest,
+  SetOrderRestaurantRequest,
   SetRiderNotificationRequest,
   Settings,
   SettingsFlags,
@@ -1267,6 +1269,273 @@ export const useUpdateOrderContact = <
   TContext
 > => {
   return useMutation(getUpdateOrderContactMutationOptions(options));
+};
+
+/**
+ * Blocks new assignment. An order already being worked keeps accepting status
+reports, so a hold never freezes a rider mid-delivery. Parked orders are
+resolved via `/orders/{id}/restaurant` rather than held.
+
+ * @summary Place a deliberate hold on an order
+ */
+export const getHoldOrderUrl = (id: string) => {
+  return `/api/orders/${id}/hold`;
+};
+
+export const holdOrder = async (
+  id: string,
+  holdOrderRequest?: HoldOrderRequest,
+  options?: RequestInit,
+): Promise<OrderDetail> => {
+  return customFetch<OrderDetail>(getHoldOrderUrl(id), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(holdOrderRequest),
+  });
+};
+
+export const getHoldOrderMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof holdOrder>>,
+    TError,
+    { id: string; data: BodyType<HoldOrderRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof holdOrder>>,
+  TError,
+  { id: string; data: BodyType<HoldOrderRequest> },
+  TContext
+> => {
+  const mutationKey = ["holdOrder"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof holdOrder>>,
+    { id: string; data: BodyType<HoldOrderRequest> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return holdOrder(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type HoldOrderMutationResult = NonNullable<
+  Awaited<ReturnType<typeof holdOrder>>
+>;
+export type HoldOrderMutationBody = BodyType<HoldOrderRequest>;
+export type HoldOrderMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Place a deliberate hold on an order
+ */
+export const useHoldOrder = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof holdOrder>>,
+    TError,
+    { id: string; data: BodyType<HoldOrderRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof holdOrder>>,
+  TError,
+  { id: string; data: BodyType<HoldOrderRequest> },
+  TContext
+> => {
+  return useMutation(getHoldOrderMutationOptions(options));
+};
+
+/**
+ * @summary Lift a deliberate hold
+ */
+export const getReleaseOrderUrl = (id: string) => {
+  return `/api/orders/${id}/release`;
+};
+
+export const releaseOrder = async (
+  id: string,
+  options?: RequestInit,
+): Promise<OrderDetail> => {
+  return customFetch<OrderDetail>(getReleaseOrderUrl(id), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getReleaseOrderMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof releaseOrder>>,
+    TError,
+    { id: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof releaseOrder>>,
+  TError,
+  { id: string },
+  TContext
+> => {
+  const mutationKey = ["releaseOrder"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof releaseOrder>>,
+    { id: string }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return releaseOrder(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ReleaseOrderMutationResult = NonNullable<
+  Awaited<ReturnType<typeof releaseOrder>>
+>;
+
+export type ReleaseOrderMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Lift a deliberate hold
+ */
+export const useReleaseOrder = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof releaseOrder>>,
+    TError,
+    { id: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof releaseOrder>>,
+  TError,
+  { id: string },
+  TContext
+> => {
+  return useMutation(getReleaseOrderMutationOptions(options));
+};
+
+/**
+ * The resolution path for a parked order: assigning the correct restaurant
+lifts the `parked` hold in the same write. A deliberate hold is left in
+place and must be released separately.
+
+ * @summary Re-point an order at a restaurant
+ */
+export const getSetOrderRestaurantUrl = (id: string) => {
+  return `/api/orders/${id}/restaurant`;
+};
+
+export const setOrderRestaurant = async (
+  id: string,
+  setOrderRestaurantRequest: SetOrderRestaurantRequest,
+  options?: RequestInit,
+): Promise<OrderDetail> => {
+  return customFetch<OrderDetail>(getSetOrderRestaurantUrl(id), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(setOrderRestaurantRequest),
+  });
+};
+
+export const getSetOrderRestaurantMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof setOrderRestaurant>>,
+    TError,
+    { id: string; data: BodyType<SetOrderRestaurantRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof setOrderRestaurant>>,
+  TError,
+  { id: string; data: BodyType<SetOrderRestaurantRequest> },
+  TContext
+> => {
+  const mutationKey = ["setOrderRestaurant"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof setOrderRestaurant>>,
+    { id: string; data: BodyType<SetOrderRestaurantRequest> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return setOrderRestaurant(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SetOrderRestaurantMutationResult = NonNullable<
+  Awaited<ReturnType<typeof setOrderRestaurant>>
+>;
+export type SetOrderRestaurantMutationBody =
+  BodyType<SetOrderRestaurantRequest>;
+export type SetOrderRestaurantMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Re-point an order at a restaurant
+ */
+export const useSetOrderRestaurant = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof setOrderRestaurant>>,
+    TError,
+    { id: string; data: BodyType<SetOrderRestaurantRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof setOrderRestaurant>>,
+  TError,
+  { id: string; data: BodyType<SetOrderRestaurantRequest> },
+  TContext
+> => {
+  return useMutation(getSetOrderRestaurantMutationOptions(options));
 };
 
 /**

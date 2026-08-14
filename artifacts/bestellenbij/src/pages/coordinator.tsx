@@ -6,6 +6,8 @@ import {
   useListRestaurants,
   useListRiders,
   useListTrips,
+  useReleaseOrder,
+  useSetOrderRestaurant,
   getListOrdersQueryKey,
   getListRestaurantsQueryKey,
   getListRidersQueryKey,
@@ -13,7 +15,9 @@ import {
   OrderStatus,
   type OrderListItem,
   type TripListItem,
+  type Restaurant,
 } from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -28,7 +32,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { StatusBadge } from "@/components/status-badge";
 import { PickupCountdown, PickupSourceBadge } from "@/components/pickup-countdown";
 import { effectivePickup, formatCurrency } from "@/lib/format";
-import { Bike, MapPin, Phone, Bell, ChevronRight, Layers, Plus } from "lucide-react";
+import { Bike, MapPin, Phone, Bell, ChevronRight, Layers, Plus, PauseCircle, PlayCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
 
@@ -60,7 +64,12 @@ export default function CoordinatorPage() {
     query: { queryKey: getListTripsQueryKey(), refetchInterval: 30_000 },
   });
 
-  const list = orders.data ?? [];
+  const all = orders.data ?? [];
+  // Held orders get their own section rather than sitting in the main grid
+  // looking dispatchable — a parked one is attributed to a placeholder
+  // restaurant until someone resolves it.
+  const held = all.filter((o) => o.holdState != null);
+  const list = all.filter((o) => o.holdState == null);
   const activeTrips = (trips.data ?? []).filter(
     (tr) => tr.status !== "completed" && tr.status !== "dissolved",
   );
@@ -83,6 +92,10 @@ export default function CoordinatorPage() {
           </Button>
         </div>
       </header>
+
+      {held.length > 0 ? (
+        <HeldSection held={held} restaurants={restaurants.data ?? []} />
+      ) : null}
 
       {activeTrips.length > 0 ? <TripsSection trips={activeTrips} /> : null}
 
@@ -150,6 +163,133 @@ export default function CoordinatorPage() {
         </motion.div>
       )}
     </div>
+  );
+}
+
+/**
+ * Held orders — the only thing that genuinely blocks dispatch. Riders never see
+ * these. A `parked` order is resolved by naming its real restaurant, which
+ * lifts the hold; a deliberate hold is simply released.
+ */
+function HeldSection({
+  held,
+  restaurants,
+}: {
+  held: OrderListItem[];
+  restaurants: Restaurant[];
+}) {
+  const { t } = useTranslation();
+  return (
+    <Card className="border-accent/50 bg-accent/[0.04]" data-testid="card-held-section">
+      <CardHeader className="pb-3">
+        <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-2">
+          <PauseCircle className="size-4" /> {t("hold.sectionTitle", { count: held.length })}
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <ul className="space-y-2">
+          {held.map((o) => (
+            <HeldRow key={o.id} order={o} restaurants={restaurants} />
+          ))}
+        </ul>
+      </CardContent>
+    </Card>
+  );
+}
+
+function HeldRow({
+  order,
+  restaurants,
+}: {
+  order: OrderListItem;
+  restaurants: Restaurant[];
+}) {
+  const { t } = useTranslation();
+  const qc = useQueryClient();
+  const release = useReleaseOrder();
+  const setRestaurant = useSetOrderRestaurant();
+  const [restaurantId, setRestaurantId] = useState("");
+  const isParked = order.holdState === "parked";
+  // The placeholder is never a valid destination — it's what "unresolved" means.
+  const candidates = restaurants.filter((r) => r.nameCode !== "unmapped");
+
+  function invalidate() {
+    qc.invalidateQueries({ queryKey: getListOrdersQueryKey() });
+  }
+
+  return (
+    <li
+      className="rounded-md border border-border bg-card px-3 py-2.5 space-y-2"
+      data-testid={`held-row-${order.id}`}
+    >
+      <div className="flex items-start justify-between gap-3 flex-wrap">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 text-sm">
+            <span
+              className={`inline-block rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
+                isParked
+                  ? "bg-destructive/15 text-destructive"
+                  : "bg-accent/20 text-accent-foreground"
+              }`}
+            >
+              {t(`hold.state_${order.holdState}`)}
+            </span>
+            <span className="text-muted-foreground tabular-nums">#{order.externalOrderId}</span>
+            <span className="font-medium truncate">{order.customerName}</span>
+          </div>
+          <div className="mt-0.5 text-xs text-muted-foreground">
+            {order.holdReason ?? t("hold.noReason")}
+            {order.heldByUserName ? <> · {order.heldByUserName}</> : null}
+          </div>
+        </div>
+        <Link
+          href={`/coordinator/orders/${order.id}`}
+          className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1 shrink-0"
+        >
+          {t("common.details")} <ChevronRight className="size-3" />
+        </Link>
+      </div>
+
+      {isParked ? (
+        <div className="flex flex-wrap items-end gap-2">
+          <div className="min-w-[200px] flex-1">
+            <Label className="text-xs text-muted-foreground">{t("hold.assignRestaurant")}</Label>
+            <Select value={restaurantId} onValueChange={setRestaurantId}>
+              <SelectTrigger data-testid={`select-hold-restaurant-${order.id}`}>
+                <SelectValue placeholder={t("hold.selectRestaurant")} />
+              </SelectTrigger>
+              <SelectContent>
+                {candidates.map((r) => (
+                  <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <Button
+            disabled={!restaurantId || setRestaurant.isPending}
+            onClick={() =>
+              setRestaurant.mutate(
+                { id: order.id, data: { restaurantId } },
+                { onSuccess: invalidate },
+              )
+            }
+            data-testid={`button-resolve-parked-${order.id}`}
+          >
+            {t("hold.resolve")}
+          </Button>
+        </div>
+      ) : (
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={release.isPending}
+          onClick={() => release.mutate({ id: order.id }, { onSuccess: invalidate })}
+          data-testid={`button-release-${order.id}`}
+        >
+          <PlayCircle className="size-3.5 mr-1" /> {t("hold.release")}
+        </Button>
+      )}
+    </li>
   );
 }
 

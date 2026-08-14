@@ -242,9 +242,21 @@ export const IngestOrderResponse = zod.object({
     .boolean()
     .optional()
     .describe(
-      "True when the inbound restaurant identifier couldn't be resolved and this\norder was filed against the placeholder restaurant instead of being rejected.\n",
+      'Superseded by `holdState`. True when the inbound restaurant identifier\ncouldn\'t be resolved. Equivalent to `holdState == \"parked\"`; retained\nuntil the backfill is confirmed.\n',
     ),
-  parkedReason: zod.string().nullish(),
+  parkedReason: zod.string().nullish().describe("Superseded by `holdReason`."),
+  holdState: zod
+    .union([zod.enum(["parked", "on_hold"]), zod.null()])
+    .optional()
+    .describe(
+      "The hold family — the only mechanism that gates an order. Null means not\nheld. A hold blocks new assignment only; an order already being worked\nkeeps accepting status reports.\n",
+    ),
+  holdReason: zod.string().nullish(),
+  heldAt: zod.coerce.date().nullish(),
+  heldByUserName: zod
+    .string()
+    .nullish()
+    .describe("Null for automatic holds (`parked`)."),
   tripId: zod.string().nullish(),
   tripNumber: zod
     .number()
@@ -369,9 +381,24 @@ export const ListOrdersResponseItem = zod
       .boolean()
       .optional()
       .describe(
-        "True when the inbound restaurant identifier couldn't be resolved and this\norder was filed against the placeholder restaurant instead of being rejected.\n",
+        'Superseded by `holdState`. True when the inbound restaurant identifier\ncouldn\'t be resolved. Equivalent to `holdState == \"parked\"`; retained\nuntil the backfill is confirmed.\n',
       ),
-    parkedReason: zod.string().nullish(),
+    parkedReason: zod
+      .string()
+      .nullish()
+      .describe("Superseded by `holdReason`."),
+    holdState: zod
+      .union([zod.enum(["parked", "on_hold"]), zod.null()])
+      .optional()
+      .describe(
+        "The hold family — the only mechanism that gates an order. Null means not\nheld. A hold blocks new assignment only; an order already being worked\nkeeps accepting status reports.\n",
+      ),
+    holdReason: zod.string().nullish(),
+    heldAt: zod.coerce.date().nullish(),
+    heldByUserName: zod
+      .string()
+      .nullish()
+      .describe("Null for automatic holds (`parked`)."),
     tripId: zod.string().nullish(),
     tripNumber: zod
       .number()
@@ -491,9 +518,24 @@ export const GetOrderResponse = zod
       .boolean()
       .optional()
       .describe(
-        "True when the inbound restaurant identifier couldn't be resolved and this\norder was filed against the placeholder restaurant instead of being rejected.\n",
+        'Superseded by `holdState`. True when the inbound restaurant identifier\ncouldn\'t be resolved. Equivalent to `holdState == \"parked\"`; retained\nuntil the backfill is confirmed.\n',
       ),
-    parkedReason: zod.string().nullish(),
+    parkedReason: zod
+      .string()
+      .nullish()
+      .describe("Superseded by `holdReason`."),
+    holdState: zod
+      .union([zod.enum(["parked", "on_hold"]), zod.null()])
+      .optional()
+      .describe(
+        "The hold family — the only mechanism that gates an order. Null means not\nheld. A hold blocks new assignment only; an order already being worked\nkeeps accepting status reports.\n",
+      ),
+    holdReason: zod.string().nullish(),
+    heldAt: zod.coerce.date().nullish(),
+    heldByUserName: zod
+      .string()
+      .nullish()
+      .describe("Null for automatic holds (`parked`)."),
     tripId: zod.string().nullish(),
     tripNumber: zod
       .number()
@@ -697,9 +739,24 @@ export const TransitionOrderStatusResponse = zod
       .boolean()
       .optional()
       .describe(
-        "True when the inbound restaurant identifier couldn't be resolved and this\norder was filed against the placeholder restaurant instead of being rejected.\n",
+        'Superseded by `holdState`. True when the inbound restaurant identifier\ncouldn\'t be resolved. Equivalent to `holdState == \"parked\"`; retained\nuntil the backfill is confirmed.\n',
       ),
-    parkedReason: zod.string().nullish(),
+    parkedReason: zod
+      .string()
+      .nullish()
+      .describe("Superseded by `holdReason`."),
+    holdState: zod
+      .union([zod.enum(["parked", "on_hold"]), zod.null()])
+      .optional()
+      .describe(
+        "The hold family — the only mechanism that gates an order. Null means not\nheld. A hold blocks new assignment only; an order already being worked\nkeeps accepting status reports.\n",
+      ),
+    holdReason: zod.string().nullish(),
+    heldAt: zod.coerce.date().nullish(),
+    heldByUserName: zod
+      .string()
+      .nullish()
+      .describe("Null for automatic holds (`parked`)."),
     tripId: zod.string().nullish(),
     tripNumber: zod
       .number()
@@ -892,9 +949,24 @@ export const AssignOrderResponse = zod
       .boolean()
       .optional()
       .describe(
-        "True when the inbound restaurant identifier couldn't be resolved and this\norder was filed against the placeholder restaurant instead of being rejected.\n",
+        'Superseded by `holdState`. True when the inbound restaurant identifier\ncouldn\'t be resolved. Equivalent to `holdState == \"parked\"`; retained\nuntil the backfill is confirmed.\n',
       ),
-    parkedReason: zod.string().nullish(),
+    parkedReason: zod
+      .string()
+      .nullish()
+      .describe("Superseded by `holdReason`."),
+    holdState: zod
+      .union([zod.enum(["parked", "on_hold"]), zod.null()])
+      .optional()
+      .describe(
+        "The hold family — the only mechanism that gates an order. Null means not\nheld. A hold blocks new assignment only; an order already being worked\nkeeps accepting status reports.\n",
+      ),
+    holdReason: zod.string().nullish(),
+    heldAt: zod.coerce.date().nullish(),
+    heldByUserName: zod
+      .string()
+      .nullish()
+      .describe("Null for automatic holds (`parked`)."),
     tripId: zod.string().nullish(),
     tripNumber: zod
       .number()
@@ -1088,9 +1160,24 @@ export const UpdatePickupTimeResponse = zod
       .boolean()
       .optional()
       .describe(
-        "True when the inbound restaurant identifier couldn't be resolved and this\norder was filed against the placeholder restaurant instead of being rejected.\n",
+        'Superseded by `holdState`. True when the inbound restaurant identifier\ncouldn\'t be resolved. Equivalent to `holdState == \"parked\"`; retained\nuntil the backfill is confirmed.\n',
       ),
-    parkedReason: zod.string().nullish(),
+    parkedReason: zod
+      .string()
+      .nullish()
+      .describe("Superseded by `holdReason`."),
+    holdState: zod
+      .union([zod.enum(["parked", "on_hold"]), zod.null()])
+      .optional()
+      .describe(
+        "The hold family — the only mechanism that gates an order. Null means not\nheld. A hold blocks new assignment only; an order already being worked\nkeeps accepting status reports.\n",
+      ),
+    holdReason: zod.string().nullish(),
+    heldAt: zod.coerce.date().nullish(),
+    heldByUserName: zod
+      .string()
+      .nullish()
+      .describe("Null for automatic holds (`parked`)."),
     tripId: zod.string().nullish(),
     tripNumber: zod
       .number()
@@ -1283,9 +1370,24 @@ export const HideOrderItemResponse = zod
       .boolean()
       .optional()
       .describe(
-        "True when the inbound restaurant identifier couldn't be resolved and this\norder was filed against the placeholder restaurant instead of being rejected.\n",
+        'Superseded by `holdState`. True when the inbound restaurant identifier\ncouldn\'t be resolved. Equivalent to `holdState == \"parked\"`; retained\nuntil the backfill is confirmed.\n',
       ),
-    parkedReason: zod.string().nullish(),
+    parkedReason: zod
+      .string()
+      .nullish()
+      .describe("Superseded by `holdReason`."),
+    holdState: zod
+      .union([zod.enum(["parked", "on_hold"]), zod.null()])
+      .optional()
+      .describe(
+        "The hold family — the only mechanism that gates an order. Null means not\nheld. A hold blocks new assignment only; an order already being worked\nkeeps accepting status reports.\n",
+      ),
+    holdReason: zod.string().nullish(),
+    heldAt: zod.coerce.date().nullish(),
+    heldByUserName: zod
+      .string()
+      .nullish()
+      .describe("Null for automatic holds (`parked`)."),
     tripId: zod.string().nullish(),
     tripNumber: zod
       .number()
@@ -1493,9 +1595,24 @@ export const AddOrderItemResponse = zod
       .boolean()
       .optional()
       .describe(
-        "True when the inbound restaurant identifier couldn't be resolved and this\norder was filed against the placeholder restaurant instead of being rejected.\n",
+        'Superseded by `holdState`. True when the inbound restaurant identifier\ncouldn\'t be resolved. Equivalent to `holdState == \"parked\"`; retained\nuntil the backfill is confirmed.\n',
       ),
-    parkedReason: zod.string().nullish(),
+    parkedReason: zod
+      .string()
+      .nullish()
+      .describe("Superseded by `holdReason`."),
+    holdState: zod
+      .union([zod.enum(["parked", "on_hold"]), zod.null()])
+      .optional()
+      .describe(
+        "The hold family — the only mechanism that gates an order. Null means not\nheld. A hold blocks new assignment only; an order already being worked\nkeeps accepting status reports.\n",
+      ),
+    holdReason: zod.string().nullish(),
+    heldAt: zod.coerce.date().nullish(),
+    heldByUserName: zod
+      .string()
+      .nullish()
+      .describe("Null for automatic holds (`parked`)."),
     tripId: zod.string().nullish(),
     tripNumber: zod
       .number()
@@ -1688,9 +1805,24 @@ export const SetRiderNotificationResponse = zod
       .boolean()
       .optional()
       .describe(
-        "True when the inbound restaurant identifier couldn't be resolved and this\norder was filed against the placeholder restaurant instead of being rejected.\n",
+        'Superseded by `holdState`. True when the inbound restaurant identifier\ncouldn\'t be resolved. Equivalent to `holdState == \"parked\"`; retained\nuntil the backfill is confirmed.\n',
       ),
-    parkedReason: zod.string().nullish(),
+    parkedReason: zod
+      .string()
+      .nullish()
+      .describe("Superseded by `holdReason`."),
+    holdState: zod
+      .union([zod.enum(["parked", "on_hold"]), zod.null()])
+      .optional()
+      .describe(
+        "The hold family — the only mechanism that gates an order. Null means not\nheld. A hold blocks new assignment only; an order already being worked\nkeeps accepting status reports.\n",
+      ),
+    holdReason: zod.string().nullish(),
+    heldAt: zod.coerce.date().nullish(),
+    heldByUserName: zod
+      .string()
+      .nullish()
+      .describe("Null for automatic holds (`parked`)."),
     tripId: zod.string().nullish(),
     tripNumber: zod
       .number()
@@ -1887,9 +2019,658 @@ export const UpdateOrderContactResponse = zod
       .boolean()
       .optional()
       .describe(
-        "True when the inbound restaurant identifier couldn't be resolved and this\norder was filed against the placeholder restaurant instead of being rejected.\n",
+        'Superseded by `holdState`. True when the inbound restaurant identifier\ncouldn\'t be resolved. Equivalent to `holdState == \"parked\"`; retained\nuntil the backfill is confirmed.\n',
       ),
-    parkedReason: zod.string().nullish(),
+    parkedReason: zod
+      .string()
+      .nullish()
+      .describe("Superseded by `holdReason`."),
+    holdState: zod
+      .union([zod.enum(["parked", "on_hold"]), zod.null()])
+      .optional()
+      .describe(
+        "The hold family — the only mechanism that gates an order. Null means not\nheld. A hold blocks new assignment only; an order already being worked\nkeeps accepting status reports.\n",
+      ),
+    holdReason: zod.string().nullish(),
+    heldAt: zod.coerce.date().nullish(),
+    heldByUserName: zod
+      .string()
+      .nullish()
+      .describe("Null for automatic holds (`parked`)."),
+    tripId: zod.string().nullish(),
+    tripNumber: zod
+      .number()
+      .nullish()
+      .describe(
+        "Human-friendly trip number for the trip this order belongs to.",
+      ),
+    bundlePickupTime: zod.coerce
+      .date()
+      .nullish()
+      .describe(
+        "Earliest effective pickup time across same-restaurant orders in\nthe same trip. Null when the order is not part of a trip with\nanother order at the same restaurant.\n",
+      ),
+    createdAt: zod.coerce.date(),
+  })
+  .and(
+    zod.object({
+      restaurantName: zod.string().optional(),
+      riderName: zod.string().nullish(),
+    }),
+  )
+  .and(
+    zod.object({
+      statusLog: zod.array(
+        zod.object({
+          id: zod.string(),
+          fromStatus: zod
+            .union([
+              zod.enum([
+                "pending",
+                "driver_assigned",
+                "en_route_to_restaurant",
+                "picked_up",
+                "en_route_to_customer",
+                "delivered",
+                "failed",
+                "postponed",
+              ]),
+              zod.null(),
+            ])
+            .optional(),
+          toStatus: zod.enum([
+            "pending",
+            "driver_assigned",
+            "en_route_to_restaurant",
+            "picked_up",
+            "en_route_to_customer",
+            "delivered",
+            "failed",
+            "postponed",
+          ]),
+          actorUserId: zod.string().nullish(),
+          actorUserName: zod.string().nullish(),
+          actorRole: zod.string().nullish(),
+          note: zod.string().nullish(),
+          createdAt: zod.coerce.date(),
+        }),
+      ),
+      itemOverrides: zod.array(
+        zod.object({
+          id: zod.string(),
+          type: zod.enum(["hide", "add"]),
+          itemIndex: zod.number().nullish(),
+          addedItem: zod
+            .union([
+              zod.object({
+                name: zod.string(),
+                quantity: zod.number(),
+                price: zod.string(),
+                notes: zod.string().nullish(),
+                totalPrice: zod
+                  .string()
+                  .nullish()
+                  .describe(
+                    "Line total as sent by the source, not computed here. Absent for items added later via the admin add-item flow.",
+                  ),
+                externalId: zod
+                  .string()
+                  .nullish()
+                  .describe(
+                    "POS\/kitchen article id, when the source provides one.",
+                  ),
+              }),
+              zod.null(),
+            ])
+            .optional(),
+          createdAt: zod.coerce.date(),
+        }),
+      ),
+    }),
+  );
+
+/**
+ * Blocks new assignment. An order already being worked keeps accepting status
+reports, so a hold never freezes a rider mid-delivery. Parked orders are
+resolved via `/orders/{id}/restaurant` rather than held.
+
+ * @summary Place a deliberate hold on an order
+ */
+export const HoldOrderParams = zod.object({
+  id: zod.coerce.string(),
+});
+
+export const HoldOrderBody = zod.object({
+  reason: zod.string().nullish(),
+});
+
+export const HoldOrderResponse = zod
+  .object({
+    id: zod.string(),
+    externalOrderId: zod.string(),
+    restaurantId: zod.string(),
+    riderId: zod.string().nullish(),
+    status: zod.enum([
+      "pending",
+      "driver_assigned",
+      "en_route_to_restaurant",
+      "picked_up",
+      "en_route_to_customer",
+      "delivered",
+      "failed",
+      "postponed",
+    ]),
+    customerName: zod.string(),
+    customerPhone: zod.string(),
+    customerEmail: zod.string().nullish(),
+    deliveryAddress: zod.string(),
+    street: zod.string(),
+    houseNumber: zod.string().nullish(),
+    addition: zod.string().nullish(),
+    postalCode: zod.string(),
+    city: zod.string(),
+    country: zod.string(),
+    latitude: zod.string().nullish(),
+    longitude: zod.string().nullish(),
+    deliveryInstructions: zod.string().nullish(),
+    deliveryFee: zod.string(),
+    totalAmount: zod.string(),
+    tipRider: zod.string(),
+    tipRestaurant: zod.string(),
+    supTotal: zod.string(),
+    statiegeldTotal: zod.string(),
+    administrationCosts: zod.string(),
+    deliveryMethod: zod.enum(["delivery", "pickup", "happy_hour"]),
+    paymentMethod: zod.string(),
+    cashPayment: zod
+      .object({
+        type: zod.string().nullish(),
+        changeAmount: zod.string().nullish(),
+        changeRequired: zod.string().nullish(),
+        label: zod.string().nullish(),
+      })
+      .nullish(),
+    kitchenNotes: zod.string().nullish(),
+    items: zod.array(
+      zod.object({
+        name: zod.string(),
+        quantity: zod.number(),
+        price: zod.string(),
+        notes: zod.string().nullish(),
+        totalPrice: zod
+          .string()
+          .nullish()
+          .describe(
+            "Line total as sent by the source, not computed here. Absent for items added later via the admin add-item flow.",
+          ),
+        externalId: zod
+          .string()
+          .nullish()
+          .describe("POS\/kitchen article id, when the source provides one."),
+      }),
+    ),
+    pickupTimeOriginal: zod.coerce.date(),
+    pickupTimeRider: zod.coerce.date().nullish(),
+    pickupTimeRestaurant: zod.coerce.date().nullish(),
+    pickupTimeOverride: zod.coerce.date().nullish(),
+    sourceCreatedAt: zod.coerce.date(),
+    requestedDeliveryTime: zod.coerce.date(),
+    deliveryTimeType: zod.enum(["asap", "later_today", "other_day"]),
+    sourceRestaurantReadyTime: zod.coerce.date().nullish(),
+    restaurantMinDeliveryTime: zod.number().nullish(),
+    restaurantMinPickupTime: zod.number().nullish(),
+    restaurantMinPrepTime: zod.number().nullish(),
+    deliveryTeamMinDeliveryTime: zod.number().nullish(),
+    deliveryTeamMinPickupTime: zod.number().nullish(),
+    deliveryTeamMinPrepTime: zod.number().nullish(),
+    effectivePickupTime: zod.coerce.date(),
+    effectivePickupSource: zod
+      .enum(["rider", "restaurant", "override"])
+      .optional(),
+    pendingRiderNotification: zod.string().nullish(),
+    failureReason: zod.string().nullish(),
+    isParked: zod
+      .boolean()
+      .optional()
+      .describe(
+        'Superseded by `holdState`. True when the inbound restaurant identifier\ncouldn\'t be resolved. Equivalent to `holdState == \"parked\"`; retained\nuntil the backfill is confirmed.\n',
+      ),
+    parkedReason: zod
+      .string()
+      .nullish()
+      .describe("Superseded by `holdReason`."),
+    holdState: zod
+      .union([zod.enum(["parked", "on_hold"]), zod.null()])
+      .optional()
+      .describe(
+        "The hold family — the only mechanism that gates an order. Null means not\nheld. A hold blocks new assignment only; an order already being worked\nkeeps accepting status reports.\n",
+      ),
+    holdReason: zod.string().nullish(),
+    heldAt: zod.coerce.date().nullish(),
+    heldByUserName: zod
+      .string()
+      .nullish()
+      .describe("Null for automatic holds (`parked`)."),
+    tripId: zod.string().nullish(),
+    tripNumber: zod
+      .number()
+      .nullish()
+      .describe(
+        "Human-friendly trip number for the trip this order belongs to.",
+      ),
+    bundlePickupTime: zod.coerce
+      .date()
+      .nullish()
+      .describe(
+        "Earliest effective pickup time across same-restaurant orders in\nthe same trip. Null when the order is not part of a trip with\nanother order at the same restaurant.\n",
+      ),
+    createdAt: zod.coerce.date(),
+  })
+  .and(
+    zod.object({
+      restaurantName: zod.string().optional(),
+      riderName: zod.string().nullish(),
+    }),
+  )
+  .and(
+    zod.object({
+      statusLog: zod.array(
+        zod.object({
+          id: zod.string(),
+          fromStatus: zod
+            .union([
+              zod.enum([
+                "pending",
+                "driver_assigned",
+                "en_route_to_restaurant",
+                "picked_up",
+                "en_route_to_customer",
+                "delivered",
+                "failed",
+                "postponed",
+              ]),
+              zod.null(),
+            ])
+            .optional(),
+          toStatus: zod.enum([
+            "pending",
+            "driver_assigned",
+            "en_route_to_restaurant",
+            "picked_up",
+            "en_route_to_customer",
+            "delivered",
+            "failed",
+            "postponed",
+          ]),
+          actorUserId: zod.string().nullish(),
+          actorUserName: zod.string().nullish(),
+          actorRole: zod.string().nullish(),
+          note: zod.string().nullish(),
+          createdAt: zod.coerce.date(),
+        }),
+      ),
+      itemOverrides: zod.array(
+        zod.object({
+          id: zod.string(),
+          type: zod.enum(["hide", "add"]),
+          itemIndex: zod.number().nullish(),
+          addedItem: zod
+            .union([
+              zod.object({
+                name: zod.string(),
+                quantity: zod.number(),
+                price: zod.string(),
+                notes: zod.string().nullish(),
+                totalPrice: zod
+                  .string()
+                  .nullish()
+                  .describe(
+                    "Line total as sent by the source, not computed here. Absent for items added later via the admin add-item flow.",
+                  ),
+                externalId: zod
+                  .string()
+                  .nullish()
+                  .describe(
+                    "POS\/kitchen article id, when the source provides one.",
+                  ),
+              }),
+              zod.null(),
+            ])
+            .optional(),
+          createdAt: zod.coerce.date(),
+        }),
+      ),
+    }),
+  );
+
+/**
+ * @summary Lift a deliberate hold
+ */
+export const ReleaseOrderParams = zod.object({
+  id: zod.coerce.string(),
+});
+
+export const ReleaseOrderResponse = zod
+  .object({
+    id: zod.string(),
+    externalOrderId: zod.string(),
+    restaurantId: zod.string(),
+    riderId: zod.string().nullish(),
+    status: zod.enum([
+      "pending",
+      "driver_assigned",
+      "en_route_to_restaurant",
+      "picked_up",
+      "en_route_to_customer",
+      "delivered",
+      "failed",
+      "postponed",
+    ]),
+    customerName: zod.string(),
+    customerPhone: zod.string(),
+    customerEmail: zod.string().nullish(),
+    deliveryAddress: zod.string(),
+    street: zod.string(),
+    houseNumber: zod.string().nullish(),
+    addition: zod.string().nullish(),
+    postalCode: zod.string(),
+    city: zod.string(),
+    country: zod.string(),
+    latitude: zod.string().nullish(),
+    longitude: zod.string().nullish(),
+    deliveryInstructions: zod.string().nullish(),
+    deliveryFee: zod.string(),
+    totalAmount: zod.string(),
+    tipRider: zod.string(),
+    tipRestaurant: zod.string(),
+    supTotal: zod.string(),
+    statiegeldTotal: zod.string(),
+    administrationCosts: zod.string(),
+    deliveryMethod: zod.enum(["delivery", "pickup", "happy_hour"]),
+    paymentMethod: zod.string(),
+    cashPayment: zod
+      .object({
+        type: zod.string().nullish(),
+        changeAmount: zod.string().nullish(),
+        changeRequired: zod.string().nullish(),
+        label: zod.string().nullish(),
+      })
+      .nullish(),
+    kitchenNotes: zod.string().nullish(),
+    items: zod.array(
+      zod.object({
+        name: zod.string(),
+        quantity: zod.number(),
+        price: zod.string(),
+        notes: zod.string().nullish(),
+        totalPrice: zod
+          .string()
+          .nullish()
+          .describe(
+            "Line total as sent by the source, not computed here. Absent for items added later via the admin add-item flow.",
+          ),
+        externalId: zod
+          .string()
+          .nullish()
+          .describe("POS\/kitchen article id, when the source provides one."),
+      }),
+    ),
+    pickupTimeOriginal: zod.coerce.date(),
+    pickupTimeRider: zod.coerce.date().nullish(),
+    pickupTimeRestaurant: zod.coerce.date().nullish(),
+    pickupTimeOverride: zod.coerce.date().nullish(),
+    sourceCreatedAt: zod.coerce.date(),
+    requestedDeliveryTime: zod.coerce.date(),
+    deliveryTimeType: zod.enum(["asap", "later_today", "other_day"]),
+    sourceRestaurantReadyTime: zod.coerce.date().nullish(),
+    restaurantMinDeliveryTime: zod.number().nullish(),
+    restaurantMinPickupTime: zod.number().nullish(),
+    restaurantMinPrepTime: zod.number().nullish(),
+    deliveryTeamMinDeliveryTime: zod.number().nullish(),
+    deliveryTeamMinPickupTime: zod.number().nullish(),
+    deliveryTeamMinPrepTime: zod.number().nullish(),
+    effectivePickupTime: zod.coerce.date(),
+    effectivePickupSource: zod
+      .enum(["rider", "restaurant", "override"])
+      .optional(),
+    pendingRiderNotification: zod.string().nullish(),
+    failureReason: zod.string().nullish(),
+    isParked: zod
+      .boolean()
+      .optional()
+      .describe(
+        'Superseded by `holdState`. True when the inbound restaurant identifier\ncouldn\'t be resolved. Equivalent to `holdState == \"parked\"`; retained\nuntil the backfill is confirmed.\n',
+      ),
+    parkedReason: zod
+      .string()
+      .nullish()
+      .describe("Superseded by `holdReason`."),
+    holdState: zod
+      .union([zod.enum(["parked", "on_hold"]), zod.null()])
+      .optional()
+      .describe(
+        "The hold family — the only mechanism that gates an order. Null means not\nheld. A hold blocks new assignment only; an order already being worked\nkeeps accepting status reports.\n",
+      ),
+    holdReason: zod.string().nullish(),
+    heldAt: zod.coerce.date().nullish(),
+    heldByUserName: zod
+      .string()
+      .nullish()
+      .describe("Null for automatic holds (`parked`)."),
+    tripId: zod.string().nullish(),
+    tripNumber: zod
+      .number()
+      .nullish()
+      .describe(
+        "Human-friendly trip number for the trip this order belongs to.",
+      ),
+    bundlePickupTime: zod.coerce
+      .date()
+      .nullish()
+      .describe(
+        "Earliest effective pickup time across same-restaurant orders in\nthe same trip. Null when the order is not part of a trip with\nanother order at the same restaurant.\n",
+      ),
+    createdAt: zod.coerce.date(),
+  })
+  .and(
+    zod.object({
+      restaurantName: zod.string().optional(),
+      riderName: zod.string().nullish(),
+    }),
+  )
+  .and(
+    zod.object({
+      statusLog: zod.array(
+        zod.object({
+          id: zod.string(),
+          fromStatus: zod
+            .union([
+              zod.enum([
+                "pending",
+                "driver_assigned",
+                "en_route_to_restaurant",
+                "picked_up",
+                "en_route_to_customer",
+                "delivered",
+                "failed",
+                "postponed",
+              ]),
+              zod.null(),
+            ])
+            .optional(),
+          toStatus: zod.enum([
+            "pending",
+            "driver_assigned",
+            "en_route_to_restaurant",
+            "picked_up",
+            "en_route_to_customer",
+            "delivered",
+            "failed",
+            "postponed",
+          ]),
+          actorUserId: zod.string().nullish(),
+          actorUserName: zod.string().nullish(),
+          actorRole: zod.string().nullish(),
+          note: zod.string().nullish(),
+          createdAt: zod.coerce.date(),
+        }),
+      ),
+      itemOverrides: zod.array(
+        zod.object({
+          id: zod.string(),
+          type: zod.enum(["hide", "add"]),
+          itemIndex: zod.number().nullish(),
+          addedItem: zod
+            .union([
+              zod.object({
+                name: zod.string(),
+                quantity: zod.number(),
+                price: zod.string(),
+                notes: zod.string().nullish(),
+                totalPrice: zod
+                  .string()
+                  .nullish()
+                  .describe(
+                    "Line total as sent by the source, not computed here. Absent for items added later via the admin add-item flow.",
+                  ),
+                externalId: zod
+                  .string()
+                  .nullish()
+                  .describe(
+                    "POS\/kitchen article id, when the source provides one.",
+                  ),
+              }),
+              zod.null(),
+            ])
+            .optional(),
+          createdAt: zod.coerce.date(),
+        }),
+      ),
+    }),
+  );
+
+/**
+ * The resolution path for a parked order: assigning the correct restaurant
+lifts the `parked` hold in the same write. A deliberate hold is left in
+place and must be released separately.
+
+ * @summary Re-point an order at a restaurant
+ */
+export const SetOrderRestaurantParams = zod.object({
+  id: zod.coerce.string(),
+});
+
+export const SetOrderRestaurantBody = zod.object({
+  restaurantId: zod.string(),
+});
+
+export const SetOrderRestaurantResponse = zod
+  .object({
+    id: zod.string(),
+    externalOrderId: zod.string(),
+    restaurantId: zod.string(),
+    riderId: zod.string().nullish(),
+    status: zod.enum([
+      "pending",
+      "driver_assigned",
+      "en_route_to_restaurant",
+      "picked_up",
+      "en_route_to_customer",
+      "delivered",
+      "failed",
+      "postponed",
+    ]),
+    customerName: zod.string(),
+    customerPhone: zod.string(),
+    customerEmail: zod.string().nullish(),
+    deliveryAddress: zod.string(),
+    street: zod.string(),
+    houseNumber: zod.string().nullish(),
+    addition: zod.string().nullish(),
+    postalCode: zod.string(),
+    city: zod.string(),
+    country: zod.string(),
+    latitude: zod.string().nullish(),
+    longitude: zod.string().nullish(),
+    deliveryInstructions: zod.string().nullish(),
+    deliveryFee: zod.string(),
+    totalAmount: zod.string(),
+    tipRider: zod.string(),
+    tipRestaurant: zod.string(),
+    supTotal: zod.string(),
+    statiegeldTotal: zod.string(),
+    administrationCosts: zod.string(),
+    deliveryMethod: zod.enum(["delivery", "pickup", "happy_hour"]),
+    paymentMethod: zod.string(),
+    cashPayment: zod
+      .object({
+        type: zod.string().nullish(),
+        changeAmount: zod.string().nullish(),
+        changeRequired: zod.string().nullish(),
+        label: zod.string().nullish(),
+      })
+      .nullish(),
+    kitchenNotes: zod.string().nullish(),
+    items: zod.array(
+      zod.object({
+        name: zod.string(),
+        quantity: zod.number(),
+        price: zod.string(),
+        notes: zod.string().nullish(),
+        totalPrice: zod
+          .string()
+          .nullish()
+          .describe(
+            "Line total as sent by the source, not computed here. Absent for items added later via the admin add-item flow.",
+          ),
+        externalId: zod
+          .string()
+          .nullish()
+          .describe("POS\/kitchen article id, when the source provides one."),
+      }),
+    ),
+    pickupTimeOriginal: zod.coerce.date(),
+    pickupTimeRider: zod.coerce.date().nullish(),
+    pickupTimeRestaurant: zod.coerce.date().nullish(),
+    pickupTimeOverride: zod.coerce.date().nullish(),
+    sourceCreatedAt: zod.coerce.date(),
+    requestedDeliveryTime: zod.coerce.date(),
+    deliveryTimeType: zod.enum(["asap", "later_today", "other_day"]),
+    sourceRestaurantReadyTime: zod.coerce.date().nullish(),
+    restaurantMinDeliveryTime: zod.number().nullish(),
+    restaurantMinPickupTime: zod.number().nullish(),
+    restaurantMinPrepTime: zod.number().nullish(),
+    deliveryTeamMinDeliveryTime: zod.number().nullish(),
+    deliveryTeamMinPickupTime: zod.number().nullish(),
+    deliveryTeamMinPrepTime: zod.number().nullish(),
+    effectivePickupTime: zod.coerce.date(),
+    effectivePickupSource: zod
+      .enum(["rider", "restaurant", "override"])
+      .optional(),
+    pendingRiderNotification: zod.string().nullish(),
+    failureReason: zod.string().nullish(),
+    isParked: zod
+      .boolean()
+      .optional()
+      .describe(
+        'Superseded by `holdState`. True when the inbound restaurant identifier\ncouldn\'t be resolved. Equivalent to `holdState == \"parked\"`; retained\nuntil the backfill is confirmed.\n',
+      ),
+    parkedReason: zod
+      .string()
+      .nullish()
+      .describe("Superseded by `holdReason`."),
+    holdState: zod
+      .union([zod.enum(["parked", "on_hold"]), zod.null()])
+      .optional()
+      .describe(
+        "The hold family — the only mechanism that gates an order. Null means not\nheld. A hold blocks new assignment only; an order already being worked\nkeeps accepting status reports.\n",
+      ),
+    holdReason: zod.string().nullish(),
+    heldAt: zod.coerce.date().nullish(),
+    heldByUserName: zod
+      .string()
+      .nullish()
+      .describe("Null for automatic holds (`parked`)."),
     tripId: zod.string().nullish(),
     tripNumber: zod
       .number()
@@ -2401,9 +3182,24 @@ export const GetTripResponse = zod
               .boolean()
               .optional()
               .describe(
-                "True when the inbound restaurant identifier couldn't be resolved and this\norder was filed against the placeholder restaurant instead of being rejected.\n",
+                'Superseded by `holdState`. True when the inbound restaurant identifier\ncouldn\'t be resolved. Equivalent to `holdState == \"parked\"`; retained\nuntil the backfill is confirmed.\n',
               ),
-            parkedReason: zod.string().nullish(),
+            parkedReason: zod
+              .string()
+              .nullish()
+              .describe("Superseded by `holdReason`."),
+            holdState: zod
+              .union([zod.enum(["parked", "on_hold"]), zod.null()])
+              .optional()
+              .describe(
+                "The hold family — the only mechanism that gates an order. Null means not\nheld. A hold blocks new assignment only; an order already being worked\nkeeps accepting status reports.\n",
+              ),
+            holdReason: zod.string().nullish(),
+            heldAt: zod.coerce.date().nullish(),
+            heldByUserName: zod
+              .string()
+              .nullish()
+              .describe("Null for automatic holds (`parked`)."),
             tripId: zod.string().nullish(),
             tripNumber: zod
               .number()
@@ -2585,9 +3381,24 @@ export const UpdateTripResponse = zod
               .boolean()
               .optional()
               .describe(
-                "True when the inbound restaurant identifier couldn't be resolved and this\norder was filed against the placeholder restaurant instead of being rejected.\n",
+                'Superseded by `holdState`. True when the inbound restaurant identifier\ncouldn\'t be resolved. Equivalent to `holdState == \"parked\"`; retained\nuntil the backfill is confirmed.\n',
               ),
-            parkedReason: zod.string().nullish(),
+            parkedReason: zod
+              .string()
+              .nullish()
+              .describe("Superseded by `holdReason`."),
+            holdState: zod
+              .union([zod.enum(["parked", "on_hold"]), zod.null()])
+              .optional()
+              .describe(
+                "The hold family — the only mechanism that gates an order. Null means not\nheld. A hold blocks new assignment only; an order already being worked\nkeeps accepting status reports.\n",
+              ),
+            holdReason: zod.string().nullish(),
+            heldAt: zod.coerce.date().nullish(),
+            heldByUserName: zod
+              .string()
+              .nullish()
+              .describe("Null for automatic holds (`parked`)."),
             tripId: zod.string().nullish(),
             tripNumber: zod
               .number()
@@ -2769,9 +3580,24 @@ export const ReplaceTripStopsResponse = zod
               .boolean()
               .optional()
               .describe(
-                "True when the inbound restaurant identifier couldn't be resolved and this\norder was filed against the placeholder restaurant instead of being rejected.\n",
+                'Superseded by `holdState`. True when the inbound restaurant identifier\ncouldn\'t be resolved. Equivalent to `holdState == \"parked\"`; retained\nuntil the backfill is confirmed.\n',
               ),
-            parkedReason: zod.string().nullish(),
+            parkedReason: zod
+              .string()
+              .nullish()
+              .describe("Superseded by `holdReason`."),
+            holdState: zod
+              .union([zod.enum(["parked", "on_hold"]), zod.null()])
+              .optional()
+              .describe(
+                "The hold family — the only mechanism that gates an order. Null means not\nheld. A hold blocks new assignment only; an order already being worked\nkeeps accepting status reports.\n",
+              ),
+            holdReason: zod.string().nullish(),
+            heldAt: zod.coerce.date().nullish(),
+            heldByUserName: zod
+              .string()
+              .nullish()
+              .describe("Null for automatic holds (`parked`)."),
             tripId: zod.string().nullish(),
             tripNumber: zod
               .number()
@@ -2942,9 +3768,24 @@ export const DissolveTripResponse = zod
               .boolean()
               .optional()
               .describe(
-                "True when the inbound restaurant identifier couldn't be resolved and this\norder was filed against the placeholder restaurant instead of being rejected.\n",
+                'Superseded by `holdState`. True when the inbound restaurant identifier\ncouldn\'t be resolved. Equivalent to `holdState == \"parked\"`; retained\nuntil the backfill is confirmed.\n',
               ),
-            parkedReason: zod.string().nullish(),
+            parkedReason: zod
+              .string()
+              .nullish()
+              .describe("Superseded by `holdReason`."),
+            holdState: zod
+              .union([zod.enum(["parked", "on_hold"]), zod.null()])
+              .optional()
+              .describe(
+                "The hold family — the only mechanism that gates an order. Null means not\nheld. A hold blocks new assignment only; an order already being worked\nkeeps accepting status reports.\n",
+              ),
+            holdReason: zod.string().nullish(),
+            heldAt: zod.coerce.date().nullish(),
+            heldByUserName: zod
+              .string()
+              .nullish()
+              .describe("Null for automatic holds (`parked`)."),
             tripId: zod.string().nullish(),
             tripNumber: zod
               .number()

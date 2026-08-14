@@ -22,6 +22,8 @@ import {
   SetRiderNotificationBody,
   UpdateOrderContactBody,
   ListOrdersQueryParams,
+  HoldOrderBody,
+  SetOrderRestaurantBody,
 } from "@workspace/api-zod";
 import { requireAuth, requireRole, requireInboundCredential } from "../lib/auth";
 import { httpError } from "../lib/errors";
@@ -34,6 +36,7 @@ import { enqueueOutboundEvent } from "../lib/webhook";
 import { getAllowRiderSelfClaim } from "../lib/settings-readers";
 import { resolveOriginalPickupTime } from "../lib/pickup-time";
 import { SETTINGS, readSetting } from "../lib/settings-registry";
+import { effectiveHoldState, notHeld } from "../lib/order-hold";
 import {
   sendPushToRoles,
   sendPushToRider,
@@ -81,9 +84,14 @@ function orderScopeWhere(auth: NonNullable<Request["auth"]>) {
       ? eq(ordersTable.riderId, auth.riderId)
       : sql`false`;
     return or(
+      // Discovery: unclaimed work. Held orders are excluded here — they are
+      // not dispatchable and have not been triaged. The rider's own assigned
+      // orders below are deliberately NOT filtered, so placing a hold never
+      // makes an in-flight delivery vanish from the rider's screen.
       and(
         eq(ordersTable.status, "pending"),
         sql`${ordersTable.riderId} IS NULL`,
+        notHeld(),
       )!,
       ownAssigned,
     )!;
@@ -247,6 +255,11 @@ router.post(
         pickupTimeOriginal,
         isParked,
         parkedReason,
+        // A parked order is held: it isn't dispatchable until a coordinator
+        // resolves which restaurant it belongs to.
+        holdState: isParked ? "parked" : null,
+        holdReason: parkedReason,
+        heldAt: isParked ? new Date() : null,
       })
       .onConflictDoNothing({ target: ordersTable.externalOrderId })
       .returning();
@@ -565,7 +578,9 @@ router.post(
       .where(eq(ridersTable.id, riderId));
     if (!rider) throw httpError(404, "RIDER_NOT_FOUND", "Rider not found");
 
-    // Atomic claim: only succeeds if status is still 'pending' AND no rider yet.
+    // Atomic claim: only succeeds if status is still 'pending', no rider yet,
+    // and the order is not held. The hold check is part of the same guarded
+    // UPDATE rather than a prior read so a hold placed concurrently still wins.
     const updated = await db
       .update(ordersTable)
       .set({ status: "driver_assigned", riderId })
@@ -574,17 +589,34 @@ router.post(
           eq(ordersTable.id, id),
           eq(ordersTable.status, "pending"),
           sql`${ordersTable.riderId} IS NULL`,
+          notHeld(),
         ),
       )
       .returning();
 
     if (updated.length === 0) {
-      // Determine reason: order absent, or already not pending.
+      // Distinguish absent / held / already-claimed so the caller gets a
+      // reason rather than a bare conflict.
       const [exists] = await db
-        .select({ id: ordersTable.id, status: ordersTable.status })
+        .select({
+          id: ordersTable.id,
+          status: ordersTable.status,
+          holdState: ordersTable.holdState,
+          isParked: ordersTable.isParked,
+        })
         .from(ordersTable)
         .where(eq(ordersTable.id, id));
       if (!exists) throw httpError(404, "ORDER_NOT_FOUND", "Order not found");
+      const held = effectiveHoldState(exists);
+      if (held) {
+        throw httpError(
+          409,
+          "ORDER_ON_HOLD",
+          held === "parked"
+            ? "Order is parked — resolve its restaurant before assigning"
+            : "Order is on hold",
+        );
+      }
       throw httpError(409, "ALREADY_ASSIGNED", "Order is no longer pending");
     }
 
@@ -837,6 +869,141 @@ router.post(
     if (Object.keys(updates).length > 0) {
       await db.update(ordersTable).set(updates).where(eq(ordersTable.id, id));
     }
+    const detail = await serializeOrderDetail(id);
+    res.json(detail);
+  }),
+);
+
+// =====================================================================
+// POST /orders/:id/hold — place a deliberate hold
+// =====================================================================
+router.post(
+  "/orders/:id/hold",
+  requireAuth,
+  requireRole("admin", "coordinator"),
+  wrap(async (req, res) => {
+    const id = req.params["id"] as string;
+    const auth = req.auth!;
+    const parsed = HoldOrderBody.safeParse(req.body);
+    if (!parsed.success) throw httpError(400, "VALIDATION_ERROR", parsed.error.message);
+
+    const order = await loadOrderOr404(id);
+    const existing = effectiveHoldState(order);
+    if (existing === "parked") {
+      throw httpError(
+        422,
+        "ORDER_PARKED",
+        "Order is parked — resolve its restaurant rather than holding it",
+      );
+    }
+    if (order.status === "delivered" || order.status === "failed") {
+      throw httpError(422, "ORDER_TERMINAL", "Cannot hold a finished order");
+    }
+
+    await db
+      .update(ordersTable)
+      .set({
+        holdState: "on_hold",
+        holdReason: parsed.data.reason?.trim() || null,
+        heldByUserId: auth.sub,
+        heldAt: new Date(),
+      })
+      .where(eq(ordersTable.id, id));
+
+    const detail = await serializeOrderDetail(id);
+    res.json(detail);
+  }),
+);
+
+// =====================================================================
+// POST /orders/:id/release — lift a hold
+// =====================================================================
+router.post(
+  "/orders/:id/release",
+  requireAuth,
+  requireRole("admin", "coordinator"),
+  wrap(async (req, res) => {
+    const id = req.params["id"] as string;
+    const order = await loadOrderOr404(id);
+    const existing = effectiveHoldState(order);
+    if (!existing) throw httpError(422, "ORDER_NOT_HELD", "Order is not on hold");
+    if (existing === "parked") {
+      throw httpError(
+        422,
+        "ORDER_PARKED",
+        "Assign the correct restaurant to release a parked order",
+      );
+    }
+
+    await db
+      .update(ordersTable)
+      .set({ holdState: null, holdReason: null, heldByUserId: null, heldAt: null })
+      .where(eq(ordersTable.id, id));
+
+    const detail = await serializeOrderDetail(id);
+    res.json(detail);
+  }),
+);
+
+// =====================================================================
+// POST /orders/:id/restaurant — re-point a parked order and release it
+// =====================================================================
+router.post(
+  "/orders/:id/restaurant",
+  requireAuth,
+  requireRole("admin", "coordinator"),
+  wrap(async (req, res) => {
+    const id = req.params["id"] as string;
+    const auth = req.auth!;
+    const parsed = SetOrderRestaurantBody.safeParse(req.body);
+    if (!parsed.success) throw httpError(400, "VALIDATION_ERROR", parsed.error.message);
+
+    const order = await loadOrderOr404(id);
+    const [restaurant] = await db
+      .select()
+      .from(restaurantsTable)
+      .where(eq(restaurantsTable.id, parsed.data.restaurantId));
+    if (!restaurant) throw httpError(404, "RESTAURANT_NOT_FOUND", "Restaurant not found");
+    if (restaurant.nameCode === UNMAPPED_RESTAURANT_NAME_CODE) {
+      throw httpError(
+        422,
+        "INVALID_RESTAURANT",
+        "Cannot re-point an order at the placeholder restaurant",
+      );
+    }
+
+    // Re-pointing is what resolves a parked order, so it lifts the hold in the
+    // same write. A manual hold is left alone — it was placed for a separate
+    // reason and should be released deliberately.
+    const wasParked = effectiveHoldState(order) === "parked";
+    await db
+      .update(ordersTable)
+      .set({
+        restaurantId: restaurant.id,
+        ...(wasParked
+          ? {
+              isParked: false,
+              parkedReason: null,
+              holdState: null,
+              holdReason: null,
+              heldByUserId: null,
+              heldAt: null,
+            }
+          : {}),
+      })
+      .where(eq(ordersTable.id, id));
+
+    await db.insert(orderStatusLogsTable).values({
+      orderId: id,
+      fromStatus: order.status,
+      toStatus: order.status,
+      actorUserId: auth.sub,
+      actorRole: auth.role,
+      note: wasParked
+        ? `Parked order resolved to ${restaurant.name}`
+        : `Restaurant changed to ${restaurant.name}`,
+    });
+
     const detail = await serializeOrderDetail(id);
     res.json(detail);
   }),

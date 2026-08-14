@@ -11,6 +11,8 @@ import {
   useAddOrderItem,
   useSetRiderNotification,
   useUpdateOrderContact,
+  useHoldOrder,
+  useReleaseOrder,
   useListRiders,
   getGetOrderQueryKey,
   getListRidersQueryKey,
@@ -36,7 +38,7 @@ import { Separator } from "@/components/ui/separator";
 import { Spinner } from "@/components/ui/spinner";
 import { StatusBadge } from "@/components/status-badge";
 import { PickupCountdown, PickupSourceBadge } from "@/components/pickup-countdown";
-import { ArrowLeft, Bike, MapPin, Phone, Mail, Plus, Eye, EyeOff, Bell, History } from "lucide-react";
+import { ArrowLeft, Bike, MapPin, Phone, Mail, Plus, Eye, EyeOff, Bell, History, PauseCircle, PlayCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { getOriginalOrderItems, unhideOrderItem } from "@/lib/api";
 import { effectivePickup, formatCurrency, formatDateTime, formatTime } from "@/lib/format";
@@ -93,6 +95,7 @@ export default function CoordinatorOrderPage() {
           <TimelineCard order={o} />
         </div>
         <div className="space-y-5">
+          <HoldCard order={o} />
           <AssignCard order={o} />
           <TransitionCard order={o} />
         </div>
@@ -114,6 +117,113 @@ function useInvalidateOrder(orderId: string) {
   };
 }
 
+/**
+ * Holds are the only thing that blocks dispatch. A parked order is resolved by
+ * naming its real restaurant (done from the dispatch board); a deliberate hold
+ * is placed and released here.
+ */
+function HoldCard({ order }: { order: OrderDetail }) {
+  const { t } = useTranslation();
+  const hold = useHoldOrder();
+  const release = useReleaseOrder();
+  const invalidate = useInvalidateOrder(order.id);
+  const { toast } = useToast();
+  const [reason, setReason] = useState("");
+  const finished = order.status === "delivered" || order.status === "failed";
+
+  if (order.holdState === "parked") {
+    return (
+      <Card className="border-destructive/40" data-testid="card-hold-parked">
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2 text-destructive">
+            <PauseCircle className="size-4" /> {t("hold.state_parked")}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2 text-sm text-muted-foreground">
+          <p>{t("hold.parkedNotice")}</p>
+          {order.holdReason ? <p className="text-xs italic">{order.holdReason}</p> : null}
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (order.holdState === "on_hold") {
+    return (
+      <Card className="border-accent/50" data-testid="card-hold-active">
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <PauseCircle className="size-4" /> {t("hold.state_on_hold")}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-sm text-muted-foreground">{t("hold.heldNotice")}</p>
+          {order.holdReason ? (
+            <p className="text-xs italic text-muted-foreground">{order.holdReason}</p>
+          ) : null}
+          {order.heldByUserName ? (
+            <p className="text-xs text-muted-foreground">{order.heldByUserName}</p>
+          ) : null}
+          <Button
+            variant="outline"
+            className="w-full"
+            disabled={release.isPending}
+            onClick={() =>
+              release.mutate(
+                { id: order.id },
+                { onSuccess: () => { toast({ title: t("hold.release") }); invalidate(); } },
+              )
+            }
+            data-testid="button-release-hold"
+          >
+            <PlayCircle className="size-4 mr-2" /> {t("hold.release")}
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (finished) return null;
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base flex items-center gap-2">
+          <PauseCircle className="size-4" /> {t("hold.hold")}
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-2">
+        <Textarea
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+          rows={2}
+          placeholder={t("hold.holdReasonPlaceholder")}
+          data-testid="textarea-hold-reason"
+        />
+        <Button
+          variant="secondary"
+          className="w-full"
+          disabled={hold.isPending}
+          onClick={() =>
+            hold.mutate(
+              { id: order.id, data: { reason: reason.trim() || null } },
+              {
+                onSuccess: () => {
+                  setReason("");
+                  toast({ title: t("hold.hold") });
+                  invalidate();
+                },
+              },
+            )
+          }
+          data-testid="button-hold-order"
+        >
+          {t("hold.hold")}
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
+
 function AssignCard({ order }: { order: OrderDetail }) {
   const { t } = useTranslation();
   const riders = useListRiders({ query: { queryKey: getListRidersQueryKey(), refetchInterval: 30_000 } });
@@ -123,7 +233,9 @@ function AssignCard({ order }: { order: OrderDetail }) {
   const { toast } = useToast();
   const candidates = (riders.data ?? []).filter((r) => r.availabilityStatus !== "offline" && r.accountStatus === "active");
 
-  if (order.status !== "pending") return null;
+  // A held order isn't dispatchable — the server refuses the assignment, so
+  // don't offer it. HoldCard above explains why and how to resolve it.
+  if (order.status !== "pending" || order.holdState != null) return null;
 
   return (
     <Card>

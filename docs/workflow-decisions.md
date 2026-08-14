@@ -46,7 +46,9 @@ question of which role "owns" a status.
 
 ## D2. "On hold" is a family, and the only real gate
 
-**Decided 2026-08-14. Not yet built.**
+**Decided 2026-08-14. Built 2026-08-14** — `orders.holdState`, `lib/order-hold.ts`,
+and the coordinator triage queue. **Requires a schema push and a backfill** —
+see `docs/environment-checklist.md`.
 
 Holds are the one mechanism that genuinely blocks. Members today: `parked`
 (set automatically when an inbound restaurant code doesn't resolve) and a
@@ -67,9 +69,10 @@ manual hold set by an admin or coordinator.
 orders*. The hold filter applies to the discovery branch alone, which delivers
 both rules above with one predicate.
 
-**Fixes today's exposure:** `isParked` is currently read by no code path at
-all. Parked orders therefore appear in every rider's open-orders list and can
-be self-claimed when that flag is on.
+**Fixed today's exposure:** `isParked` was read by no code path at all, so
+parked orders appeared in every rider's open-orders list and could be
+self-claimed. Rider discovery now excludes held orders at the SQL level, and
+`/assign` refuses them inside the same guarded UPDATE.
 
 ---
 

@@ -48,7 +48,8 @@
     "morePages": "Meer pagina's",
     "previousSlide": "Vorige dia",
     "nextSlide": "Volgende dia",
-    "toggleSidebar": "Zijbalk wisselen"
+    "toggleSidebar": "Zijbalk wisselen",
+    "details": "Details"
   },
   "landing": {
     "heading": "Bestellenbij",
@@ -320,5 +321,19 @@
     "submit": "Uitstellen",
     "submitted": "Order uitgesteld",
     "resume": "Hervatten"
+  },
+  "hold": {
+    "sectionTitle": "In de wacht ({{count}})",
+    "state_parked": "Geparkeerd",
+    "state_on_hold": "In de wacht",
+    "noReason": "Geen reden opgegeven",
+    "assignRestaurant": "Juiste restaurant",
+    "selectRestaurant": "Kies een restaurant",
+    "resolve": "Oplossen",
+    "release": "Vrijgeven",
+    "hold": "In de wacht zetten",
+    "holdReasonPlaceholder": "Waarom wordt deze bestelling vastgehouden?",
+    "heldNotice": "Deze bestelling staat in de wacht en wordt niet aan rijders aangeboden.",
+    "parkedNotice": "De restaurantcode uit de bestelling kwam niet overeen. Wijs het juiste restaurant toe om vrij te geven."
   }
 }

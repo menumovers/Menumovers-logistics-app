@@ -8,6 +8,7 @@
 import type { DeliveryMethod } from "./deliveryMethod";
 import type { DeliveryTimeType } from "./deliveryTimeType";
 import type { OrderCashPayment } from "./orderCashPayment";
+import type { OrderHoldState } from "./orderHoldState";
 import type { OrderItem } from "./orderItem";
 import type { OrderStatus } from "./orderStatus";
 import type { PickupTimeSource } from "./pickupTimeSource";
@@ -82,12 +83,34 @@ export interface Order {
   pendingRiderNotification?: string | null;
   /** @nullable */
   failureReason?: string | null;
-  /** True when the inbound restaurant identifier couldn't be resolved and this
-order was filed against the placeholder restaurant instead of being rejected.
- */
+  /**
+   * Superseded by `holdState`. True when the inbound restaurant identifier
+couldn't be resolved. Equivalent to `holdState == "parked"`; retained
+until the backfill is confirmed.
+
+   * @deprecated
+   */
   isParked?: boolean;
-  /** @nullable */
+  /**
+   * Superseded by `holdReason`.
+   * @deprecated
+   * @nullable
+   */
   parkedReason?: string | null;
+  /** The hold family — the only mechanism that gates an order. Null means not
+held. A hold blocks new assignment only; an order already being worked
+keeps accepting status reports.
+ */
+  holdState?: OrderHoldState | null;
+  /** @nullable */
+  holdReason?: string | null;
+  /** @nullable */
+  heldAt?: Date | null;
+  /**
+   * Null for automatic holds (`parked`).
+   * @nullable
+   */
+  heldByUserName?: string | null;
   /** @nullable */
   tripId?: string | null;
   /**

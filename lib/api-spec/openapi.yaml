@@ -364,6 +364,80 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/OrderDetail"
+  /orders/{id}/hold:
+    post:
+      operationId: holdOrder
+      tags: [orders]
+      summary: Place a deliberate hold on an order
+      description: |
+        Blocks new assignment. An order already being worked keeps accepting status
+        reports, so a hold never freezes a rider mid-delivery. Parked orders are
+        resolved via `/orders/{id}/restaurant` rather than held.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/HoldOrderRequest"
+      responses:
+        "200":
+          description: Held
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrderDetail"
+  /orders/{id}/release:
+    post:
+      operationId: releaseOrder
+      tags: [orders]
+      summary: Lift a deliberate hold
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Released
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrderDetail"
+  /orders/{id}/restaurant:
+    post:
+      operationId: setOrderRestaurant
+      tags: [orders]
+      summary: Re-point an order at a restaurant
+      description: |
+        The resolution path for a parked order: assigning the correct restaurant
+        lifts the `parked` hold in the same write. A deliberate hold is left in
+        place and must be released separately.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SetOrderRestaurantRequest"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrderDetail"
   /riders:
     get:
       operationId: listRiders
@@ -858,6 +932,20 @@ components:
     DeliveryMethod:
       type: string
       enum: [delivery, pickup, happy_hour]
+    OrderHoldState:
+      type: string
+      enum: [parked, on_hold]
+    HoldOrderRequest:
+      type: object
+      properties:
+        reason:
+          type: ["string", "null"]
+    SetOrderRestaurantRequest:
+      type: object
+      required: [restaurantId]
+      properties:
+        restaurantId:
+          type: string
     DeliveryTimeType:
       type: string
       enum: [asap, later_today, other_day]
@@ -1295,11 +1383,31 @@ components:
           type: ["string", "null"]
         isParked:
           type: boolean
+          deprecated: true
           description: |
-            True when the inbound restaurant identifier couldn't be resolved and this
-            order was filed against the placeholder restaurant instead of being rejected.
+            Superseded by `holdState`. True when the inbound restaurant identifier
+            couldn't be resolved. Equivalent to `holdState == "parked"`; retained
+            until the backfill is confirmed.
         parkedReason:
           type: ["string", "null"]
+          deprecated: true
+          description: Superseded by `holdReason`.
+        holdState:
+          oneOf:
+            - $ref: "#/components/schemas/OrderHoldState"
+            - type: "null"
+          description: |
+            The hold family — the only mechanism that gates an order. Null means not
+            held. A hold blocks new assignment only; an order already being worked
+            keeps accepting status reports.
+        holdReason:
+          type: ["string", "null"]
+        heldAt:
+          type: ["string", "null"]
+          format: date-time
+        heldByUserName:
+          type: ["string", "null"]
+          description: Null for automatic holds (`parked`).
         tripId:
           type: ["string", "null"]
         tripNumber:

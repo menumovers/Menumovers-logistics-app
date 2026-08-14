@@ -14,6 +14,7 @@ import {
   type OrderStatusLog,
 } from "@workspace/db";
 import { resolveEffectivePickupTime } from "./pickup-time";
+import { effectiveHoldState, effectiveHoldReason } from "./order-hold";
 
 type Numeric = string;
 
@@ -70,6 +71,7 @@ function baseOrderFields(
   items: SerializedOrderItem[],
   bundlePickupTime: Date | null,
   tripNumber: number | null,
+  heldByUserName: string | null,
 ) {
   const eff = resolveEffectivePickupTime({
     pickupTimeOriginal: order.pickupTimeOriginal,
@@ -139,6 +141,10 @@ function baseOrderFields(
     failureReason: order.failureReason,
     isParked: order.isParked,
     parkedReason: order.parkedReason,
+    holdState: effectiveHoldState(order),
+    holdReason: effectiveHoldReason(order),
+    heldAt: order.heldAt,
+    heldByUserName,
     tripId: order.tripId,
     tripNumber,
     bundlePickupTime,
@@ -159,12 +165,15 @@ async function loadJoins(
    */
   bundlePickupByOrder: Map<string, Date>;
   tripNumbersById: Map<string, number>;
+  /** Display name of whoever placed a deliberate hold, keyed by user id. */
+  holdActorsById: Map<string, string>;
 }> {
   const restaurantsById = new Map<string, { id: string; name: string }>();
   const ridersById = new Map<string, { id: string; name: string }>();
   const overridesByOrder = new Map<string, ItemOverride[]>();
   const bundlePickupByOrder = new Map<string, Date>();
   const tripNumbersById = new Map<string, number>();
+  const holdActorsById = new Map<string, string>();
   if (orders.length === 0) {
     return {
       restaurantsById,
@@ -172,6 +181,7 @@ async function loadJoins(
       overridesByOrder,
       bundlePickupByOrder,
       tripNumbersById,
+      holdActorsById,
     };
   }
   const orderIds = orders.map((o) => o.id);
@@ -190,8 +200,15 @@ async function loadJoins(
         .filter((x): x is string => typeof x === "string"),
     ),
   );
+  const holdActorIds = Array.from(
+    new Set(
+      orders
+        .map((o) => o.heldByUserId)
+        .filter((x): x is string => typeof x === "string"),
+    ),
+  );
 
-  const [restaurants, riders, overrides, tripMates, tripRows] = await Promise.all([
+  const [restaurants, riders, overrides, tripMates, tripRows, holdActors] = await Promise.all([
     restaurantIds.length > 0
       ? db
           .select({ id: restaurantsTable.id, name: restaurantsTable.name })
@@ -219,7 +236,14 @@ async function loadJoins(
           .from(tripsTable)
           .where(inArray(tripsTable.id, tripIds))
       : Promise.resolve([] as { id: string; tripNumber: number }[]),
+    holdActorIds.length > 0
+      ? db
+          .select({ id: usersTable.id, name: usersTable.name })
+          .from(usersTable)
+          .where(inArray(usersTable.id, holdActorIds))
+      : Promise.resolve([] as { id: string; name: string }[]),
   ]);
+  for (const u of holdActors) holdActorsById.set(u.id, u.name);
   for (const t of tripRows) tripNumbersById.set(t.id, t.tripNumber);
   for (const r of restaurants) restaurantsById.set(r.id, r);
   for (const r of riders) ridersById.set(r.id, r);
@@ -254,6 +278,7 @@ async function loadJoins(
     overridesByOrder,
     bundlePickupByOrder,
     tripNumbersById,
+    holdActorsById,
   };
 }
 
@@ -268,6 +293,7 @@ export async function serializeOrderListItem(order: Order) {
     overridesByOrder,
     bundlePickupByOrder,
     tripNumbersById,
+    holdActorsById,
   } = await loadJoins([order]);
   const overrides = overridesByOrder.get(order.id) ?? [];
   const items = applyItemOverrides(order.items ?? [], overrides);
@@ -279,6 +305,7 @@ export async function serializeOrderListItem(order: Order) {
       items,
       bundlePickupByOrder.get(order.id) ?? null,
       order.tripId ? (tripNumbersById.get(order.tripId) ?? null) : null,
+      order.heldByUserId ? (holdActorsById.get(order.heldByUserId) ?? null) : null,
     ),
     restaurantName: restaurant?.name,
     riderName: rider?.name ?? null,
@@ -292,6 +319,7 @@ export async function serializeOrderListItems(orders: Order[]) {
     overridesByOrder,
     bundlePickupByOrder,
     tripNumbersById,
+    holdActorsById,
   } = await loadJoins(orders);
   return orders.map((order) => {
     const overrides = overridesByOrder.get(order.id) ?? [];
@@ -304,6 +332,7 @@ export async function serializeOrderListItems(orders: Order[]) {
         items,
         bundlePickupByOrder.get(order.id) ?? null,
         order.tripId ? (tripNumbersById.get(order.tripId) ?? null) : null,
+        order.heldByUserId ? (holdActorsById.get(order.heldByUserId) ?? null) : null,
       ),
       restaurantName: restaurant?.name,
       riderName: rider?.name ?? null,
@@ -349,6 +378,9 @@ export async function serializeOrderDetail(orderId: string) {
       joinData.bundlePickupByOrder.get(order.id) ?? null,
       order.tripId
         ? (joinData.tripNumbersById.get(order.tripId) ?? null)
+        : null,
+      order.heldByUserId
+        ? (joinData.holdActorsById.get(order.heldByUserId) ?? null)
         : null,
     ),
     restaurantName: restaurant?.name,
