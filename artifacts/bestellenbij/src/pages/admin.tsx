@@ -78,6 +78,7 @@ function UsersPanel() {
                     toast({ title: t("admin.newUser") });
                     invalidate();
                   },
+                  onError: () => toast({ title: t("errors.generic"), variant: "destructive" }),
                 },
               );
             }}
@@ -186,6 +187,7 @@ function RestaurantsPanel() {
                     toast({ title: t("admin.newRestaurant") });
                     invalidate();
                   },
+                  onError: () => toast({ title: t("errors.generic"), variant: "destructive" }),
                 },
               );
             }}
@@ -201,15 +203,16 @@ function RestaurantsPanel() {
       </Card>
       <div className="grid gap-3">
         {(restaurants.data ?? []).map((r: Restaurant) => (
-          <RestaurantRow key={r.id} restaurant={r} onUpdate={update.mutate} onDelete={() => del.mutate({ id: r.id }, { onSuccess: invalidate })} />
+          <RestaurantRow key={r.id} restaurant={r} onUpdate={update.mutate} onInvalidate={invalidate} onDelete={() => del.mutate({ id: r.id }, { onSuccess: invalidate })} />
         ))}
       </div>
     </div>
   );
 }
 
-function RestaurantRow({ restaurant, onUpdate, onDelete }: { restaurant: Restaurant; onUpdate: ReturnType<typeof useUpdateRestaurant>["mutate"]; onDelete: () => void }) {
+function RestaurantRow({ restaurant, onUpdate, onInvalidate, onDelete }: { restaurant: Restaurant; onUpdate: ReturnType<typeof useUpdateRestaurant>["mutate"]; onInvalidate: () => void; onDelete: () => void }) {
   const { t } = useTranslation();
+  const { toast } = useToast();
   const [name, setName] = useState(restaurant.name);
   const [nameCode, setNameCode] = useState(restaurant.nameCode);
   const [addr, setAddr] = useState(restaurant.address);
@@ -228,7 +231,7 @@ function RestaurantRow({ restaurant, onUpdate, onDelete }: { restaurant: Restaur
           <Button
             variant="outline"
             disabled={!dirty}
-            onClick={() => onUpdate({ id: restaurant.id, data: { name, nameCode, address: addr, phone: phone || null, minDeliveryTime: mdt } })}
+            onClick={() => onUpdate({ id: restaurant.id, data: { name, nameCode, address: addr, phone: phone || null, minDeliveryTime: mdt } }, { onSuccess: onInvalidate, onError: () => toast({ title: t("errors.generic"), variant: "destructive" }) })}
             data-testid={`button-update-restaurant-${restaurant.id}`}
           >
             {t("common.save")}
@@ -270,6 +273,7 @@ function RidersPanel() {
                     toast({ title: t("admin.newRider") });
                     invalidate();
                   },
+                  onError: () => toast({ title: t("errors.generic"), variant: "destructive" }),
                 },
               );
             }}
