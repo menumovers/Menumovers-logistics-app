@@ -1,0 +1,155 @@
+# Environment Checklist
+
+What was built in the workflow-alignment work, and what still has to happen in
+a real environment before any of it is trustworthy.
+
+Code changes are only half of a change. This file tracks the other half: schema
+that must reach the database, settings that must be set, and behaviour that
+can only be verified against a live system.
+
+Companion to `docs/workflow-decisions.md`, which records *why* each of these
+was decided.
+
+---
+
+## Part 1 — Built and pushed
+
+Branch `claude/app-workflow-schema-alignment-n4dnrz`.
+
+| # | Change | Decision |
+|---|---|---|
+| 1 | `docs/workflow-decisions.md` — nine settled decisions recorded so they stop being re-litigated | — |
+| 2 | Settings registry (`api-server/src/lib/settings-registry.ts`) — settings declared once; reads, admin payload and validation derive from it | D9 |
+| 3 | Outbound webhook off switch, default off, including gating the retry loop | D7 |
+| 4 | Pickup time works scheduled orders back from the promised delivery time | D4 |
+
+### Schema impact: none, so far
+
+**No `drizzle-kit push` is required for anything above.** The only change under
+`lib/db/` is two new entries in the `SETTING_KEYS` constant — no table, column
+or enum was touched. New settings are *rows* in the existing `system_settings`
+key/value table, written lazily the first time an admin saves one. Until then
+the declared defaults apply.
+
+This is worth knowing because it will not stay true — see Part 4.
+
+---
+
+## Part 2 — One behaviour change on deploy
+
+**The outbound webhook stops sending.** It now defaults to off, and an absent
+setting row means off.
+
+If `system_settings.outbound_webhook_url` currently holds a value in
+production, then events *were* being dispatched and will stop the moment this
+deploys. That is the intent of D7 — the receiving end doesn't exist yet — but
+it is a real change in behaviour and shouldn't be a surprise.
+
+- **To check:** `SELECT key, value FROM system_settings;`
+- **To keep it sending:** flip the new toggle on the Admin → Settings screen.
+  Note that the outbound POST is still unsigned (D7), so a receiver cannot
+  verify it came from this app.
+
+---
+
+## Part 3 — Verify against a live system
+
+None of this could be exercised in the build container: there is no
+`DATABASE_URL`, so every database path is verified by types and inspection
+only. These are the checks worth running once deployed.
+
+- [ ] **Admin → Settings loads and saves.** This exercises the whole registry
+      read/write path. Save the webhook URL, the self-claim toggle and the new
+      travel override; confirm each persists across a reload.
+- [ ] **Webhook source label still reads correctly.** It should show `settings`
+      when set through the UI, `env` when only `WEBHOOK_URL` is present, and
+      `unset` when neither — the registry took over this resolution.
+- [ ] **Clearing the travel override.** Emptying the field should delete the
+      row and fall back to per-order estimates, not store a zero.
+- [ ] **Send a scheduled test order** with `deliveryTimeType: "later_today"`
+      and a `requestedDeliveryTime` several hours out. The pickup time should
+      land *before* the requested time by the travel figure — not 30 minutes
+      from now. This is the bug the work exists to fix.
+- [ ] **Check the ingestion log line.** Each new order logs
+      `"Computed original pickup time"` with `pickupBasis` (`source` / `asap` /
+      `scheduled`) and `travelMinutes`. If a pickup time ever looks wrong, this
+      is where to look first.
+- [ ] **Confirm ASAP orders are unchanged.** They should still be
+      `now + travel`, exactly as before.
+
+---
+
+## Part 4 — Environment prerequisites
+
+Pre-existing requirements, not introduced by this work, but each one will
+break something if missed.
+
+### Required
+
+| Variable / state | Consequence if missing |
+|---|---|
+| `DATABASE_URL` | Nothing works. |
+| `JWT_SECRET` | Authentication cannot sign or verify tokens. |
+| `PORT` and `BASE_PATH` | **Both Vite builds fail outright** — the configs throw rather than defaulting. Tracked as `todo.md` M1. |
+| The `unmapped` placeholder restaurant | Inbound orders with an unresolved restaurant code return `503 UNMAPPED_RESTAURANT_NOT_SEEDED` instead of parking. Seed via `scripts/src/seed-unmapped-restaurant.ts`. |
+| At least one `api_credentials` row | Inbound ingestion rejects every caller. Provision via `scripts/src/provision-inbound-credential.ts`. |
+
+### Optional
+
+| Variable | Consequence if missing |
+|---|---|
+| `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` | Push degrades gracefully — the UI reports "not configured". |
+| `CORS_ALLOWED_ORIGINS` | Permissive in non-production. Tracked as `todo.md` M4. |
+| `WEBHOOK_URL` | Superseded by the admin setting; only a fresh-install fallback. |
+
+### Build gotcha
+
+After any codegen run, `tsc --build lib/api-zod lib/api-client-react` **must**
+follow. These are composite packages and consumers resolve types from their
+compiled `dist/`, not from source — skipping it means every consumer silently
+sees stale types. Recorded in `changelog.md` (2026-08-14); automation tracked
+as `todo.md` M6.
+
+---
+
+## Part 5 — Schema work that is coming
+
+The decisions still to be built *do* require database changes. Listed so they
+can be planned rather than discovered.
+
+### D2 — the hold family
+
+- New hold state on `orders` (nullable; `parked` and a manual hold as members),
+  plus a reason, actor and timestamp.
+- **A data migration is needed**, not just DDL: existing rows with
+  `isParked = true` must become `holdState = 'parked'`, and `parkedReason`
+  carried across to the new reason column.
+- `isParked` / `parkedReason` are consumed by nothing in the frontend, so
+  replacing them is safe from the UI's side — but they are in the OpenAPI
+  contract, so the spec and generated clients change with them.
+
+### D3 — restaurant acceptance
+
+- `restaurants` gains an acceptance-mode column.
+- `orders` gains an acknowledgement timestamp and the actor who confirmed.
+
+### D6 — trips
+
+- `trip_stops.completedAt` becomes unused once progress derives from order
+  status. Dropping it is optional cleanup, not a requirement.
+
+---
+
+## Part 6 — Known gaps
+
+- **No automated tests.** The pickup formula was verified with 17 assertions
+  covering travel precedence, both scheduled branches, ASAP, source-supplied
+  times and the deliberately-unclamped case — but they ran as a throwaway
+  script and are not in the repository, because there is no test runner
+  (`todo.md` H3). They would be worth preserving as the first real test if a
+  runner is ever added.
+- **Outbound webhook request signing** does not exist and is a prerequisite for
+  enabling the webhook (D7). Not tracked as active work.
+- **Documentation corrections for D1** are pending sign-off: `replit.md` §1,
+  `architecture-full-technical.md`:32, the SSOT transition table, and a planned
+  test line in `todo-roadmap.md` all still describe the strict state machine.
