@@ -95,10 +95,9 @@ paths:
         Authenticated via the `x-inbound-secret` header, matched against a provisioned
         per-source credential (see `api_credentials`) rather than a single shared secret.
         Idempotent on `externalOrderId`: re-sending the same payload updates the existing
-        order record instead of creating a duplicate. If `externalRestaurantId` doesn't
-        resolve to a known restaurant for the credential's source, the order is still
-        accepted — it's filed against a placeholder restaurant and marked parked
-        (`isParked: true`) instead of being rejected.
+        order record instead of creating a duplicate. If `restaurantNameCode` is absent or
+        doesn't match any known restaurant, the order is still accepted — it's filed against
+        a placeholder restaurant and marked parked (`isParked: true`) instead of being rejected.
       parameters:
         - in: header
           name: x-inbound-secret
@@ -1032,7 +1031,6 @@ components:
       type: object
       required:
         - orderId
-        - externalRestaurantId
         - customer
         - items
         - deliveryFee
@@ -1050,12 +1048,12 @@ components:
       properties:
         orderId:
           type: string
-        externalRestaurantId:
+        restaurantNameCode:
           type: string
           description: |
-            The restaurant identifier as known to the caller's system. Resolved to an
-            internal restaurant via restaurant_external_ids, scoped to the credential's
-            source. Unresolved values do not fail the request — see the endpoint description.
+            The restaurant's nameCode as defined in the restaurants table. If absent or
+            unmatched, the order is filed against the placeholder restaurant and parked —
+            see the endpoint description.
         customer:
           type: object
           required: [name, phone, address, street, postalCode, city, country]

@@ -294,11 +294,11 @@ export type InboundOrderPayloadCashPayment = {
 
 export interface InboundOrderPayload {
   orderId: string;
-  /** The restaurant identifier as known to the caller's system. Resolved to an
-internal restaurant via restaurant_external_ids, scoped to the credential's
-source. Unresolved values do not fail the request — see the endpoint description.
+  /** The restaurant's nameCode as defined in the restaurants table. If absent or
+unmatched, the order is filed against the placeholder restaurant and parked —
+see the endpoint description.
  */
-  externalRestaurantId: string;
+  restaurantNameCode?: string;
   customer: InboundOrderPayloadCustomer;
   items: OrderItem[];
   deliveryFee: string;

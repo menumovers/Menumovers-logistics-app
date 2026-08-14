@@ -9,7 +9,6 @@ import {
   riderAssignmentsTable,
   ridersTable,
   restaurantsTable,
-  restaurantExternalIdsTable,
   type OrderStatus,
   type Restaurant,
 } from "@workspace/db";
@@ -90,20 +89,15 @@ function orderScopeWhere(auth: NonNullable<Request["auth"]>) {
   return sql`false`;
 }
 
-async function resolveExternalRestaurantId(
-  source: string,
-  externalRestaurantId: string,
+async function resolveRestaurantByNameCode(
+  nameCode: string | undefined | null,
 ): Promise<string | null> {
-  const [mapping] = await db
-    .select({ restaurantId: restaurantExternalIdsTable.restaurantId })
-    .from(restaurantExternalIdsTable)
-    .where(
-      and(
-        eq(restaurantExternalIdsTable.source, source),
-        eq(restaurantExternalIdsTable.externalId, externalRestaurantId),
-      ),
-    );
-  return mapping?.restaurantId ?? null;
+  if (!nameCode) return null;
+  const [restaurant] = await db
+    .select({ id: restaurantsTable.id })
+    .from(restaurantsTable)
+    .where(eq(restaurantsTable.nameCode, nameCode));
+  return restaurant?.id ?? null;
 }
 
 async function getUnmappedRestaurant(): Promise<Restaurant> {
@@ -155,11 +149,9 @@ router.post(
       throw httpError(400, "VALIDATION_ERROR", parsed.error.message);
     }
     const payload = parsed.data;
-    const source = req.inboundSource!;
 
-    const resolvedRestaurantId = await resolveExternalRestaurantId(
-      source,
-      payload.externalRestaurantId,
+    const resolvedRestaurantId = await resolveRestaurantByNameCode(
+      payload.restaurantNameCode,
     );
     const isParked = resolvedRestaurantId === null;
     const restaurant = resolvedRestaurantId
@@ -174,7 +166,7 @@ router.post(
       throw httpError(500, "DB_ERROR", "Resolved restaurant not found");
     }
     const parkedReason = isParked
-      ? `Unresolved external restaurant: source=${source} externalRestaurantId=${payload.externalRestaurantId}`
+      ? `Unresolved restaurantNameCode: ${payload.restaurantNameCode ?? "(absent)"}`
       : null;
 
     const minMinutes = restaurant.minDeliveryTime ?? 30;

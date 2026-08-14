@@ -6,7 +6,7 @@ async function j(method, path, body, headers={}) {
   return { status: r.status, body: parsed };
 }
 // Need to seed restaurant + admin + inbound credential via direct DB.
-import("@workspace/db").then(async ({ db, restaurantsTable, usersTable, ridersTable, apiCredentialsTable, restaurantExternalIdsTable }) => {
+import("@workspace/db").then(async ({ db, restaurantsTable, usersTable, ridersTable, apiCredentialsTable }) => {
   const bcrypt = (await import("bcryptjs")).default;
   const { createHash, randomBytes } = await import("node:crypto");
   const passwordHash = await bcrypt.hash("password123", 10);
@@ -14,32 +14,26 @@ import("@workspace/db").then(async ({ db, restaurantsTable, usersTable, ridersTa
   const { eq } = await import("drizzle-orm");
   await db.delete(usersTable).where(eq(usersTable.email, "smoke-admin@x.com"));
   await db.delete(usersTable).where(eq(usersTable.email, "smoke-rider@x.com"));
-  const [rest] = await db.insert(restaurantsTable).values({ name:"Smoke Resto", nameCode:`smoke-resto-${Date.now()}`, address:"Hoofdstraat 1", minDeliveryTime:25 }).returning();
+  const RESTAURANT_NAME_CODE = `smoke-resto-${Date.now()}`;
+  const [rest] = await db.insert(restaurantsTable).values({ name:"Smoke Resto", nameCode: RESTAURANT_NAME_CODE, address:"Hoofdstraat 1", minDeliveryTime:25 }).returning();
   const [admin] = await db.insert(usersTable).values({ email:"smoke-admin@x.com", name:"Admin", passwordHash, role:"admin" }).returning();
   const [riderUser] = await db.insert(usersTable).values({ email:"smoke-rider@x.com", name:"Rider1", passwordHash, role:"rider" }).returning();
   const [rider] = await db.insert(ridersTable).values({ userId: riderUser.id, nameCode:`smoke-rider-${Date.now()}`, availabilityStatus:"online" }).returning();
-  const SOURCE = "smoke-source";
   const RAW_SECRET = randomBytes(16).toString("hex");
   await db.insert(apiCredentialsTable).values({
     keyHash: createHash("sha256").update(RAW_SECRET).digest("hex"),
-    source: SOURCE,
+    source: "smoke-source",
     status: "active",
   });
-  const EXTERNAL_RESTAURANT_ID = "smoke-ext-001";
-  await db.insert(restaurantExternalIdsTable).values({
-    restaurantId: rest.id,
-    source: SOURCE,
-    externalId: EXTERNAL_RESTAURANT_ID,
-  });
-  console.log("Seeded:", { restaurantId: rest.id, adminId: admin.id, riderId: rider.id, source: SOURCE });
+  console.log("Seeded:", { restaurantId: rest.id, restaurantNameCode: RESTAURANT_NAME_CODE, adminId: admin.id, riderId: rider.id });
   // Login
   const login = await j("POST","/auth/login",{ email:"smoke-admin@x.com", password:"password123" });
   console.log("login:", login.status, login.body.user?.role);
   const token = login.body.token;
-  // Ingest
+  // Ingest — resolved restaurantNameCode
   const orderId = `ext-smoke-${Date.now()}`;
   const ingest = await j("POST","/inbound/orders",{
-    orderId, externalRestaurantId: EXTERNAL_RESTAURANT_ID,
+    orderId, restaurantNameCode: RESTAURANT_NAME_CODE,
     customer: { name:"Klaas", phone:"+31600000001", address:"Kerkstraat 9", street:"Kerkstraat", houseNumber:"9", postalCode:"1012AB", city:"Amsterdam", country:"NL" },
     items: [{ name:"Pizza", quantity:2, price:"12.50"},{name:"Cola",quantity:1,price:"3.00"}],
     deliveryFee:"4.00", totalAmount:"32.00", deliveryInstructions:"Bel aan", tipRider:"1.00", tipRestaurant:"0.50", supTotal:"0.00", statiegeldTotal:"0.00", administrationCosts:"0.35", deliveryMethod:"delivery", paymentMethod:"ideal", sourceCreatedAt:new Date().toISOString(), requestedDeliveryTime:new Date(Date.now()+30*60000).toISOString(), deliveryTimeType:"asap"
@@ -48,24 +42,33 @@ import("@workspace/db").then(async ({ db, restaurantsTable, usersTable, ridersTa
   const id = ingest.body.id;
   // Idempotency replay
   const replay = await j("POST","/inbound/orders",{
-    orderId, externalRestaurantId: EXTERNAL_RESTAURANT_ID,
+    orderId, restaurantNameCode: RESTAURANT_NAME_CODE,
     customer: { name:"Klaas", phone:"+31600000001", address:"Kerkstraat 9", street:"Kerkstraat", houseNumber:"9", postalCode:"1012AB", city:"Amsterdam", country:"NL" },
     items: [{name:"Pizza",quantity:2,price:"12.50"}],
     deliveryFee:"4.00", totalAmount:"29.00", tipRider:"1.00", tipRestaurant:"0.50", supTotal:"0.00", statiegeldTotal:"0.00", administrationCosts:"0.35", deliveryMethod:"delivery", paymentMethod:"ideal", sourceCreatedAt:new Date().toISOString(), requestedDeliveryTime:new Date(Date.now()+30*60000).toISOString(), deliveryTimeType:"asap"
   }, { "x-inbound-secret": RAW_SECRET });
   console.log("replay (same id):", replay.status, replay.body.id, "same:", replay.body.id===id);
-  // Unknown external restaurant → parked, not rejected
+  // Unknown restaurantNameCode → parked, not rejected
   const parkedOrderId = `ext-smoke-parked-${Date.now()}`;
   const parked = await j("POST","/inbound/orders",{
-    orderId: parkedOrderId, externalRestaurantId: "does-not-exist",
+    orderId: parkedOrderId, restaurantNameCode: "does-not-exist",
     customer: { name:"Onbekend", phone:"+31600000002", address:"Onbekendstraat 1", street:"Onbekendstraat", houseNumber:"1", postalCode:"1013CD", city:"Amsterdam", country:"NL" },
     items: [{ name:"Broodje", quantity:1, price:"5.00"}],
     deliveryFee:"2.00", totalAmount:"7.00", tipRider:"1.00", tipRestaurant:"0.50", supTotal:"0.00", statiegeldTotal:"0.00", administrationCosts:"0.35", deliveryMethod:"delivery", paymentMethod:"ideal", sourceCreatedAt:new Date().toISOString(), requestedDeliveryTime:new Date(Date.now()+30*60000).toISOString(), deliveryTimeType:"asap"
   }, { "x-inbound-secret": RAW_SECRET });
-  console.log("parked (unknown restaurant, expect 200 + isParked=true):", parked.status, parked.body.isParked, parked.body.parkedReason);
+  console.log("parked (unknown nameCode, expect 200 + isParked=true):", parked.status, parked.body.isParked, parked.body.parkedReason);
+  // Absent restaurantNameCode → also parked
+  const absentOrderId = `ext-smoke-absent-${Date.now()}`;
+  const absentField = await j("POST","/inbound/orders",{
+    orderId: absentOrderId,
+    customer: { name:"Anoniem", phone:"+31600000004", address:"Onbekendstraat 2", street:"Onbekendstraat", houseNumber:"2", postalCode:"1013CD", city:"Amsterdam", country:"NL" },
+    items: [{ name:"Soep", quantity:1, price:"4.00"}],
+    deliveryFee:"2.00", totalAmount:"6.00", tipRider:"0.50", tipRestaurant:"0.00", supTotal:"0.00", statiegeldTotal:"0.00", administrationCosts:"0.35", deliveryMethod:"delivery", paymentMethod:"cash", sourceCreatedAt:new Date().toISOString(), requestedDeliveryTime:new Date(Date.now()+30*60000).toISOString(), deliveryTimeType:"asap"
+  }, { "x-inbound-secret": RAW_SECRET });
+  console.log("parked (absent nameCode, expect 200 + isParked=true):", absentField.status, absentField.body.isParked, absentField.body.parkedReason);
   // Invalid credential → 401
   const badSecret = await j("POST","/inbound/orders",{
-    orderId: `ext-smoke-badsecret-${Date.now()}`, externalRestaurantId: EXTERNAL_RESTAURANT_ID,
+    orderId: `ext-smoke-badsecret-${Date.now()}`, restaurantNameCode: RESTAURANT_NAME_CODE,
     customer: { name:"X", phone:"+31600000003", address:"Y", street:"Y", postalCode:"1000AA", city:"Amsterdam", country:"NL" },
     items: [{ name:"Item", quantity:1, price:"1.00"}],
     deliveryFee:"0.00", totalAmount:"1.00", tipRider:"1.00", tipRestaurant:"0.50", supTotal:"0.00", statiegeldTotal:"0.00", administrationCosts:"0.35", deliveryMethod:"delivery", paymentMethod:"ideal", sourceCreatedAt:new Date().toISOString(), requestedDeliveryTime:new Date(Date.now()+30*60000).toISOString(), deliveryTimeType:"asap"

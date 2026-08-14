@@ -162,7 +162,7 @@ These were listed as out of scope but represent decisions made — not things to
 - **Source**: Bestellenbij data-comparison plan (Phase 1)
 - **In docs/todo-roadmap.md**: No
 - **Kind**: Deferred feature
-- **Notes**: When an inbound order's `externalRestaurantId` doesn't resolve via `restaurant_external_ids`, it's stored against a placeholder restaurant with `isParked: true` and a `parkedReason`, instead of being rejected. That's deliberately the minimum — no status/permissions model was designed for who can see or act on parked orders, or how dispatch logic should treat them (currently nothing excludes them from anything). Worth flagging as higher priority than a typical "someday" item: the Phase 6 rollout is already routing real restaurants that depend on `restaurant_external_ids` rows being seeded, so parked orders will start actually occurring, not just being theoretically possible, once that rollout is live.
+- **Notes**: When an inbound order's `restaurantNameCode` is absent or doesn't match any `restaurants.nameCode`, it's stored against a placeholder restaurant with `isParked: true` and a `parkedReason`, instead of being rejected. That's deliberately the minimum — no status/permissions model was designed for who can see or act on parked orders, or how dispatch logic should treat them (currently nothing excludes them from anything). Worth flagging as higher priority than a typical "someday" item: once Babeldish goes live, parked orders will start actually occurring if any nameCode mismatches exist, not just being theoretically possible.
 
 ### `pickupTimeOriginal` derivation formula
 - **Source**: Bestellenbij data-comparison plan (Phase 4)

@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-08-14 — Inbound restaurant lookup switched from external-ID table to nameCode
+
+Replaced the `restaurant_external_ids` indirection table with a direct `restaurants.nameCode` lookup. The inbound payload field is now `restaurantNameCode` (optional string) instead of `externalRestaurantId` (required string). If the field is absent or doesn't match any restaurant, the order is parked exactly as before. The `restaurant_external_ids` table was confirmed empty and dropped from the live database; its Drizzle schema file was removed. Matches the approach used by MenuMovers on Babeldish.
+
 ## 2026-08-14 — Live database schema applied (tasks 20/21 catch-up)
 
 All schema work from earlier tasks that had never been pushed to the live database was applied: `name_code` columns on `restaurants` and `riders`, ~30 new `orders` columns (structured address, payment/tip/time-source fields, `is_parked`/`parked_reason`), new `api_credentials` and `restaurant_external_ids` tables, and the dead `order_items` table dropped. The task 21 agent had committed only a `.replit` change without running `drizzle-kit push`. Applied manually via raw SQL after truncating test rows; post-push drift check confirmed zero delta.

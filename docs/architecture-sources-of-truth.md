@@ -62,6 +62,12 @@ The structure for each entry: **Name**, **Location**, **What it does**, **Formul
 - **Callers**: coordinator UI (`pages/coordinator-trip-builder.tsx`, `pages/coordinator-trip.tsx`, `pages/coordinator.tsx` `TripsSection`), rider UI (`pages/rider-order.tsx` trip banner + postpone/resume), restaurant UI (`pages/restaurant.tsx` `BundleCard`).
 - **Do not**: render trips by `tripId` UUID in user-facing copy — always use `tripNumber`. Do not compute the bundle pickup time on the client; rely on `bundlePickupTime` from the API. Do not write a trip mutation outside a `db.transaction` — the row-lock invariant is what makes the concurrent-edit guarantees hold. Do not bypass the `TRIP_IN_MOTION` guard at the call site by issuing `force: true` without surfacing the warning to the user.
 
+### Inbound restaurant resolution
+- **Location**: `artifacts/api-server/src/routes/orders.ts` → `resolveRestaurantByNameCode`
+- **What it does**: Matches the inbound payload's `restaurantNameCode` string against `restaurants.nameCode`. Returns the restaurant's internal UUID, or `null` if the field is absent or no row matches.
+- **Callers**: `POST /inbound/orders` handler only.
+- **Do not**: resolve restaurants by any other key (external ID, name string, etc.) in the inbound path. Do not add source-scoping to this lookup — `nameCode` is globally unique in the restaurants table. If the lookup returns `null`, park the order against the "Unmapped" placeholder; do not reject the request.
+
 ### Item overrides application
 - **Location**: `artifacts/api-server/src/lib/order-serialize.ts` → `applyItemOverrides`
 - **What it does**: Applies hide-by-index and add-new overrides to `orders.items` (the JSONB array — `applyItemOverrides(order.items ?? [], overrides)`) to produce the displayed list, while preserving the originals on the order. A separate `order_items` table existed in the schema as an alternate, never-adopted design (nothing ever read or wrote it) and has since been removed — don't confuse the two if you see `order_items` mentioned elsewhere.

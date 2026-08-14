@@ -24,15 +24,15 @@ Callers send their raw per-source secret as the `x-inbound-secret` header. The s
 
 ### What happens to orders
 
-The payload's `externalRestaurantId` is resolved against `restaurant_external_ids` (scoped to the matched source) to find the internal restaurant. If it doesn't resolve, the order is **not rejected** — it's stored against a placeholder "Unmapped" restaurant with `isParked: true` and a `parkedReason` explaining what didn't match, so it's queryable rather than lost.
+The payload's `restaurantNameCode` is matched directly against `restaurants.nameCode`. If the field is absent or doesn't match any known restaurant, the order is **not rejected** — it's stored against a placeholder "Unmapped" restaurant with `isParked: true` and a `parkedReason` explaining what didn't match, so it's queryable rather than lost.
 
 ### Env vars / provisioning
 
 | Variable / mechanism | Required | Purpose |
 |---|---|---|
 | `api_credentials` table row | Yes, per source | Hashed secret + source identifier; provisioned via `scripts/src/provision-inbound-credential.ts` |
-| Placeholder "Unmapped" restaurant row | Yes | Holds parked orders whose `externalRestaurantId` doesn't resolve |
-| `restaurant_external_ids` rows | Per onboarded restaurant | Maps a source's external restaurant ID to the internal restaurant |
+| Placeholder "Unmapped" restaurant row | Yes | Holds parked orders whose `restaurantNameCode` doesn't resolve; provisioned via `scripts/src/seed-unmapped-restaurant.ts` |
+| `restaurants.nameCode` values | Per onboarded restaurant | The value the caller places in `restaurantNameCode`; must match exactly (case-sensitive) |
 
 ---
 

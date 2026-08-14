@@ -58,10 +58,9 @@ export const GetCurrentUserResponse = zod.object({
  * Authenticated via the `x-inbound-secret` header, matched against a provisioned
 per-source credential (see `api_credentials`) rather than a single shared secret.
 Idempotent on `externalOrderId`: re-sending the same payload updates the existing
-order record instead of creating a duplicate. If `externalRestaurantId` doesn't
-resolve to a known restaurant for the credential's source, the order is still
-accepted — it's filed against a placeholder restaurant and marked parked
-(`isParked: true`) instead of being rejected.
+order record instead of creating a duplicate. If `restaurantNameCode` is absent or
+doesn't match any known restaurant, the order is still accepted — it's filed against
+a placeholder restaurant and marked parked (`isParked: true`) instead of being rejected.
 
  * @summary Receive a new order from the upstream distribution service
  */
@@ -71,10 +70,11 @@ export const IngestOrderHeader = zod.object({
 
 export const IngestOrderBody = zod.object({
   orderId: zod.string(),
-  externalRestaurantId: zod
+  restaurantNameCode: zod
     .string()
+    .optional()
     .describe(
-      "The restaurant identifier as known to the caller's system. Resolved to an\ninternal restaurant via restaurant_external_ids, scoped to the credential's\nsource. Unresolved values do not fail the request — see the endpoint description.\n",
+      "The restaurant's nameCode as defined in the restaurants table. If absent or\nunmatched, the order is filed against the placeholder restaurant and parked —\nsee the endpoint description.\n",
     ),
   customer: zod.object({
     name: zod.string(),
