@@ -22,6 +22,18 @@ export async function getOutboundWebhookUrl(): Promise<string | null> {
   return readSetting(SETTINGS.outboundWebhookUrl);
 }
 
+/**
+ * Whether outbound delivery is active at all. Off by default: the receiving
+ * end doesn't exist yet, so dispatching and retrying at it is pure waste.
+ * An unset URL counts as disabled regardless of the flag — see
+ * docs/workflow-decisions.md D7 ("null OR explicitly disabled").
+ */
+async function isOutboundEnabled(): Promise<boolean> {
+  const enabled = await readSetting(SETTINGS.outboundWebhookEnabled);
+  if (!enabled) return false;
+  return (await getOutboundWebhookUrl()) !== null;
+}
+
 export type OutboundEventType =
   | "order.created"
   | "order.assigned"
@@ -67,8 +79,13 @@ async function attemptDelivery(
  * 30s, 2m, 5m delays. 4xx (except 408/429) are not retried.
  */
 export async function enqueueOutboundEvent(event: OutboundEvent): Promise<void> {
-  const url = await getOutboundWebhookUrl();
   const correlationId = event.correlationId ?? null;
+  // Short-circuit before building any payload or touching the database.
+  if (!(await readSetting(SETTINGS.outboundWebhookEnabled))) {
+    logger.debug({ eventType: event.eventType, correlationId }, "Outbound webhook disabled");
+    return;
+  }
+  const url = await getOutboundWebhookUrl();
   if (!url) {
     logger.debug({ eventType: event.eventType, correlationId }, "No outbound webhook configured");
     return;
@@ -205,6 +222,10 @@ let running = false;
 
 export async function processRetryQueueOnce(): Promise<void> {
   if (running) return;
+  // Cheapest possible check first: while outbound delivery is off, this is the
+  // only work the loop does. Previously it queried webhook_retry_queue every
+  // ten seconds regardless of whether anything was configured to receive.
+  if (!(await isOutboundEnabled())) return;
   running = true;
   try {
     const due = await db

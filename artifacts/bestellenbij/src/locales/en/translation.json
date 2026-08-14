@@ -214,6 +214,8 @@
     "outboundWebhook": "Outbound webhook URL",
     "outboundWebhookPlaceholder": "https://example.com/webhook",
     "outboundWebhookHelp": "Status updates POST to this URL",
+    "outboundWebhookEnabled": "Send outbound status updates",
+    "outboundWebhookEnabledHelp": "Off by default. While off, nothing is sent, queued, or retried. Leaving the URL empty also counts as off.",
     "vapidConfigured": "Web push configured",
     "inboundConfigured": "Inbound webhook configured",
     "outboundSource": "Source",

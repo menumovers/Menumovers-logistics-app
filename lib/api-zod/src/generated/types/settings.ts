@@ -11,6 +11,12 @@ export interface Settings {
   /** @nullable */
   outboundWebhookUrl: string | null;
   outboundWebhookUrlSource: SettingsOutboundWebhookUrlSource;
+  /** Master switch for outbound delivery. Off by default — the receiving
+end is not built yet. When off, no event is dispatched or queued and
+the retry loop does no work. An unset URL counts as disabled
+regardless of this flag.
+ */
+  outboundWebhookEnabled: boolean;
   allowRiderSelfClaim: boolean;
   vapidConfigured: boolean;
   inboundSecretConfigured?: boolean;

@@ -378,6 +378,35 @@ function SettingsPanel() {
               {t("admin.outboundSource")}: {t(`admin.outboundSource_${settings.data.outboundWebhookUrlSource}`)}
             </p>
           ) : null}
+          {settings.data ? (
+            <div className="flex items-center justify-between gap-4 border-t border-border pt-3">
+              <div className="space-y-0.5">
+                <Label htmlFor="outbound-webhook-enabled" className="text-sm">
+                  {t("admin.outboundWebhookEnabled")}
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  {t("admin.outboundWebhookEnabledHelp")}
+                </p>
+              </div>
+              <Switch
+                id="outbound-webhook-enabled"
+                checked={settings.data.outboundWebhookEnabled}
+                disabled={update.isPending}
+                onCheckedChange={(checked) =>
+                  update.mutate(
+                    { data: { outboundWebhookEnabled: checked } },
+                    {
+                      onSuccess: (data) => {
+                        toast({ title: t("admin.settingsSaved") });
+                        qc.setQueryData(getGetSettingsQueryKey(), data);
+                      },
+                    },
+                  )
+                }
+                data-testid="switch-outbound-webhook-enabled"
+              />
+            </div>
+          ) : null}
           <Button
             disabled={update.isPending || !touched}
             onClick={() =>

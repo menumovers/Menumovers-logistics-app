@@ -1510,13 +1510,20 @@ components:
     Settings:
       type: object
       required:
-        [outboundWebhookUrl, outboundWebhookUrlSource, allowRiderSelfClaim, vapidConfigured]
+        [outboundWebhookUrl, outboundWebhookUrlSource, outboundWebhookEnabled, allowRiderSelfClaim, vapidConfigured]
       properties:
         outboundWebhookUrl:
           type: ["string", "null"]
         outboundWebhookUrlSource:
           type: string
           enum: [env, settings, unset]
+        outboundWebhookEnabled:
+          type: boolean
+          description: |
+            Master switch for outbound delivery. Off by default — the receiving
+            end is not built yet. When off, no event is dispatched or queued and
+            the retry loop does no work. An unset URL counts as disabled
+            regardless of this flag.
         allowRiderSelfClaim:
           type: boolean
         vapidConfigured:
@@ -1534,6 +1541,8 @@ components:
       properties:
         outboundWebhookUrl:
           type: ["string", "null"]
+        outboundWebhookEnabled:
+          type: boolean
         allowRiderSelfClaim:
           type: boolean
     VapidPublicKey:

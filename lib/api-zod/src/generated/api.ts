@@ -2172,6 +2172,11 @@ export const DeleteUserParams = zod.object({
 export const GetSettingsResponse = zod.object({
   outboundWebhookUrl: zod.string().nullable(),
   outboundWebhookUrlSource: zod.enum(["env", "settings", "unset"]),
+  outboundWebhookEnabled: zod
+    .boolean()
+    .describe(
+      "Master switch for outbound delivery. Off by default — the receiving\nend is not built yet. When off, no event is dispatched or queued and\nthe retry loop does no work. An unset URL counts as disabled\nregardless of this flag.\n",
+    ),
   allowRiderSelfClaim: zod.boolean(),
   vapidConfigured: zod.boolean(),
   inboundSecretConfigured: zod.boolean().optional(),
@@ -2179,12 +2184,18 @@ export const GetSettingsResponse = zod.object({
 
 export const UpdateSettingsBody = zod.object({
   outboundWebhookUrl: zod.string().nullish(),
+  outboundWebhookEnabled: zod.boolean().optional(),
   allowRiderSelfClaim: zod.boolean().optional(),
 });
 
 export const UpdateSettingsResponse = zod.object({
   outboundWebhookUrl: zod.string().nullable(),
   outboundWebhookUrlSource: zod.enum(["env", "settings", "unset"]),
+  outboundWebhookEnabled: zod
+    .boolean()
+    .describe(
+      "Master switch for outbound delivery. Off by default — the receiving\nend is not built yet. When off, no event is dispatched or queued and\nthe retry loop does no work. An unset URL counts as disabled\nregardless of this flag.\n",
+    ),
   allowRiderSelfClaim: zod.boolean(),
   vapidConfigured: zod.boolean(),
   inboundSecretConfigured: zod.boolean().optional(),

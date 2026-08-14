@@ -214,6 +214,8 @@
     "outboundWebhook": "Uitgaande webhook URL",
     "outboundWebhookPlaceholder": "https://voorbeeld.nl/webhook",
     "outboundWebhookHelp": "Status-updates worden naar deze URL gepost",
+    "outboundWebhookEnabled": "Uitgaande status-updates versturen",
+    "outboundWebhookEnabledHelp": "Standaard uit. Zolang dit uit staat wordt er niets verstuurd, in de wachtrij gezet of opnieuw geprobeerd. Een lege URL telt ook als uit.",
     "vapidConfigured": "Web push geconfigureerd",
     "inboundConfigured": "Inkomende webhook geconfigureerd",
     "outboundSource": "Bron",

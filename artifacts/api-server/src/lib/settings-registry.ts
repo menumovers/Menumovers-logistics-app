@@ -94,6 +94,15 @@ export const SETTINGS = {
     validate: assertHttpUrl("outboundWebhookUrl"),
   }),
   /**
+   * Default OFF. The receiving end (babeldish) has not been built, so nothing
+   * is listening; dispatching and retrying events at it would be pure waste.
+   * Turning this on is also gated on adding request signing — see
+   * docs/workflow-decisions.md D7.
+   */
+  outboundWebhookEnabled: defineBoolean(SETTING_KEYS.OUTBOUND_WEBHOOK_ENABLED, {
+    fallback: false,
+  }),
+  /**
    * Default ON: matches the original product spec where riders can claim
    * unassigned orders. Operators flip this OFF to require coordinator dispatch.
    */

@@ -31,6 +31,7 @@ async function buildSettings() {
   return {
     outboundWebhookUrl: resolved.outboundWebhookUrl.value,
     outboundWebhookUrlSource: resolved.outboundWebhookUrl.source,
+    outboundWebhookEnabled: resolved.outboundWebhookEnabled.value,
     allowRiderSelfClaim: resolved.allowRiderSelfClaim.value,
     vapidConfigured: Boolean(
       process.env["VAPID_PUBLIC_KEY"] && process.env["VAPID_PRIVATE_KEY"],
@@ -70,6 +71,10 @@ router.patch(
 
     if (parsed.data.outboundWebhookUrl !== undefined) {
       await writeSetting(SETTINGS.outboundWebhookUrl, parsed.data.outboundWebhookUrl);
+    }
+
+    if (parsed.data.outboundWebhookEnabled !== undefined) {
+      await writeSetting(SETTINGS.outboundWebhookEnabled, parsed.data.outboundWebhookEnabled);
     }
 
     if (parsed.data.allowRiderSelfClaim !== undefined) {

@@ -9,5 +9,6 @@
 export interface UpdateSettingsRequest {
   /** @nullable */
   outboundWebhookUrl?: string | null;
+  outboundWebhookEnabled?: boolean;
   allowRiderSelfClaim?: boolean;
 }
