@@ -1,12 +1,7 @@
 import { and, eq, lte } from "drizzle-orm";
-import {
-  db,
-  systemSettingsTable,
-  webhookRetryQueueTable,
-  SETTING_KEYS,
-  type WebhookRetry,
-} from "@workspace/db";
+import { db, webhookRetryQueueTable, type WebhookRetry } from "@workspace/db";
 import { logger } from "./logger";
+import { SETTINGS, readSetting } from "./settings-registry";
 
 const RETRY_DELAYS_MS = [30_000, 120_000, 300_000];
 const MAX_ATTEMPTS = 4;
@@ -14,9 +9,9 @@ const MAX_ATTEMPTS = 4;
 /**
  * Resolve the outbound webhook URL.
  *
- * Precedence (admin-configured wins):
- *   1. system_settings.outbound_webhook_url (the admin Settings UI writes here)
- *   2. process.env.WEBHOOK_URL (boot-time fallback for fresh installs)
+ * Precedence (admin-configured wins): `system_settings.outbound_webhook_url`,
+ * then `process.env.WEBHOOK_URL` as a boot-time fallback for fresh installs.
+ * Declared in `settings-registry.ts`; resolution lives there.
  *
  * Rationale: operator configuration is runtime, not env. Inverting precedence
  * (admin > env) means an operator can override a misconfigured env var at
@@ -24,12 +19,7 @@ const MAX_ATTEMPTS = 4;
  * the admin can never wonder whether their UI change took effect.
  */
 export async function getOutboundWebhookUrl(): Promise<string | null> {
-  const [row] = await db
-    .select()
-    .from(systemSettingsTable)
-    .where(eq(systemSettingsTable.key, SETTING_KEYS.OUTBOUND_WEBHOOK_URL));
-  if (row?.value) return row.value;
-  return process.env["WEBHOOK_URL"] ?? null;
+  return readSetting(SETTINGS.outboundWebhookUrl);
 }
 
 export type OutboundEventType =

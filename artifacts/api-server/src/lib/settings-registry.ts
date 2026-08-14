@@ -1,0 +1,183 @@
+import { eq, inArray } from "drizzle-orm";
+import { db, systemSettingsTable, SETTING_KEYS } from "@workspace/db";
+import { httpError } from "./errors";
+
+/**
+ * Declarative registry for `system_settings`.
+ *
+ * A setting is declared once — key, type, default, optional environment
+ * fallback, optional validation — and everything else derives from that
+ * declaration: typed reads, the admin API payload, and write validation.
+ *
+ * Rationale: settings are the standing answer to "we don't know the right
+ * value yet" (see docs/workflow-decisions.md D8), so they get added often.
+ * Before this existed, each one cost a key constant, a reader, a duplicate
+ * reader in the route, an API field and a UI control — and the duplication
+ * was already real at two settings, with the webhook URL resolved in both
+ * `webhook.ts` and `routes/settings.ts`.
+ *
+ * To add a setting: declare it in `SETTINGS` below. Reads and the admin
+ * payload follow automatically; only the UI control is still hand-written.
+ */
+
+/** Where a resolved value came from. Surfaced so an admin can tell whether their UI change took effect. */
+export type SettingSource = "settings" | "env" | "unset";
+
+export type SettingDefinition<T> = {
+  key: string;
+  /** Stored (or env) string → typed value. */
+  parse: (raw: string) => T;
+  /** Typed value → stored string. `null` deletes the row, restoring the fallback. */
+  serialize: (value: T) => string | null;
+  /** Value when neither a row nor an environment variable is present. */
+  fallback: T;
+  /** Environment variable consulted when no row exists. Boot-time fallback for fresh installs. */
+  envVar?: string;
+  /** Throws to reject a write. */
+  validate?: (value: T) => void;
+};
+
+export type Resolved<T> = { value: T; source: SettingSource };
+
+function defineBoolean(
+  key: string,
+  opts: { fallback: boolean; envVar?: string },
+): SettingDefinition<boolean> {
+  return {
+    key,
+    parse: (raw) => raw === "true",
+    serialize: (value) => (value ? "true" : "false"),
+    fallback: opts.fallback,
+    ...(opts.envVar !== undefined ? { envVar: opts.envVar } : {}),
+  };
+}
+
+function defineString(
+  key: string,
+  opts: {
+    fallback: string | null;
+    envVar?: string;
+    validate?: (value: string | null) => void;
+  },
+): SettingDefinition<string | null> {
+  return {
+    key,
+    parse: (raw) => raw,
+    // Empty string and null both mean "unset" — delete the row so the env
+    // fallback and default can apply again.
+    serialize: (value) => (value === null || value === "" ? null : value),
+    fallback: opts.fallback,
+    ...(opts.envVar !== undefined ? { envVar: opts.envVar } : {}),
+    ...(opts.validate !== undefined ? { validate: opts.validate } : {}),
+  };
+}
+
+function assertHttpUrl(field: string) {
+  return (value: string | null): void => {
+    if (value === null || value === "") return;
+    try {
+      new URL(value);
+    } catch {
+      throw httpError(400, "INVALID_URL", `${field} is not a valid URL`);
+    }
+  };
+}
+
+/**
+ * Every operator-configurable setting. Keys come from `SETTING_KEYS` so the
+ * canonical list stays in the schema package alongside the table.
+ */
+export const SETTINGS = {
+  outboundWebhookUrl: defineString(SETTING_KEYS.OUTBOUND_WEBHOOK_URL, {
+    fallback: null,
+    envVar: "WEBHOOK_URL",
+    validate: assertHttpUrl("outboundWebhookUrl"),
+  }),
+  /**
+   * Default ON: matches the original product spec where riders can claim
+   * unassigned orders. Operators flip this OFF to require coordinator dispatch.
+   */
+  allowRiderSelfClaim: defineBoolean(SETTING_KEYS.ALLOW_RIDER_SELF_CLAIM, {
+    fallback: true,
+  }),
+} as const;
+
+export type SettingName = keyof typeof SETTINGS;
+
+function resolveFrom<T>(
+  def: SettingDefinition<T>,
+  row: { value: string | null } | undefined,
+): Resolved<T> {
+  if (row?.value) return { value: def.parse(row.value), source: "settings" };
+  if (def.envVar) {
+    const fromEnv = process.env[def.envVar];
+    if (fromEnv) return { value: def.parse(fromEnv), source: "env" };
+  }
+  return { value: def.fallback, source: "unset" };
+}
+
+/** Resolve one setting, with its source. */
+export async function resolveSetting<T>(
+  def: SettingDefinition<T>,
+): Promise<Resolved<T>> {
+  const [row] = await db
+    .select()
+    .from(systemSettingsTable)
+    .where(eq(systemSettingsTable.key, def.key));
+  return resolveFrom(def, row);
+}
+
+/** Resolve one setting's value, discarding the source. */
+export async function readSetting<T>(def: SettingDefinition<T>): Promise<T> {
+  return (await resolveSetting(def)).value;
+}
+
+/**
+ * Resolve every declared setting in a single query. Used by the admin
+ * endpoints so adding a setting doesn't add a round trip.
+ */
+export async function resolveAllSettings(): Promise<{
+  [K in SettingName]: Resolved<
+    (typeof SETTINGS)[K] extends SettingDefinition<infer T> ? T : never
+  >;
+}> {
+  const names = Object.keys(SETTINGS) as SettingName[];
+  const keys = names.map((n) => SETTINGS[n].key);
+  const rows = await db
+    .select()
+    .from(systemSettingsTable)
+    .where(inArray(systemSettingsTable.key, keys));
+  const byKey = new Map(rows.map((r) => [r.key, r]));
+
+  const out = {} as Record<string, Resolved<unknown>>;
+  for (const name of names) {
+    const def = SETTINGS[name] as SettingDefinition<unknown>;
+    out[name] = resolveFrom(def, byKey.get(def.key));
+  }
+  return out as never;
+}
+
+/**
+ * Validate and persist a setting. Serializing to `null` deletes the row so the
+ * environment fallback and declared default apply again.
+ */
+export async function writeSetting<T>(
+  def: SettingDefinition<T>,
+  value: T,
+): Promise<void> {
+  def.validate?.(value);
+  const serialized = def.serialize(value);
+  if (serialized === null) {
+    await db
+      .delete(systemSettingsTable)
+      .where(eq(systemSettingsTable.key, def.key));
+    return;
+  }
+  await db
+    .insert(systemSettingsTable)
+    .values({ key: def.key, value: serialized })
+    .onConflictDoUpdate({
+      target: systemSettingsTable.key,
+      set: { value: serialized },
+    });
+}
