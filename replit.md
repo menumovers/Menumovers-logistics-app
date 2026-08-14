@@ -79,6 +79,7 @@ One line per domain — go check the registry before writing anything in a cover
 
 | Document | Contents | Bucket | Update trigger |
 |---|---|---|---|
+| `workflow-decisions.md` | Settled decisions about order-workflow behaviour, so they aren't re-litigated | Routine | A workflow decision is made, reversed, or resolved from the open list |
 | `architecture-sources-of-truth.md` | Full SSOT pattern registry | Routine | New reusable pattern/helper created |
 | `changelog.md` | Dated record of architecturally-significant changes | Routine | New external service goes live, pattern added/retired, major decision made/reversed |
 | `architecture.md` | Short contributor summary | Core-contract | Real architectural shift |
