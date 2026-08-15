@@ -161,7 +161,7 @@ shape of latent bug as B2, and it goes live the moment they are surfaced.
 **Fix:** either update both from a structured editor, or make one derived from
 the other rather than storing two independent truths.
 
-The six components are A1–A6 in `docs/field-audit.md` §A–§B. That entry
+The six components are covered by `docs/field-audit.md` §1–§2, which
 confirms the display side is deliberate — every screen renders the flat string
 — and points at the older deferred decision running the other way
 (`todo-out-of-scope.md`, "Legacy `deliveryAddress` text column"), which asks

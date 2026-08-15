@@ -362,18 +362,18 @@ Consequences that shaped the build:
 
 ---
 
-## D11. The payload keeps the source's inputs so we don't have to go and ask
+## D11. Data is kept so questions can be answered afterwards
 
 **Decided 2026-08-15. Nothing to build — this protects what already exists.**
 
-Several fields arrive on every order, are stored, and are read by no code at
-all: the four timing figures `restaurantMinPickupTime`,
-`restaurantMinPrepTime`, `deliveryTeamMinPickupTime`, `deliveryTeamMinPrepTime`,
-alongside `originalPayload`.
+Several fields are stored on every order and read by no code at all: the four
+timing figures `restaurantMinPickupTime`, `restaurantMinPrepTime`,
+`deliveryTeamMinPickupTime`, `deliveryTeamMinPrepTime`, plus `originalPayload`
+and `heldAt`.
 
 **They are kept deliberately.** When a coordinator needs to work out why an
-order came through the way it did, the inputs that drove Bestellenbij's own
-behaviour are already in our payload — nobody has to log into another system or
+order came through the way it did, the inputs that drove the source's own
+behaviour are already in our payload — nobody has to log into Bestellenbij or
 ask someone to look something up. The most important things are here.
 
 The consequence for anyone reading this repository: **"nothing reads this
@@ -386,19 +386,28 @@ This is why `docs/field-audit.md` was rewritten within a day of being written.
 Its first pass filed fourteen fields as "dead" on exactly that reasoning; nine
 of them were doing their job.
 
-Two related things this does *not* say:
+**It applies to data we generate too.** `heldAt` records when *we* placed a
+hold, and no upstream system holds that fact — which makes the case stronger,
+not weaker: for source data there is at least a slow alternative, and for this
+there is none. An earlier draft of this decision carved `heldAt` out on the
+grounds that "there's no one to avoid having to ask". That was too fine a
+distinction; the principle is about answering questions later, not about which
+system the answer would otherwise have come from.
 
-- It is not a rule that every field must be retained forever. It is a rule that
-  the question "what is this for?" gets asked before the question "can we drop
-  it?" — and answered by someone who knows, not inferred from call sites.
-- It does not extend to fields *we* generate. `heldAt` is ours, so there is no
-  upstream system to avoid having to ask; it is unshown because of a gap, not a
-  design (`field-audit.md` §D).
+What this does **not** say is that every field must be retained forever. It
+says the question *"what is this for?"* gets asked before the question *"can we
+drop it?"* — and answered by someone who knows, rather than inferred from call
+sites.
 
 Two of the six source timing figures *are* consumed —
 `restaurantMinDeliveryTime` and `deliveryTeamMinDeliveryTime` feed the travel
 estimate (D4). D4's decision to apply no prep-time floor is unaffected: the
 prep figures are retained for reading, not for computing.
+
+Retention and display are separate questions. `heldAt` is kept under this
+decision *and* is worth showing — a hold panel that gives who and why but not
+when is missing the thing a coordinator triaging a queue actually wants
+(`todo.md` L8).
 
 ---
 
@@ -406,7 +415,7 @@ prep figures are retained for reading, not for computing.
 
 **Raised 2026-08-14. Not resolved — deliberately parked, to be returned to.**
 
-*Related:* `docs/field-audit.md` §E lists the three fields that feed the time
+*Related:* `docs/field-audit.md` §4 lists the three fields that feed the time
 calculations and are shown to nobody — the same instinct as D11, turned on our
 own arithmetic instead of the source's. Showing a computed time's inputs next
 to it is most of what this audit would ask for.

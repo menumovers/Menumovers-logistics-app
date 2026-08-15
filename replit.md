@@ -58,7 +58,13 @@ Bestellenbij is an internal Progressive Web App (PWA) for food-delivery logistic
 
 ## 5. Non-Negotiables
 
-→ Pending Migration (content-migration pass): to be synthesized from `docs/architecture-sources-of-truth.md` "Do not" entries.
+→ Pending Migration (content-migration pass): the rest to be synthesized from `docs/architecture-sources-of-truth.md` "Do not" entries. The entry below was added ahead of that pass and should survive it.
+
+**Never conclude a field is unused from code search alone.** A `git grep` returning nothing tells you a column is *unread*, not that it is *pointless*. Several fields on `orders` are stored deliberately and read by no code at all — the source's own timing figures, `originalPayload`, `heldAt` — because they are read by *people*, after the fact, when someone needs to work out why an order behaved as it did. That reader is invisible to a call graph.
+
+So: ask **"what is this for?"** before asking **"can we drop it?"**, and get the answer from someone who knows rather than inferring it from call sites. This is not a rule that nothing may ever be removed; it is a rule about the order of the two questions.
+
+Decision → `docs/workflow-decisions.md` D11. Worked example → `docs/field-audit.md`, whose first pass filed fourteen fields as "dead" on exactly this reasoning; nine were doing their job.
 
 ---
 
@@ -90,6 +96,7 @@ One line per domain — go check the registry before writing anything in a cover
 | `todo-out-of-scope.md` | Deferred-work backlog | Routine (automated) | Existing protocol — unchanged |
 | `todo.md` | Lean, uncategorized quick-capture inbox | Idea-space | Periodic triage only |
 | `todo-bugs.md` | Confirmed defects, with how each one actually fails | Idea-space (on-command) | Only when explicitly added/moved |
+| `field-audit.md` | **Completed report.** Every `orders` field scored on consumed / shown, and why each is kept | Reference (closed) | Not maintained — supersede with a new dated audit rather than editing |
 | `todo-roadmap.md` | Planned-but-not-built product/feature work | Idea-space (on-command) | Only when explicitly added/moved |
 | `documentation-blueprint.md` | Shared `replit.md` structure template for the Bestellenbij ecosystem | Core-contract | Blueprint revision by ecosystem team only |
 

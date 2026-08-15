@@ -1,188 +1,151 @@
 # Field Audit — inbound order payload
 
-Every field the inbound payload carries, scored on two separate questions:
+**Completed 2026-08-15.** A finished report, not a working document — the
+questions it asked have been answered. Its live follow-ups moved to `todo.md`
+(L8, L9) and its durable rule to `replit.md` §5; nothing here is waiting on
+anyone.
+
+Kept because the value is the *reasoning*: which fields we keep, which we
+could throw, and why. That is expensive to reconstruct and cheap to store.
+
+---
+
+## What was measured
+
+Every field on `orders`, scored on two independent questions:
 
 - **Consumed** — does any code path *do* something with it (a calculation, a
   guard, a lookup)?
 - **Shown** — does it reach a human anywhere in the UI?
 
-A field can be consumed without being shown (a formula input), or shown
-without being consumed (most of the receipt). Neither on its own means a field
-is doing nothing — see §C, which is the whole point of this revision.
+Cross-referenced `lib/db/src/schema/orders.ts` against `lib/order-serialize.ts`,
+the server routes, and every file under `artifacts/bestellenbij/src`.
+**59 columns and 6 indexes.** Re-verified before this report was finalized.
 
-Counted on 2026-08-15 by cross-referencing `lib/db/src/schema/orders.ts`
-against `lib/order-serialize.ts`, the server routes, and every file under
-`artifacts/bestellenbij/src`. **65 columns on `orders`**, of which 7 are
-indexes and 2 are housekeeping timestamps.
-
-**Reviewed the same day by the owner, which reclassified most of it.** The
-first pass filed 14 fields as "dead". That was a measurement dressed up as a
-judgement: the code genuinely does not read them, but "unread" and "serving no
-purpose" are different claims, and only the first one was measured. Nine of the
-fourteen are doing exactly what they are meant to.
-
-**Identifiers A1–A14 are stable** and mean the same fields they did in the
-first pass. The grouping around them changed; the numbers did not.
-
-> A note on a number that got away. An earlier audit was read as saying "16
-> unused fields" — that 16 was a **row number** in the audit's table, not a
-> count. The counted figure was 14 unread. After review the count that matters
-> is: **1 open gap, 2 to check against real data, 5 covered by a live
-> decision, and 3 fields that feed calculations nobody can see.**
+**The two questions do not settle whether a field earns its place.** That is
+the audit's main finding, and it arrived by getting it wrong first: the initial
+pass filed fourteen fields as "dead" on the strength of `git grep` alone, and
+nine of them turned out to be doing exactly what they were meant to. Fields
+read by *people, after the fact* look identical to abandoned ones from a call
+graph. See §3.
 
 ---
 
-## A. The flat address string is what gets rendered
+## 1. The flat address string is what gets rendered
 
-**A1 `street` · A2 `houseNumber` · A3 `addition` · A4 `postalCode` · A5 `city`**
+`street` · `houseNumber` · `addition` · `postalCode` · `city`
 
-Confirmed: every screen renders `deliveryAddress`, the single-line display
-string, and the components sit beside it unread. That is deliberate as far as
-display goes, and there is nothing to build.
+**Keep. Nothing to build.** Every screen renders `deliveryAddress`, the
+single-line display string; the components sit beside it unread, by design.
 
-It is still the setup for **`todo-bugs.md` B5**, which is a data-integrity
-problem rather than a display one. `POST /orders/:id/contact` updates only
+This is still the setup for **`todo-bugs.md` B5**, which is a data-integrity
+problem rather than a display one: `POST /orders/:id/contact` writes only
 `deliveryAddress`, so the first coordinator correction makes the two
 representations disagree permanently, with nothing recording which is current.
-Harmless while nothing reads the components — and B5 goes live the moment
-anything does.
+Harmless while nothing reads the components; live the moment anything does.
 
-There is also an older deferred decision pointing the *other* way:
-`todo-out-of-scope.md` ("Legacy `deliveryAddress` text column") asks whether
-readers should eventually move onto the structured fields and `deliveryAddress`
-be dropped. Both directions are still open; what is not open is keeping two
-independently-writable copies of the same fact.
+An older deferred note points the other way —
+`todo-out-of-scope.md`, "Legacy `deliveryAddress` text column" — asking whether
+readers should move onto the structured fields and the flat string be dropped.
+Both directions remain open. What is not open is holding two
+independently-writable copies of one fact.
 
----
+## 2. Arrives, genuinely nothing to do with it
 
-## B. Optional, and possibly never populated
+`country` · `latitude` · `longitude`
 
-**A6 `country` · A7 `latitude` · A8 `longitude`**
+**Keep. No action.** Harmless to carry in the payload.
 
-Nothing to do here — but the three are not in the same position, and the first
-pass got one of them wrong.
-
-**A6 `country` does always arrive.** It is in the inbound contract's required
+`country` **does** always arrive — it is in the inbound contract's required
 list for `customer` and `NOT NULL` in the schema. It is simply not worth
-showing: every order is Dutch.
+showing, since every order is Dutch.
 
-**A7/A8 `latitude`/`longitude` are optional** (`["string", "null"]` in the
-contract, nullable in the schema) and **whether the source populates them is
-unknown**. There are no fixtures or sample payloads in the repository, so this
-cannot be settled from the code — it needs a look at real rows.
+`latitude` / `longitude` are optional (`["string", "null"]` in the contract,
+nullable in the schema) and **whether the source populates them is unknown**.
+There are no fixtures or sample payloads in the repository, so this cannot be
+settled from code — it needs a look at real rows. Carried to `todo.md` L9.
 
-> **Correction.** The first pass called lat/long "the biggest miss" and said a
-> geocoded position "arrives with every order". That was never checked. The
-> contract says the field *may* arrive; nothing establishes that it *does*. An
-> empty column and an ignored one look identical from the schema, and the whole
-> argument was built on the wrong one of those.
->
-> The underlying observation still holds — the app has no map, no navigation
-> hand-off and no distance estimate, and trip stops sequence by pickup time
-> because geography is not available to the code that sequences them. But that
-> is a feature that was never built, not data being wasted, and it stays
-> speculative until someone confirms the coordinates are actually there.
+An earlier draft of this audit called these "the biggest miss" and asserted
+that a geocoded position arrives with every order. Nothing established that.
+The app does lack a map, a navigation hand-off and any distance estimate —
+trip stops sequence by pickup time because geography is not available to the
+code that sequences them — but that is a feature never built, not data being
+wasted, and it stays speculative until someone confirms the coordinates are
+actually there.
 
----
+## 3. Retained so questions can be answered afterwards
 
-## C. Retained so the coordinator does not have to go and ask Bestellenbij
+`restaurantMinPickupTime` · `restaurantMinPrepTime` ·
+`deliveryTeamMinPickupTime` · `deliveryTeamMinPrepTime` · `originalPayload` ·
+`heldAt`
 
-**A9 `restaurantMinPickupTime` · A10 `restaurantMinPrepTime` ·
-A11 `deliveryTeamMinPickupTime` · A12 `deliveryTeamMinPrepTime` ·
-A14 `originalPayload`**
+**Keep — deliberately, and this is the category that matters.** These are read
+by no code at all, and they are stored on purpose. When a coordinator needs to
+work out why an order came through the way it did, the inputs that drove the
+source's own behaviour are already in our payload: no logging into
+Bestellenbij, no asking someone to look something up.
 
-These are **not unused. They are stored on purpose, and their purpose is
-answering questions after the fact.** When a coordinator needs to work out why
-an order came through the way it did, the inputs that drove the source's own
-behaviour are already here — no logging into Bestellenbij, no asking someone to
-look something up.
+`heldAt` belongs here for the same reason even though it is ours rather than
+the source's — it records when *we* placed a hold, and there is no other
+system holding that fact. If anything the case is stronger: for source data
+there is at least a slow alternative, and for this there is none.
 
-That makes them read-by-a-human data rather than read-by-code data, and code
-search cannot tell the difference. Recorded as **D11** so that a future pass
-looking for dead columns finds the reason before it finds the columns.
+Recorded as **D11** in `workflow-decisions.md`, and as a non-negotiable in
+`replit.md` §5, so a future pass hunting dead columns meets the reason before
+it meets the columns.
 
-Two of the six timing figures *are* consumed by code —
+Two of the six source timing figures *are* consumed by code:
 `restaurantMinDeliveryTime` and `deliveryTeamMinDeliveryTime` feed the travel
 estimate in `lib/pickup-time.ts` (D4 takes the larger). The other four are the
-forensic set. D4's choice of no prep-time floor stands.
+forensic set. D4's choice of no prep-time floor is unaffected — the prep
+figures are retained for reading, not for computing.
+
+`heldAt` is also worth **showing**, separately from being kept. The hold panel
+gives who and why but not when, and "held since 14:20" is what a coordinator
+triaging a queue wants. Carried to `todo.md` L8.
+
+## 4. Consumed by logic, shown to nobody
+
+| Field | What consumes it |
+|---|---|
+| `sourceRestaurantReadyTime` | `resolveOriginalPickupTime` — wins outright when sent (D4) |
+| `restaurantMinDeliveryTime` | `resolveTravelMinutes` — the larger of the two wins |
+| `deliveryTeamMinDeliveryTime` | ” |
+
+**The sharpest finding left.** These three decide what pickup time an order
+gets, and nothing tells a human they exist. The ingestion log line
+`"Computed original pickup time"` carries `pickupBasis` and `travelMinutes`, so
+the reasoning is recoverable — from server logs, by someone with server log
+access. A coordinator asking "why does this say 18:10?" cannot get there.
+
+It is the same instinct as §3 turned on our own arithmetic rather than the
+source's: keep the inputs available to whoever has to explain the output.
+Folded into the open pin **audit every computed time**
+(`workflow-decisions.md`), which is where it will be acted on.
+
+## 5. Reaching exactly one screen
+
+| Field | Only appearance |
+|---|---|
+| `customerEmail` | Coordinator order detail |
+| `statiegeldTotal` | Receipt |
+| `administrationCosts` | Receipt |
+| `sourceCreatedAt` | Receipt |
+
+**Keep. No action** — noted only so that if that one screen changes, someone
+knows these lose their only home. The last three landed on the receipt when
+D10 was built.
 
 ---
 
-## D. The one real gap
-
-**A13 `heldAt`**
-
-Serialized and rendered nowhere. Unlike §C this is ours, not the source's — it
-records when *we* placed a hold, so the auditability argument does not reach
-it; there is no upstream system to avoid having to ask.
-
-The hold panel already shows who held an order and why. "Held since 14:20" is
-the sort of thing a coordinator triaging a queue wants, and it is a one-line
-addition whenever someone is next in that file.
-
----
-
-## E. Invisible — consumed by logic, never shown to anyone
-
-Three. These do real work, but nothing tells a human they exist, so when a
-computed time looks wrong there is no way to see why from the UI.
-
-| # | Field | What consumes it |
-|---|---|---|
-| E1 | `sourceRestaurantReadyTime` | `resolveOriginalPickupTime` — wins outright when sent (D4) |
-| E2 | `restaurantMinDeliveryTime` | `resolveTravelMinutes` — the larger of the two wins |
-| E3 | `deliveryTeamMinDeliveryTime` | ” |
-
-The ingestion log line `"Computed original pickup time"` carries `pickupBasis`
-and `travelMinutes`, so the information is recoverable — from the server logs,
-by someone with server log access. A coordinator asking "why does this say
-18:10?" cannot get there.
-
-This is the sharpest item left in the audit, and it is the same instinct as §C
-pointed at our own calculations rather than the source's: the inputs should be
-visible next to the output. It connects directly to the parked pin, **audit
-every computed time**.
-
----
-
-## F. Thin — reaching exactly one screen
-
-Four. Not problems; noted so that if that one screen changes, someone knows
-these lose their only home.
-
-| # | Field | Only appearance |
-|---|---|---|
-| F1 | `customerEmail` | Coordinator order detail |
-| F2 | `statiegeldTotal` | Receipt |
-| F3 | `administrationCosts` | Receipt |
-| F4 | `sourceCreatedAt` | Receipt |
-
-F2–F4 landed on the receipt when D10 was built.
-
----
-
-## What is *not* on this list
+## Also established
 
 - **Nothing is dropped at ingestion.** Every field in `InboundOrderPayload`
-  maps to a stored column. Whatever the source sends, we keep — which §C turns
+  maps to a stored column. Whatever the source sends, we keep — which §3 turns
   from an accident into the point.
-- **`items[].externalId` and `items[].totalPrice`** were unread until the
-  receipt (D10) started rendering them.
-- **`kitchenNotes` and `failureReason`** were unread and are now shown — the
-  first on the restaurant card, the second on the coordinator detail (B3).
-- **`updatedAt`** is housekeeping, not payload data.
-
----
-
-## The lesson worth keeping
-
-Grep proves a field is unread. It cannot prove a field is pointless, and this
-document asserted the second while having measured only the first — twice over,
-counting the lat/long claim, which asserted something it had not measured at
-all.
-
-Both mistakes have the same shape as the one already recorded against
-`requestedDeliveryTime` and `cashPayment`: a plausible reading of a field,
-stated as fact, with a recommendation built on top of it. The fix is the same
-one D11 applies — when a field's purpose is not visible in the code, ask what
-it is for before concluding it has none.
+- `items[].externalId` and `items[].totalPrice` were unread until the receipt
+  (D10) started rendering them.
+- `kitchenNotes` (restaurant card, receipt) and `failureReason` (rider and
+  coordinator screens, B3) were unread and are now shown.
+- `updatedAt` is housekeeping, not payload data.
+- Nothing in this audit warrants dropping a column.
