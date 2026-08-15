@@ -370,12 +370,16 @@
     "toast": "Bestelling bevestigd"
   },
   "payment": {
-    "cash": "Contant",
-    "collect": "Innen aan de deur",
-    "prepaid": "Al betaald — niets innen",
+    "title": "Betaling",
+    "prepaid": "Online betaald — niets innen",
+    "kind_cash": "Contant",
+    "kind_tikkie": "Tikkie",
+    "kind_qr": "QR",
+    "action_cash": "Contant innen",
+    "action_tikkie": "Tikkie sturen",
+    "action_qr": "QR-code tonen",
     "changeNeeded": "Wisselgeld meenemen:",
     "method": "Betaling: {{method}}",
-    "type": "Soort: {{type}}",
-    "title": "Betaling"
+    "type": "Soort: {{type}}"
   }
 }

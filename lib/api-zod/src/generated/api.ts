@@ -128,7 +128,12 @@ export const IngestOrderBody = zod.object({
   paymentMethod: zod.string(),
   cashPayment: zod
     .object({
-      type: zod.string().nullish().describe("exact | custom | tikkie | qr"),
+      type: zod
+        .string()
+        .nullish()
+        .describe(
+          "`exact` — physical cash, customer has it exactly.\n`custom` — physical cash, customer pays with more, change needed.\n`tikkie` — payment request, nothing physical changes hands.\n`qr` — scan to pay, nothing physical changes hands.\n",
+        ),
       changeAmount: zod.string().nullish(),
       changeRequired: zod.string().nullish(),
       label: zod
@@ -138,7 +143,7 @@ export const IngestOrderBody = zod.object({
     })
     .nullish()
     .describe(
-      "Present when paymentMethod indicates cash. All fields raw captures from the source.",
+      "Present when the order is NOT paid online — i.e. payment happens on\ndelivery. Despite the name this is not always cash: `type` says which\non-delivery method applies. Only `exact` and `custom` involve physical\nmoney, so change is meaningless for `tikkie` and `qr`. All fields are\nraw captures from the source.\n",
     ),
   kitchenNotes: zod.string().nullish(),
   deliveryInstructions: zod.string().nullish(),

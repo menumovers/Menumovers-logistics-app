@@ -370,12 +370,16 @@
     "toast": "Order confirmed"
   },
   "payment": {
-    "cash": "Cash",
-    "collect": "Collect at the door",
-    "prepaid": "Already paid — collect nothing",
+    "title": "Payment",
+    "prepaid": "Paid online — collect nothing",
+    "kind_cash": "Cash",
+    "kind_tikkie": "Tikkie",
+    "kind_qr": "QR",
+    "action_cash": "Collect cash",
+    "action_tikkie": "Send a Tikkie",
+    "action_qr": "Show the QR code",
     "changeNeeded": "Bring change:",
     "method": "Payment: {{method}}",
-    "type": "Type: {{type}}",
-    "title": "Payment"
+    "type": "Type: {{type}}"
   }
 }

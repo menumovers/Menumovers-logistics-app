@@ -318,12 +318,21 @@ export type InboundOrderPayloadCustomer = {
 };
 
 /**
- * Present when paymentMethod indicates cash. All fields raw captures from the source.
+ * Present when the order is NOT paid online — i.e. payment happens on
+delivery. Despite the name this is not always cash: `type` says which
+on-delivery method applies. Only `exact` and `custom` involve physical
+money, so change is meaningless for `tikkie` and `qr`. All fields are
+raw captures from the source.
+
  * @nullable
  */
 export type InboundOrderPayloadCashPayment = {
   /**
-   * exact | custom | tikkie | qr
+   * `exact` — physical cash, customer has it exactly.
+`custom` — physical cash, customer pays with more, change needed.
+`tikkie` — payment request, nothing physical changes hands.
+`qr` — scan to pay, nothing physical changes hands.
+
    * @nullable
    */
   type?: string | null;
@@ -357,7 +366,12 @@ see the endpoint description.
   deliveryMethod: DeliveryMethod;
   paymentMethod: string;
   /**
-   * Present when paymentMethod indicates cash. All fields raw captures from the source.
+   * Present when the order is NOT paid online — i.e. payment happens on
+delivery. Despite the name this is not always cash: `type` says which
+on-delivery method applies. Only `exact` and `custom` involve physical
+money, so change is meaningless for `tikkie` and `qr`. All fields are
+raw captures from the source.
+
    * @nullable
    */
   cashPayment?: InboundOrderPayloadCashPayment;
