@@ -1,5 +1,37 @@
 # Changelog
 
+## 2026-08-14 — Order status is a report, not a gate
+
+Reverses a founding decision. The order state machine enforced a strictly
+linear transition table and returned `422 INVALID_TRANSITION` on any deviation,
+which `replit.md` §1 described as "strict server-validated state transitions".
+
+That was actively blocking riders: one who forgot to tap "en route to
+restaurant", arrived, and tapped "picked up" was refused while standing outside
+the restaurant, with no way to express the skip — the rider UI only ever
+rendered the single next step.
+
+Status is now an observation reported by whoever is present. Skipping ahead and
+correcting a mis-tap are both accepted, and the audit trail records the jump
+that actually happened rather than inventing the steps in between. Three
+invariants survive, because each is about data consistency rather than workflow
+order: `pending` and `driver_assigned` stay coupled to `riderId` and are written
+only by `/assign`; `delivered` and `failed` remain terminal, with the
+intentional `delivered → failed` exception; and a transition must move the
+order, which the route's atomic guard depends on.
+
+The transition table is gone — the rules are short enough to express directly,
+and `nextStatusesFor()` derives the reportable set from them. That set is
+serialized onto every order as `allowedTransitions`, which removed the two
+hand-maintained client copies that had drifted from the server and from each
+other (`todo-bugs.md` B6). The rider keeps a one-tap primary button for the
+expected next step — presentation, not validity — and can report any other
+accepted status from a secondary list.
+
+Documentation updated in step: `replit.md` §1, `architecture-full-technical.md`,
+and the SSOT registry, which now carries an explicit "do not keep a transition
+table in a client". Rationale in `docs/workflow-decisions.md` D1.
+
 ## 2026-08-14 — Inbound restaurant lookup switched from external-ID table to nameCode
 
 Replaced the `restaurant_external_ids` indirection table with a direct `restaurants.nameCode` lookup. The inbound payload field is now `restaurantNameCode` (optional string) instead of `externalRestaurantId` (required string). If the field is absent or doesn't match any restaurant, the order is parked exactly as before. The `restaurant_external_ids` table was confirmed empty and dropped from the live database; its Drizzle schema file was removed. Matches the approach used by MenuMovers on Babeldish.

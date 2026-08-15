@@ -15,7 +15,10 @@ that is a signal to raise it with the owner, not to quietly work around it.
 
 ## D1. Statuses are reports, not gates
 
-**Decided 2026-08-14. Not yet built — reverses current behavior.**
+**Decided 2026-08-14. Built 2026-08-14** — `lib/state-machine.ts` rewritten,
+`allowedTransitions` serialized onto every order, both client transition tables
+deleted. Docs updated and a changelog entry added, per the Working Agreement.
+No schema change.
 
 Order statuses are observations reported by whoever is present: the rider or
 the restaurant saying where things stand. A missing report is missing

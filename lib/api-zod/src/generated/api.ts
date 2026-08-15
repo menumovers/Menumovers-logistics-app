@@ -256,6 +256,22 @@ export const IngestOrderResponse = zod.object({
     .optional(),
   pendingRiderNotification: zod.string().nullish(),
   failureReason: zod.string().nullish(),
+  allowedTransitions: zod
+    .array(
+      zod.enum([
+        "pending",
+        "driver_assigned",
+        "en_route_to_restaurant",
+        "picked_up",
+        "en_route_to_customer",
+        "delivered",
+        "failed",
+        "postponed",
+      ]),
+    )
+    .describe(
+      "Statuses reportable from the order's current one, derived server-side from\nthe state machine. Status is a report rather than a gate: skipping ahead\nand correcting a mis-tap are both accepted. `pending` and `driver_assigned`\nnever appear — they are coupled to `riderId` and written by\n`POST \/orders\/{id}\/assign`. Clients should render these rather than keep\ntheir own transition table.\n",
+    ),
   restaurantAcceptedAt: zod.coerce
     .date()
     .nullish()
@@ -399,6 +415,22 @@ export const ListOrdersResponseItem = zod
       .optional(),
     pendingRiderNotification: zod.string().nullish(),
     failureReason: zod.string().nullish(),
+    allowedTransitions: zod
+      .array(
+        zod.enum([
+          "pending",
+          "driver_assigned",
+          "en_route_to_restaurant",
+          "picked_up",
+          "en_route_to_customer",
+          "delivered",
+          "failed",
+          "postponed",
+        ]),
+      )
+      .describe(
+        "Statuses reportable from the order's current one, derived server-side from\nthe state machine. Status is a report rather than a gate: skipping ahead\nand correcting a mis-tap are both accepted. `pending` and `driver_assigned`\nnever appear — they are coupled to `riderId` and written by\n`POST \/orders\/{id}\/assign`. Clients should render these rather than keep\ntheir own transition table.\n",
+      ),
     restaurantAcceptedAt: zod.coerce
       .date()
       .nullish()
@@ -537,6 +569,22 @@ export const GetOrderResponse = zod
       .optional(),
     pendingRiderNotification: zod.string().nullish(),
     failureReason: zod.string().nullish(),
+    allowedTransitions: zod
+      .array(
+        zod.enum([
+          "pending",
+          "driver_assigned",
+          "en_route_to_restaurant",
+          "picked_up",
+          "en_route_to_customer",
+          "delivered",
+          "failed",
+          "postponed",
+        ]),
+      )
+      .describe(
+        "Statuses reportable from the order's current one, derived server-side from\nthe state machine. Status is a report rather than a gate: skipping ahead\nand correcting a mis-tap are both accepted. `pending` and `driver_assigned`\nnever appear — they are coupled to `riderId` and written by\n`POST \/orders\/{id}\/assign`. Clients should render these rather than keep\ntheir own transition table.\n",
+      ),
     restaurantAcceptedAt: zod.coerce
       .date()
       .nullish()
@@ -759,6 +807,22 @@ export const TransitionOrderStatusResponse = zod
       .optional(),
     pendingRiderNotification: zod.string().nullish(),
     failureReason: zod.string().nullish(),
+    allowedTransitions: zod
+      .array(
+        zod.enum([
+          "pending",
+          "driver_assigned",
+          "en_route_to_restaurant",
+          "picked_up",
+          "en_route_to_customer",
+          "delivered",
+          "failed",
+          "postponed",
+        ]),
+      )
+      .describe(
+        "Statuses reportable from the order's current one, derived server-side from\nthe state machine. Status is a report rather than a gate: skipping ahead\nand correcting a mis-tap are both accepted. `pending` and `driver_assigned`\nnever appear — they are coupled to `riderId` and written by\n`POST \/orders\/{id}\/assign`. Clients should render these rather than keep\ntheir own transition table.\n",
+      ),
     restaurantAcceptedAt: zod.coerce
       .date()
       .nullish()
@@ -970,6 +1034,22 @@ export const AssignOrderResponse = zod
       .optional(),
     pendingRiderNotification: zod.string().nullish(),
     failureReason: zod.string().nullish(),
+    allowedTransitions: zod
+      .array(
+        zod.enum([
+          "pending",
+          "driver_assigned",
+          "en_route_to_restaurant",
+          "picked_up",
+          "en_route_to_customer",
+          "delivered",
+          "failed",
+          "postponed",
+        ]),
+      )
+      .describe(
+        "Statuses reportable from the order's current one, derived server-side from\nthe state machine. Status is a report rather than a gate: skipping ahead\nand correcting a mis-tap are both accepted. `pending` and `driver_assigned`\nnever appear — they are coupled to `riderId` and written by\n`POST \/orders\/{id}\/assign`. Clients should render these rather than keep\ntheir own transition table.\n",
+      ),
     restaurantAcceptedAt: zod.coerce
       .date()
       .nullish()
@@ -1182,6 +1262,22 @@ export const UpdatePickupTimeResponse = zod
       .optional(),
     pendingRiderNotification: zod.string().nullish(),
     failureReason: zod.string().nullish(),
+    allowedTransitions: zod
+      .array(
+        zod.enum([
+          "pending",
+          "driver_assigned",
+          "en_route_to_restaurant",
+          "picked_up",
+          "en_route_to_customer",
+          "delivered",
+          "failed",
+          "postponed",
+        ]),
+      )
+      .describe(
+        "Statuses reportable from the order's current one, derived server-side from\nthe state machine. Status is a report rather than a gate: skipping ahead\nand correcting a mis-tap are both accepted. `pending` and `driver_assigned`\nnever appear — they are coupled to `riderId` and written by\n`POST \/orders\/{id}\/assign`. Clients should render these rather than keep\ntheir own transition table.\n",
+      ),
     restaurantAcceptedAt: zod.coerce
       .date()
       .nullish()
@@ -1393,6 +1489,22 @@ export const HideOrderItemResponse = zod
       .optional(),
     pendingRiderNotification: zod.string().nullish(),
     failureReason: zod.string().nullish(),
+    allowedTransitions: zod
+      .array(
+        zod.enum([
+          "pending",
+          "driver_assigned",
+          "en_route_to_restaurant",
+          "picked_up",
+          "en_route_to_customer",
+          "delivered",
+          "failed",
+          "postponed",
+        ]),
+      )
+      .describe(
+        "Statuses reportable from the order's current one, derived server-side from\nthe state machine. Status is a report rather than a gate: skipping ahead\nand correcting a mis-tap are both accepted. `pending` and `driver_assigned`\nnever appear — they are coupled to `riderId` and written by\n`POST \/orders\/{id}\/assign`. Clients should render these rather than keep\ntheir own transition table.\n",
+      ),
     restaurantAcceptedAt: zod.coerce
       .date()
       .nullish()
@@ -1619,6 +1731,22 @@ export const AddOrderItemResponse = zod
       .optional(),
     pendingRiderNotification: zod.string().nullish(),
     failureReason: zod.string().nullish(),
+    allowedTransitions: zod
+      .array(
+        zod.enum([
+          "pending",
+          "driver_assigned",
+          "en_route_to_restaurant",
+          "picked_up",
+          "en_route_to_customer",
+          "delivered",
+          "failed",
+          "postponed",
+        ]),
+      )
+      .describe(
+        "Statuses reportable from the order's current one, derived server-side from\nthe state machine. Status is a report rather than a gate: skipping ahead\nand correcting a mis-tap are both accepted. `pending` and `driver_assigned`\nnever appear — they are coupled to `riderId` and written by\n`POST \/orders\/{id}\/assign`. Clients should render these rather than keep\ntheir own transition table.\n",
+      ),
     restaurantAcceptedAt: zod.coerce
       .date()
       .nullish()
@@ -1830,6 +1958,22 @@ export const SetRiderNotificationResponse = zod
       .optional(),
     pendingRiderNotification: zod.string().nullish(),
     failureReason: zod.string().nullish(),
+    allowedTransitions: zod
+      .array(
+        zod.enum([
+          "pending",
+          "driver_assigned",
+          "en_route_to_restaurant",
+          "picked_up",
+          "en_route_to_customer",
+          "delivered",
+          "failed",
+          "postponed",
+        ]),
+      )
+      .describe(
+        "Statuses reportable from the order's current one, derived server-side from\nthe state machine. Status is a report rather than a gate: skipping ahead\nand correcting a mis-tap are both accepted. `pending` and `driver_assigned`\nnever appear — they are coupled to `riderId` and written by\n`POST \/orders\/{id}\/assign`. Clients should render these rather than keep\ntheir own transition table.\n",
+      ),
     restaurantAcceptedAt: zod.coerce
       .date()
       .nullish()
@@ -2045,6 +2189,22 @@ export const UpdateOrderContactResponse = zod
       .optional(),
     pendingRiderNotification: zod.string().nullish(),
     failureReason: zod.string().nullish(),
+    allowedTransitions: zod
+      .array(
+        zod.enum([
+          "pending",
+          "driver_assigned",
+          "en_route_to_restaurant",
+          "picked_up",
+          "en_route_to_customer",
+          "delivered",
+          "failed",
+          "postponed",
+        ]),
+      )
+      .describe(
+        "Statuses reportable from the order's current one, derived server-side from\nthe state machine. Status is a report rather than a gate: skipping ahead\nand correcting a mis-tap are both accepted. `pending` and `driver_assigned`\nnever appear — they are coupled to `riderId` and written by\n`POST \/orders\/{id}\/assign`. Clients should render these rather than keep\ntheir own transition table.\n",
+      ),
     restaurantAcceptedAt: zod.coerce
       .date()
       .nullish()
@@ -2270,6 +2430,22 @@ export const AcknowledgeOrderResponse = zod
       .optional(),
     pendingRiderNotification: zod.string().nullish(),
     failureReason: zod.string().nullish(),
+    allowedTransitions: zod
+      .array(
+        zod.enum([
+          "pending",
+          "driver_assigned",
+          "en_route_to_restaurant",
+          "picked_up",
+          "en_route_to_customer",
+          "delivered",
+          "failed",
+          "postponed",
+        ]),
+      )
+      .describe(
+        "Statuses reportable from the order's current one, derived server-side from\nthe state machine. Status is a report rather than a gate: skipping ahead\nand correcting a mis-tap are both accepted. `pending` and `driver_assigned`\nnever appear — they are coupled to `riderId` and written by\n`POST \/orders\/{id}\/assign`. Clients should render these rather than keep\ntheir own transition table.\n",
+      ),
     restaurantAcceptedAt: zod.coerce
       .date()
       .nullish()
@@ -2485,6 +2661,22 @@ export const HoldOrderResponse = zod
       .optional(),
     pendingRiderNotification: zod.string().nullish(),
     failureReason: zod.string().nullish(),
+    allowedTransitions: zod
+      .array(
+        zod.enum([
+          "pending",
+          "driver_assigned",
+          "en_route_to_restaurant",
+          "picked_up",
+          "en_route_to_customer",
+          "delivered",
+          "failed",
+          "postponed",
+        ]),
+      )
+      .describe(
+        "Statuses reportable from the order's current one, derived server-side from\nthe state machine. Status is a report rather than a gate: skipping ahead\nand correcting a mis-tap are both accepted. `pending` and `driver_assigned`\nnever appear — they are coupled to `riderId` and written by\n`POST \/orders\/{id}\/assign`. Clients should render these rather than keep\ntheir own transition table.\n",
+      ),
     restaurantAcceptedAt: zod.coerce
       .date()
       .nullish()
@@ -2692,6 +2884,22 @@ export const ReleaseOrderResponse = zod
       .optional(),
     pendingRiderNotification: zod.string().nullish(),
     failureReason: zod.string().nullish(),
+    allowedTransitions: zod
+      .array(
+        zod.enum([
+          "pending",
+          "driver_assigned",
+          "en_route_to_restaurant",
+          "picked_up",
+          "en_route_to_customer",
+          "delivered",
+          "failed",
+          "postponed",
+        ]),
+      )
+      .describe(
+        "Statuses reportable from the order's current one, derived server-side from\nthe state machine. Status is a report rather than a gate: skipping ahead\nand correcting a mis-tap are both accepted. `pending` and `driver_assigned`\nnever appear — they are coupled to `riderId` and written by\n`POST \/orders\/{id}\/assign`. Clients should render these rather than keep\ntheir own transition table.\n",
+      ),
     restaurantAcceptedAt: zod.coerce
       .date()
       .nullish()
@@ -2907,6 +3115,22 @@ export const SetOrderRestaurantResponse = zod
       .optional(),
     pendingRiderNotification: zod.string().nullish(),
     failureReason: zod.string().nullish(),
+    allowedTransitions: zod
+      .array(
+        zod.enum([
+          "pending",
+          "driver_assigned",
+          "en_route_to_restaurant",
+          "picked_up",
+          "en_route_to_customer",
+          "delivered",
+          "failed",
+          "postponed",
+        ]),
+      )
+      .describe(
+        "Statuses reportable from the order's current one, derived server-side from\nthe state machine. Status is a report rather than a gate: skipping ahead\nand correcting a mis-tap are both accepted. `pending` and `driver_assigned`\nnever appear — they are coupled to `riderId` and written by\n`POST \/orders\/{id}\/assign`. Clients should render these rather than keep\ntheir own transition table.\n",
+      ),
     restaurantAcceptedAt: zod.coerce
       .date()
       .nullish()
@@ -3459,6 +3683,22 @@ export const GetTripResponse = zod
               .optional(),
             pendingRiderNotification: zod.string().nullish(),
             failureReason: zod.string().nullish(),
+            allowedTransitions: zod
+              .array(
+                zod.enum([
+                  "pending",
+                  "driver_assigned",
+                  "en_route_to_restaurant",
+                  "picked_up",
+                  "en_route_to_customer",
+                  "delivered",
+                  "failed",
+                  "postponed",
+                ]),
+              )
+              .describe(
+                "Statuses reportable from the order's current one, derived server-side from\nthe state machine. Status is a report rather than a gate: skipping ahead\nand correcting a mis-tap are both accepted. `pending` and `driver_assigned`\nnever appear — they are coupled to `riderId` and written by\n`POST \/orders\/{id}\/assign`. Clients should render these rather than keep\ntheir own transition table.\n",
+              ),
             restaurantAcceptedAt: zod.coerce
               .date()
               .nullish()
@@ -3659,6 +3899,22 @@ export const UpdateTripResponse = zod
               .optional(),
             pendingRiderNotification: zod.string().nullish(),
             failureReason: zod.string().nullish(),
+            allowedTransitions: zod
+              .array(
+                zod.enum([
+                  "pending",
+                  "driver_assigned",
+                  "en_route_to_restaurant",
+                  "picked_up",
+                  "en_route_to_customer",
+                  "delivered",
+                  "failed",
+                  "postponed",
+                ]),
+              )
+              .describe(
+                "Statuses reportable from the order's current one, derived server-side from\nthe state machine. Status is a report rather than a gate: skipping ahead\nand correcting a mis-tap are both accepted. `pending` and `driver_assigned`\nnever appear — they are coupled to `riderId` and written by\n`POST \/orders\/{id}\/assign`. Clients should render these rather than keep\ntheir own transition table.\n",
+              ),
             restaurantAcceptedAt: zod.coerce
               .date()
               .nullish()
@@ -3859,6 +4115,22 @@ export const ReplaceTripStopsResponse = zod
               .optional(),
             pendingRiderNotification: zod.string().nullish(),
             failureReason: zod.string().nullish(),
+            allowedTransitions: zod
+              .array(
+                zod.enum([
+                  "pending",
+                  "driver_assigned",
+                  "en_route_to_restaurant",
+                  "picked_up",
+                  "en_route_to_customer",
+                  "delivered",
+                  "failed",
+                  "postponed",
+                ]),
+              )
+              .describe(
+                "Statuses reportable from the order's current one, derived server-side from\nthe state machine. Status is a report rather than a gate: skipping ahead\nand correcting a mis-tap are both accepted. `pending` and `driver_assigned`\nnever appear — they are coupled to `riderId` and written by\n`POST \/orders\/{id}\/assign`. Clients should render these rather than keep\ntheir own transition table.\n",
+              ),
             restaurantAcceptedAt: zod.coerce
               .date()
               .nullish()
@@ -4048,6 +4320,22 @@ export const DissolveTripResponse = zod
               .optional(),
             pendingRiderNotification: zod.string().nullish(),
             failureReason: zod.string().nullish(),
+            allowedTransitions: zod
+              .array(
+                zod.enum([
+                  "pending",
+                  "driver_assigned",
+                  "en_route_to_restaurant",
+                  "picked_up",
+                  "en_route_to_customer",
+                  "delivered",
+                  "failed",
+                  "postponed",
+                ]),
+              )
+              .describe(
+                "Statuses reportable from the order's current one, derived server-side from\nthe state machine. Status is a report rather than a gate: skipping ahead\nand correcting a mis-tap are both accepted. `pending` and `driver_assigned`\nnever appear — they are coupled to `riderId` and written by\n`POST \/orders\/{id}\/assign`. Clients should render these rather than keep\ntheir own transition table.\n",
+              ),
             restaurantAcceptedAt: zod.coerce
               .date()
               .nullish()

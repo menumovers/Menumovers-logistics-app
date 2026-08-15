@@ -192,7 +192,8 @@
     "claim": "Aanmelden voor deze rit",
     "claimPending": "Bezig...",
     "claimDisabled": "Wacht op toewijzing door coördinator",
-    "claimUnavailable": "Vraag de coördinator om je toe te wijzen"
+    "claimUnavailable": "Vraag de coördinator om je toe te wijzen",
+    "otherStep": "Andere stap doorgeven"
   },
   "restaurant": {
     "title": "Restaurantweergave",

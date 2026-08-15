@@ -1342,6 +1342,7 @@ components:
         - requestedDeliveryTime
         - deliveryTimeType
         - effectivePickupTime
+        - allowedTransitions
         - createdAt
       properties:
         id:
@@ -1467,6 +1468,17 @@ components:
           type: ["string", "null"]
         failureReason:
           type: ["string", "null"]
+        allowedTransitions:
+          type: array
+          items:
+            $ref: "#/components/schemas/OrderStatus"
+          description: |
+            Statuses reportable from the order's current one, derived server-side from
+            the state machine. Status is a report rather than a gate: skipping ahead
+            and correcting a mis-tap are both accepted. `pending` and `driver_assigned`
+            never appear — they are coupled to `riderId` and written by
+            `POST /orders/{id}/assign`. Clients should render these rather than keep
+            their own transition table.
         restaurantAcceptedAt:
           type: ["string", "null"]
           format: date-time

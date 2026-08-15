@@ -14,6 +14,7 @@ import {
   type OrderStatusLog,
 } from "@workspace/db";
 import { resolveEffectivePickupTime } from "./pickup-time";
+import { nextStatusesFor } from "./state-machine";
 
 type Numeric = string;
 
@@ -144,6 +145,9 @@ function baseOrderFields(
     effectivePickupSource: eff.effectivePickupSource,
     pendingRiderNotification: order.pendingRiderNotification,
     failureReason: order.failureReason,
+    // Derived from the state machine, so the UI renders the options the server
+    // will actually accept rather than a hand-maintained copy. See B6.
+    allowedTransitions: nextStatusesFor(order.status),
     restaurantAcceptedAt: order.restaurantAcceptedAt,
     restaurantAcceptedByName,
     holdState: order.holdState,

@@ -54,11 +54,11 @@ The structure for each entry: **Name**, **Location**, **What it does**, **Formul
 - **Do not**: duplicate the color/label table in another component.
 
 ### Order status state machine
-- **Location**: `artifacts/api-server/src/lib/state-machine.ts` → `isValidTransition`, `assertValidTransition`
-- **What it does**: The authoritative legal-transition graph for `OrderStatus`.
-- **Logic**: Pipeline transitions are `pending → driver_assigned → en_route_to_restaurant → picked_up → en_route_to_customer → delivered`. `postponed` is reachable from `en_route_to_restaurant` and `en_route_to_customer` (postpone is en-route only) and resumes back to either `en_route_to_restaurant` or `en_route_to_customer` (rider chooses). `failed` is reachable from any non-failed state including `postponed`. No same-state transitions. No transitions out of terminal states.
-- **Callers**: `routes/orders.ts` on every status-changing endpoint; `routes/trips.ts` for trip-driven postpone/resume.
-- **Do not**: implement a parallel "can the rider do X here" check in the frontend. The frontend may hide buttons, but the server is the only authority.
+- **Location**: `artifacts/api-server/src/lib/state-machine.ts` → `isValidTransition`, `assertValidTransition`, `nextStatusesFor`, `isTerminal`
+- **What it does**: The authority on which status reports are accepted for an order, and the source of the `allowedTransitions` array on every serialized order.
+- **Logic**: Status is a report, not a gate — any transition is accepted except where an invariant forbids it. (1) `pending` and `driver_assigned` are never settable here; both are coupled to `riderId` and written together by `POST /orders/:id/assign`. (2) `delivered` and `failed` are terminal; only `delivered → failed` leaves, which is intentional. (3) No same-state transitions — the route's atomic guard depends on the status moving. Skipping ahead and correcting backwards are both accepted; the status log records the jump that actually happened. See `docs/workflow-decisions.md` D1.
+- **Callers**: `routes/orders.ts` on every status-changing endpoint; `routes/trips.ts` for trip-driven postpone/resume; `lib/order-serialize.ts` for `allowedTransitions`.
+- **Do not**: keep a transition table in a client. Both the coordinator and rider pages previously did, and drifted from the server and from each other (`docs/todo-bugs.md` B6) — render `order.allowedTransitions` instead. A client-side ordering of the *expected* path, such as the rider's primary next-step button, is presentation and is fine; validity is not. Do not implement a parallel "can this role do X here" check in the frontend either: the frontend may hide buttons, but the server is the only authority.
 
 ### Trip bundling and bundled pickup time
 - **Location**: schema in `lib/db/src/schema/trips.ts` (`tripsTable`, `tripStopsTable`, `orders.tripId` FK); writes in `artifacts/api-server/src/routes/trips.ts`; bundled pickup computed in `artifacts/api-server/src/lib/order-serialize.ts`.

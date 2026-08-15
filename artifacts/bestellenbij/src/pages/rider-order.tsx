@@ -27,17 +27,19 @@ import { ArrowLeft, Phone, MapPin, Bell, BellOff, Store, ChevronRight, Clock, La
 import { useToast } from "@/hooks/use-toast";
 import { effectivePickup, formatCurrency } from "@/lib/format";
 
-const NEXT: Partial<Record<OrderStatusType, OrderStatusType>> = {
+/**
+ * The expected order of events, used purely to pick which button is the big
+ * one. This is presentation, not validity — the server decides what is
+ * acceptable and sends it as `allowedTransitions`. A rider who is further along
+ * than the app thinks can report any of the others from "Report a different
+ * step" below. See docs/workflow-decisions.md D1.
+ */
+const HAPPY_PATH: Partial<Record<OrderStatusType, OrderStatusType>> = {
   driver_assigned: "en_route_to_restaurant",
   en_route_to_restaurant: "picked_up",
   picked_up: "en_route_to_customer",
   en_route_to_customer: "delivered",
 };
-
-const CAN_POSTPONE: OrderStatusType[] = [
-  "en_route_to_restaurant",
-  "en_route_to_customer",
-];
 
 export default function RiderOrderPage() {
   const { id } = useParams();
@@ -59,7 +61,14 @@ export default function RiderOrderPage() {
     return <div className="grid place-items-center py-20"><Spinner className="size-6 text-primary" /></div>;
   }
   const o = order.data;
-  const next = NEXT[o.status];
+  const allowed = o.allowedTransitions;
+  const happyNext = HAPPY_PATH[o.status];
+  // The primary button only appears when the expected next step is genuinely
+  // acceptable; everything else acceptable goes in the secondary list.
+  const next = happyNext && allowed.includes(happyNext) ? happyNext : undefined;
+  const otherSteps = allowed.filter(
+    (s) => s !== next && s !== "failed" && s !== "postponed",
+  );
 
   function invalidate() {
     qc.invalidateQueries({ queryKey: getGetOrderQueryKey(orderId) });
@@ -142,43 +151,6 @@ export default function RiderOrderPage() {
         </CardContent>
       </Card>
 
-      {o.status === "postponed" ? (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">{t("postpone.resume")}</CardTitle>
-          </CardHeader>
-          <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            <Button
-              size="lg"
-              disabled={transition.isPending}
-              onClick={() =>
-                transition.mutate(
-                  { id: o.id, data: { toStatus: "en_route_to_restaurant" } },
-                  { onSuccess: () => { toast({ title: t("orderStatus.en_route_to_restaurant") }); invalidate(); } },
-                )
-              }
-              data-testid="button-rider-resume-restaurant"
-            >
-              {t("orderStatus.en_route_to_restaurant")}
-            </Button>
-            <Button
-              size="lg"
-              variant="secondary"
-              disabled={transition.isPending}
-              onClick={() =>
-                transition.mutate(
-                  { id: o.id, data: { toStatus: "en_route_to_customer" } },
-                  { onSuccess: () => { toast({ title: t("orderStatus.en_route_to_customer") }); invalidate(); } },
-                )
-              }
-              data-testid="button-rider-resume-customer"
-            >
-              {t("orderStatus.en_route_to_customer")}
-            </Button>
-          </CardContent>
-        </Card>
-      ) : null}
-
       {next ? (
         <Button
           size="lg"
@@ -196,7 +168,35 @@ export default function RiderOrderPage() {
         </Button>
       ) : null}
 
-      {CAN_POSTPONE.includes(o.status) ? (
+      {otherSteps.length > 0 ? (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm text-muted-foreground font-medium">
+              {t("rider.otherStep")}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {otherSteps.map((s) => (
+              <Button
+                key={s}
+                variant="outline"
+                disabled={transition.isPending}
+                onClick={() =>
+                  transition.mutate(
+                    { id: o.id, data: { toStatus: s } },
+                    { onSuccess: () => { toast({ title: t(`orderStatus.${s}`) }); invalidate(); } },
+                  )
+                }
+                data-testid={`button-rider-report-${s}`}
+              >
+                {t(`orderStatus.${s}`)}
+              </Button>
+            ))}
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {allowed.includes("postponed") ? (
         <Card>
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">

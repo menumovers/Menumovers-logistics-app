@@ -29,7 +29,7 @@ The business language is Dutch (`nl-NL`); English is supported as a secondary lo
 What the system does:
 
 - Ingests orders from the distribution service (idempotent, shared-secret).
-- Drives every order through a strict status lifecycle: `pending → driver_assigned → en_route_to_restaurant → picked_up → en_route_to_customer → delivered`, with `postponed` as a temporary parking state reachable from `en_route_to_restaurant` or `en_route_to_customer` (resumable to either restaurant or customer leg) and `failed` reachable from any non-terminal state.
+- Tracks every order through a reported status lifecycle. The expected order of events is `pending → driver_assigned → en_route_to_restaurant → picked_up → en_route_to_customer → delivered`, but status is a *report* of where things stand rather than a gate: skipping ahead and correcting a mis-tap are both accepted, and the audit trail records the jump that actually happened. Three invariants remain — `pending` and `driver_assigned` are coupled to `riderId` and written only by `POST /orders/:id/assign`; `delivered` and `failed` are terminal (only `delivered → failed` leaves); and a transition must actually move the order. See `docs/workflow-decisions.md` D1.
 - Lets coordinators bundle multiple orders into a `Trip` so one rider executes them as a single pickup pass; restaurants see a unified bundled pickup time per trip.
 - Lets coordinators and admins assign riders atomically, override pickup times, override delivery contact info, and add or hide items per order.
 - Lets riders self-claim unassigned orders, propose a pickup time, and advance status from their device.

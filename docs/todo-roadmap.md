@@ -10,7 +10,7 @@ The current build covers order ingestion, the status state machine, atomic rider
 
 ### 1. Automated test suite
 The platform currently has no automated tests. At minimum we want:
-- Unit tests for the order status transition state machine (every legal transition + every illegal one rejected).
+- Unit tests for the order status state machine: the three invariants (riderId-coupled statuses unreachable, terminals sticky, no same-state), that skipping ahead and correcting backwards are both accepted, and that `nextStatusesFor` never offers a status the machine would refuse. 27 such assertions exist as a scratch script from the D1 work and would port directly.
 - Idempotency tests for the inbound order endpoint (same `orderId` arriving twice updates rather than duplicates).
 - Webhook retry tests covering 4xx (no retry), 5xx (retry with exponential backoff), and crash-recovery from the persisted retry queue.
 - Pickup time priority tests for the override > restaurant > rider > original ordering, including null-handling.

@@ -192,7 +192,8 @@
     "claim": "Claim this delivery",
     "claimPending": "Claiming...",
     "claimDisabled": "Waiting for coordinator to assign",
-    "claimUnavailable": "Ask the coordinator to assign you"
+    "claimUnavailable": "Ask the coordinator to assign you",
+    "otherStep": "Report a different step"
   },
   "restaurant": {
     "title": "Restaurant view",

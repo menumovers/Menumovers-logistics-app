@@ -19,7 +19,6 @@ import {
   getListOrdersQueryKey,
   type OrderDetail,
   type OrderItem,
-  type OrderStatus as OrderStatusType,
   PickupTimeSource,
 } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -45,17 +44,6 @@ import { ArrowLeft, Bike, MapPin, Phone, Mail, Plus, Eye, EyeOff, Bell, History,
 import { useToast } from "@/hooks/use-toast";
 import { getOriginalOrderItems, unhideOrderItem } from "@/lib/api";
 import { effectivePickup, formatCurrency, formatDateTime, formatTime } from "@/lib/format";
-
-const TRANSITIONS: Record<OrderStatusType, OrderStatusType[]> = {
-  pending: ["failed"],
-  driver_assigned: ["en_route_to_restaurant", "failed"],
-  en_route_to_restaurant: ["picked_up", "postponed", "failed"],
-  picked_up: ["en_route_to_customer", "failed"],
-  en_route_to_customer: ["delivered", "postponed", "failed"],
-  postponed: ["en_route_to_restaurant", "en_route_to_customer", "failed"],
-  delivered: [],
-  failed: [],
-};
 
 export default function CoordinatorOrderPage() {
   const { id } = useParams();
@@ -322,7 +310,9 @@ function TransitionCard({ order }: { order: OrderDetail }) {
   const transition = useTransitionOrderStatus();
   const invalidate = useInvalidateOrder(order.id);
   const [failureReason, setFailureReason] = useState("");
-  const targets = TRANSITIONS[order.status];
+  // Server-derived: status is a report, not a gate, so the options are
+  // whatever the state machine will accept — not a table kept in step by hand.
+  const targets = order.allowedTransitions;
   const { toast } = useToast();
   if (targets.length === 0) return null;
   return (

@@ -2,11 +2,11 @@
 
 ## 1. Identity
 
-Bestellenbij is an internal Progressive Web App (PWA) for food-delivery logistics within a Dutch delivery cooperative. It manages the complete order lifecycle — from inbound order ingestion to final delivery — providing role-based interfaces for coordinators, riders, and restaurant staff, with strict server-validated state transitions, trip bundling, outbound status webhooks, and Web Push notifications.
+Bestellenbij is an internal Progressive Web App (PWA) for food-delivery logistics within a Dutch delivery cooperative. It manages the complete order lifecycle — from inbound order ingestion to final delivery — providing role-based interfaces for coordinators, riders, and restaurant staff, with server-validated order handling, trip bundling, outbound status webhooks, and Web Push notifications.
 
 **In scope:**
 - Receiving inbound orders from the upstream distribution middleware (babeldish) via a per-source credential endpoint
-- Dispatching orders to riders and tracking them through a strict state machine
+- Dispatching orders to riders and tracking them through reported status updates, with holds as the one mechanism that blocks dispatch
 - Pickup confirmation from restaurant staff; item overrides (hide/add)
 - Multi-source pickup-time prioritization; trip (order-bundle) management
 - Outbound webhook delivery of status updates back to babeldish, with database-backed retry

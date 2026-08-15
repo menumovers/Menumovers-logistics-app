@@ -504,6 +504,14 @@ time should be presented as an estimate, never as a promised time.
   pendingRiderNotification?: string | null;
   /** @nullable */
   failureReason?: string | null;
+  /** Statuses reportable from the order's current one, derived server-side from
+the state machine. Status is a report rather than a gate: skipping ahead
+and correcting a mis-tap are both accepted. `pending` and `driver_assigned`
+never appear — they are coupled to `riderId` and written by
+`POST /orders/{id}/assign`. Clients should render these rather than keep
+their own transition table.
+ */
+  allowedTransitions: OrderStatus[];
   /**
    * When the restaurant acknowledged the order. Null means not yet acknowledged,
 which blocks nothing — it is a read receipt, not a gate.

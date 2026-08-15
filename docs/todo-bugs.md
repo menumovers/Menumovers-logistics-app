@@ -159,7 +159,12 @@ the other rather than storing two independent truths.
 
 ## B6. The state machine exists in three places and they disagree
 
-**Severity: medium — drift risk, no test.**
+**FIXED 2026-08-14** — the server derives the reportable set and serializes it
+as `allowedTransitions`; both client tables are deleted. The SSOT registry now
+carries an explicit "do not keep a transition table in a client". Kept below
+for the record.
+
+~~Severity: medium — drift risk, no test.~~
 
 - `api-server/src/lib/state-machine.ts` — the authority
 - `pages/coordinator-order.tsx:47` — a hand-written `TRANSITIONS` map
