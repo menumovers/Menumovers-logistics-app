@@ -161,12 +161,18 @@ can be planned rather than discovered. All of it is applied with a plain
 
 ## Part 6 — Known gaps
 
-- **No automated tests.** The pickup formula was verified with 17 assertions
-  covering travel precedence, both scheduled branches, ASAP, source-supplied
-  times and the deliberately-unclamped case — but they ran as a throwaway
-  script and are not in the repository, because there is no test runner
-  (`todo.md` H3). They would be worth preserving as the first real test if a
-  runner is ever added.
+- **No automated tests, and the stand-in scripts rot.** 87 assertions cover the
+  pure calculations — pickup times, money arithmetic, date handling, delivery
+  method, the state machine, the receipt adjustment. They ran as throwaway
+  scripts outside the repository, because there is no runner (`todo.md` H3).
+
+  One of them proved the risk: it covered helpers that were later deleted with
+  the compatibility shim, and passed **zero** assertions for several commits
+  before a recount noticed. Nothing re-runs them, so nothing complains. Figures
+  quoted about coverage should be counted at the time of quoting, not recalled.
+
+  They would port directly if a runner is ever added, and that is the argument
+  for adding one.
 - **Outbound webhook request signing** does not exist and is a prerequisite for
   enabling the webhook (D7). Not tracked as active work.
 - **Documentation corrections for D1** are pending sign-off: `replit.md` §1,
