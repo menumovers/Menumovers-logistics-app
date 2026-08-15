@@ -116,7 +116,9 @@
     "source_original": "Original",
     "in": "in {{minutes}} min",
     "ago": "{{minutes}} min ago",
-    "late": "{{minutes}} min late"
+    "late": "{{minutes}} min late",
+    "date": "Date",
+    "time": "Time"
   },
   "coordinator": {
     "title": "Dispatch",
@@ -366,5 +368,14 @@
     "notYet": "Not yet confirmed",
     "notYetShort": "Unconfirmed",
     "toast": "Order confirmed"
+  },
+  "payment": {
+    "cash": "Cash",
+    "collect": "Collect at the door",
+    "prepaid": "Already paid — collect nothing",
+    "changeNeeded": "Bring change:",
+    "method": "Payment: {{method}}",
+    "type": "Type: {{type}}",
+    "title": "Payment"
   }
 }

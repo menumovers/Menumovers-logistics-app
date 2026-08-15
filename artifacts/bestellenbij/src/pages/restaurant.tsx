@@ -15,16 +15,15 @@ import {
 } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { StatusBadge } from "@/components/status-badge";
 import { PickupCountdown, PickupSourceBadge } from "@/components/pickup-countdown";
 import { AcknowledgeCard } from "@/components/acknowledge-card";
+import { PickupTimeInput } from "@/components/pickup-time-input";
 import { useAuth } from "@/lib/auth";
 import { effectivePickup, formatTime } from "@/lib/format";
 import { useToast } from "@/hooks/use-toast";
 import { CheckCircle2, Layers, Clock, Info, Bike } from "lucide-react";
-import { formatTime as fmtTime } from "@/lib/format";
 
 export default function RestaurantPage() {
   const { t, i18n } = useTranslation();
@@ -178,7 +177,7 @@ function BundleCard({
           <div className="flex items-center gap-2 rounded-md bg-card border border-border px-3 py-1.5">
             <Clock className="size-4 text-primary" />
             <span className="text-sm font-bold tabular-nums">
-              {fmtTime(bundleTime, lang)}
+              {formatTime(bundleTime, lang)}
             </span>
           </div>
         </div>
@@ -191,7 +190,7 @@ function BundleCard({
               {t("bundle.earliestPickup")}{" "}
               {adjusted.map((o) => (
                 <span key={o.id} className="font-semibold">
-                  #{o.externalOrderId} {t("bundle.wasOriginally", { time: fmtTime(effectivePickup(o).iso, lang) })}.{" "}
+                  #{o.externalOrderId} {t("bundle.wasOriginally", { time: formatTime(effectivePickup(o).iso, lang) })}.{" "}
                 </span>
               ))}
             </span>
@@ -267,26 +266,15 @@ function RestaurantOrderCard({
   const extras = overrides.filter((o) => o.type === "add").map((o) => o.addedItem!).filter(Boolean);
 
   const eff = effectivePickup(order);
-  const [hh, setHh] = useState(() => formatTime(eff.iso, lang).split(":")[0] ?? "12");
-  const [mm, setMm] = useState(() => formatTime(eff.iso, lang).split(":")[1] ?? "00");
 
   function invalidate() {
     queryClient.invalidateQueries({ queryKey: getListOrdersQueryKey({ restaurantId: order.restaurantId }) });
     queryClient.invalidateQueries({ queryKey: getGetOrderQueryKey(order.id) });
   }
 
-  function submit(e: React.FormEvent) {
-    e.preventDefault();
-    const date = new Date();
-    const h = Number.parseInt(hh, 10);
-    const m = Number.parseInt(mm, 10);
-    if (Number.isNaN(h) || Number.isNaN(m)) return;
-    date.setHours(h, m, 0, 0);
-    if (date.getTime() < Date.now() - 60_000) {
-      date.setDate(date.getDate() + 1);
-    }
+  function submit(pickupTime: string) {
     update.mutate(
-      { id: order.id, data: { source: "restaurant", pickupTime: date.toISOString() } },
+      { id: order.id, data: { source: "restaurant", pickupTime } },
       {
         onSuccess: () => {
           toast({ title: t("common.save") });
@@ -381,35 +369,17 @@ function RestaurantOrderCard({
           ))}
         </ul>
 
-        {compact ? null : <form onSubmit={submit} className="border-t border-border pt-3 space-y-2">
-          <Label className="text-xs">{t("restaurant.suggestPickup")}</Label>
-          <div className="flex items-center gap-2">
-            <Input
-              type="number"
-              min={0}
-              max={23}
-              value={hh}
-              onChange={(e) => setHh(e.target.value)}
-              className="w-16 tabular-nums"
-              aria-label={t("coordinator.newPickupTime")}
-              data-testid={`input-rest-pickup-hh-${order.id}`}
+        {compact ? null : (
+          <div className="border-t border-border pt-3 space-y-2">
+            <Label className="text-xs">{t("restaurant.suggestPickup")}</Label>
+            <PickupTimeInput
+              currentIso={eff.iso}
+              pending={update.isPending}
+              submitLabel={t("common.save")}
+              onSubmit={submit}
             />
-            <span className="text-muted-foreground">:</span>
-            <Input
-              type="number"
-              min={0}
-              max={59}
-              value={mm}
-              onChange={(e) => setMm(e.target.value)}
-              className="w-16 tabular-nums"
-              aria-label={t("coordinator.newPickupTime")}
-              data-testid={`input-rest-pickup-mm-${order.id}`}
-            />
-            <Button type="submit" size="sm" disabled={update.isPending} data-testid={`button-rest-pickup-save-${order.id}`}>
-              {t("common.save")}
-            </Button>
           </div>
-        </form>}
+        )}
       </CardContent>
     </Card>
   );

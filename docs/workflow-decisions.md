@@ -283,7 +283,7 @@ The distinction to draw when we come back to this:
 | Where | What it does | Concern |
 |---|---|---|
 | `lib/pickup-time.ts` → ASAP branch | `now + travel` | Anchored to ingestion, not to `sourceCreatedAt` or the storefront's own estimate. The originating question. |
-| `pages/coordinator-order.tsx`, `rider-order.tsx`, `restaurant.tsx` | A typed `HH:MM` becomes today; if already past, tomorrow | Three copies of the same silent assumption; wrong for any `other_day` order. Tracked as a defect in `todo-bugs.md` **B1**. |
+| `pages/coordinator-order.tsx`, `rider-order.tsx`, `restaurant.tsx` | A typed `HH:MM` becomes today; if already past, tomorrow | Three copies of the same silent assumption; wrong for any `other_day` order. Fixed — `todo-bugs.md` **B1**. |
 | `pages/restaurant.tsx` → "Ready for pickup" | writes `pickupTimeRestaurant = now` | Conflates an event with a schedule. D3 addresses the cause; the write itself still needs revisiting. |
 | `lib/format.ts` → `minutesUntil`, urgency | browser clock | Legitimate for a live countdown, but client and server clocks can disagree, and nothing reconciles them. |
 | `lib/janitor.ts`, `lib/webhook.ts`, `heldAt`, status logs | event timestamps | Correct as-is. Listed so the audit doesn't churn on them. |

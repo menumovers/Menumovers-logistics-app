@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/status-badge";
 import { PickupCountdown } from "@/components/pickup-countdown";
 import { DeliveryMethodBadge, RequestedTimeLabel } from "@/components/delivery-expectation";
+import { PaymentBadge } from "@/components/payment-panel";
 import { useAuth } from "@/lib/auth";
 import { Bike, MapPin, Phone, Bell, ChevronRight, Store } from "lucide-react";
 import { motion } from "framer-motion";
@@ -246,6 +247,7 @@ function RiderOrderCard({ order, lang }: { order: OrderListItem; lang: string })
               <div className="flex flex-col items-end gap-1.5">
                 <StatusBadge status={order.status} />
                 <DeliveryMethodBadge order={order} />
+                <PaymentBadge order={order} />
               </div>
             </div>
           </CardHeader>

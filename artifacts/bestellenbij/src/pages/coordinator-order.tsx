@@ -38,6 +38,8 @@ import { Separator } from "@/components/ui/separator";
 import { Spinner } from "@/components/ui/spinner";
 import { StatusBadge } from "@/components/status-badge";
 import { PickupCountdown, PickupSourceBadge } from "@/components/pickup-countdown";
+import { PickupTimeInput } from "@/components/pickup-time-input";
+import { PaymentPanel } from "@/components/payment-panel";
 import { DeliveryMethodBadge, RequestedTimeLabel } from "@/components/delivery-expectation";
 import { ArrowLeft, Bike, MapPin, Phone, Mail, Plus, Eye, EyeOff, Bell, History, PauseCircle, PlayCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -103,6 +105,10 @@ export default function CoordinatorOrderPage() {
       <div className="grid gap-5 lg:grid-cols-3">
         <div className="lg:col-span-2 space-y-5">
           <ItemsCard order={o} />
+          <Card>
+            <CardHeader><CardTitle className="text-base">{t("payment.title")}</CardTitle></CardHeader>
+            <CardContent><PaymentPanel order={o} lang={lang} /></CardContent>
+          </Card>
           <PickupCard order={o} />
           <ContactCard order={o} />
           <NotificationCard order={o} />
@@ -502,17 +508,10 @@ function PickupCard({ order }: { order: OrderDetail }) {
   const eff = effectivePickup(order);
 
   const [source, setSource] = useState<PickupTimeSource>("override");
-  const [time, setTime] = useState(formatTime(eff.iso, "en")); // HH:mm
 
-  function submit(e: React.FormEvent) {
-    e.preventDefault();
-    const [h, m] = time.split(":").map((v) => Number.parseInt(v, 10));
-    if (Number.isNaN(h) || Number.isNaN(m)) return;
-    const date = new Date();
-    date.setHours(h, m, 0, 0);
-    if (date.getTime() < Date.now() - 60_000) date.setDate(date.getDate() + 1);
+  function submit(pickupTime: string) {
     update.mutate(
-      { id: order.id, data: { source, pickupTime: date.toISOString() } },
+      { id: order.id, data: { source, pickupTime } },
       {
         onSuccess: () => {
           toast({ title: t("coordinator.pickupTimes") });
@@ -544,7 +543,7 @@ function PickupCard({ order }: { order: OrderDetail }) {
             );
           })}
         </div>
-        <form onSubmit={submit} className="flex flex-wrap gap-2 items-end">
+        <div className="flex flex-wrap gap-2 items-end">
           <div className="flex-1 min-w-[140px]">
             <Label className="text-xs">{t("pickup.source")}</Label>
             <Select value={source} onValueChange={(v) => setSource(v as PickupTimeSource)}>
@@ -556,13 +555,14 @@ function PickupCard({ order }: { order: OrderDetail }) {
               </SelectContent>
             </Select>
           </div>
-          <div>
-            <Label className="text-xs">{t("coordinator.newPickupTime")}</Label>
-            <Input type="time" value={time} onChange={(e) => setTime(e.target.value)} data-testid="input-pickup-time" />
-          </div>
-          <Button type="submit" disabled={update.isPending} data-testid="button-save-pickup-time">{t("common.save")}</Button>
+          <PickupTimeInput
+            currentIso={eff.iso}
+            onSubmit={submit}
+            pending={update.isPending}
+            submitLabel={t("common.save")}
+          />
           <div className="ml-auto"><PickupSourceBadge source={eff.source} /></div>
-        </form>
+        </div>
       </CardContent>
     </Card>
   );

@@ -96,6 +96,13 @@ only. These are the checks worth running once deployed.
 - [ ] **Check the coordinator board** shows "Unconfirmed" on orders the
       restaurant hasn't acknowledged — and that assigning one still works,
       since acknowledgement gates nothing.
+- [ ] **Set a pickup time several days out** from the dispatch board, the rider
+      screen and the restaurant screen. All three should keep the date you
+      chose. This was B1 — previously the date could only ever be today or
+      tomorrow, and the wrong value outranked the correct computed one.
+- [ ] **Send a cash order** and confirm the rider sees the amount to collect,
+      the storefront's own payment wording, and any change to bring — plus a
+      "Cash" badge on the list card before they open it.
 
 ---
 

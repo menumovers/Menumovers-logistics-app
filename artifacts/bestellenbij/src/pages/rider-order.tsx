@@ -16,16 +16,16 @@ import {
 } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Spinner } from "@/components/ui/spinner";
 import { StatusBadge } from "@/components/status-badge";
 import { PickupCountdown, PickupSourceBadge } from "@/components/pickup-countdown";
 import { DeliveryMethodBadge, RequestedTimeLabel } from "@/components/delivery-expectation";
+import { PickupTimeInput } from "@/components/pickup-time-input";
+import { PaymentPanel } from "@/components/payment-panel";
 import { ArrowLeft, Phone, MapPin, Bell, BellOff, Store, ChevronRight, Clock, Layers } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { effectivePickup, formatCurrency, formatTime } from "@/lib/format";
+import { effectivePickup, formatCurrency } from "@/lib/format";
 
 const NEXT: Partial<Record<OrderStatusType, OrderStatusType>> = {
   driver_assigned: "en_route_to_restaurant",
@@ -54,12 +54,6 @@ export default function RiderOrderPage() {
 
   const [failureReason, setFailureReason] = useState("");
   const [postponeReason, setPostponeReason] = useState("");
-  const [pickupTime, setPickupTime] = useState("");
-
-  const effIso = order.data ? effectivePickup(order.data).iso : null;
-  useEffect(() => {
-    if (effIso) setPickupTime(formatTime(effIso, "en"));
-  }, [effIso]);
 
   if (order.isLoading || !order.data) {
     return <div className="grid place-items-center py-20"><Spinner className="size-6 text-primary" /></div>;
@@ -140,6 +134,10 @@ export default function RiderOrderPage() {
             <div className="flex justify-between text-sm font-medium mt-2 pt-2 border-t border-border">
               <span>{t("common.actions")}</span><span className="tabular-nums">{formatCurrency(o.totalAmount, lang)}</span>
             </div>
+          </div>
+          <div className="border-t border-border pt-3">
+            <div className="text-xs uppercase tracking-wide text-muted-foreground mb-2">{t("payment.title")}</div>
+            <PaymentPanel order={o} lang={lang} />
           </div>
         </CardContent>
       </Card>
@@ -268,28 +266,18 @@ export default function RiderOrderPage() {
 
       <Card>
         <CardHeader><CardTitle className="text-base">{t("rider.suggestPickup")}</CardTitle></CardHeader>
-        <CardContent className="flex gap-2 items-end">
-          <div className="flex-1">
-            <Label className="text-xs">{t("coordinator.newPickupTime")}</Label>
-            <Input type="time" value={pickupTime} onChange={(e) => setPickupTime(e.target.value)} data-testid="input-rider-pickup-time" />
-          </div>
-          <Button
-            disabled={updatePickup.isPending || !pickupTime}
-            onClick={() => {
-              const [h, m] = pickupTime.split(":").map((v) => Number.parseInt(v, 10));
-              if (Number.isNaN(h) || Number.isNaN(m)) return;
-              const date = new Date();
-              date.setHours(h, m, 0, 0);
-              if (date.getTime() < Date.now() - 60_000) date.setDate(date.getDate() + 1);
+        <CardContent>
+          <PickupTimeInput
+            currentIso={effectivePickup(o).iso}
+            pending={updatePickup.isPending}
+            submitLabel={t("common.save")}
+            onSubmit={(pickupTime) =>
               updatePickup.mutate(
-                { id: o.id, data: { source: "rider", pickupTime: date.toISOString() } },
+                { id: o.id, data: { source: "rider", pickupTime } },
                 { onSuccess: () => { toast({ title: t("rider.suggestPickup") }); invalidate(); } },
-              );
-            }}
-            data-testid="button-rider-suggest-pickup"
-          >
-            {t("common.save")}
-          </Button>
+              )
+            }
+          />
         </CardContent>
       </Card>
 

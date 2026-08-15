@@ -116,7 +116,9 @@
     "source_original": "Origineel",
     "in": "over {{minutes}} min",
     "ago": "{{minutes}} min geleden",
-    "late": "{{minutes}} min te laat"
+    "late": "{{minutes}} min te laat",
+    "date": "Datum",
+    "time": "Tijd"
   },
   "coordinator": {
     "title": "Coördinatie",
@@ -366,5 +368,14 @@
     "notYet": "Nog niet bevestigd",
     "notYetShort": "Onbevestigd",
     "toast": "Bestelling bevestigd"
+  },
+  "payment": {
+    "cash": "Contant",
+    "collect": "Innen aan de deur",
+    "prepaid": "Al betaald — niets innen",
+    "changeNeeded": "Wisselgeld meenemen:",
+    "method": "Betaling: {{method}}",
+    "type": "Soort: {{type}}",
+    "title": "Betaling"
   }
 }

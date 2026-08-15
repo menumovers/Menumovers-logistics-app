@@ -107,18 +107,23 @@ function baseOrderFields(
     administrationCosts: order.administrationCosts,
     deliveryMethod: order.deliveryMethod,
     paymentMethod: order.paymentMethod,
-    cashPayment:
-      order.cashPaymentType ??
-      order.cashPaymentChangeAmount ??
-      order.cashPaymentChangeRequired ??
-      order.cashPaymentLabel
-        ? {
-            type: order.cashPaymentType,
-            changeAmount: order.cashPaymentChangeAmount,
-            changeRequired: order.cashPaymentChangeRequired,
-            label: order.cashPaymentLabel,
-          }
-        : null,
+    // Emit the object when ANY of the four fields carries a value. Tested
+    // explicitly rather than via `a ?? b ?? c ?? d`: `??` binds tighter than
+    // `?:`, so an empty-string type used to end the chain with a falsy value
+    // and discard a set changeAmount or label. See docs/todo-bugs.md B2.
+    cashPayment: [
+      order.cashPaymentType,
+      order.cashPaymentChangeAmount,
+      order.cashPaymentChangeRequired,
+      order.cashPaymentLabel,
+    ].some((v) => v != null && v !== "")
+      ? {
+          type: order.cashPaymentType,
+          changeAmount: order.cashPaymentChangeAmount,
+          changeRequired: order.cashPaymentChangeRequired,
+          label: order.cashPaymentLabel,
+        }
+      : null,
     kitchenNotes: order.kitchenNotes,
     items,
     pickupTimeOriginal: order.pickupTimeOriginal,

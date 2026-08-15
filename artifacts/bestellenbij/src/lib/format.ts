@@ -69,6 +69,61 @@ export function effectivePickup(o: AnyOrder): {
   return { iso: o.pickupTimeOriginal, source: "original" };
 }
 
+/**
+ * Local-time parts for `<input type="date">` / `<input type="time">`.
+ *
+ * Deliberately local, not UTC: the operator is typing a wall-clock time in
+ * their own timezone, so `toISOString().slice(0, 10)` would land on the wrong
+ * day either side of midnight.
+ */
+export function toDateInputValue(iso: string | null | undefined): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+export function toTimeInputValue(iso: string | null | undefined): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+/**
+ * Combine a `YYYY-MM-DD` and an `HH:mm` into an ISO instant, interpreting both
+ * in the operator's local timezone. Returns null if either part is unusable.
+ *
+ * This exists because three screens previously took a time alone, applied it to
+ * *today*, and rolled forward a day if that had already passed — which made a
+ * correct pickup time unreachable for any order scheduled beyond tomorrow. See
+ * docs/todo-bugs.md B1.
+ */
+export function combineDateAndTime(
+  dateValue: string,
+  timeValue: string,
+): string | null {
+  const dateMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateValue.trim());
+  const timeMatch = /^(\d{1,2}):(\d{2})$/.exec(timeValue.trim());
+  if (!dateMatch || !timeMatch) return null;
+  const [, y, mo, d] = dateMatch;
+  const [, h, mi] = timeMatch;
+  const hours = Number(h);
+  const minutes = Number(mi);
+  if (hours > 23 || minutes > 59) return null;
+  const combined = new Date(
+    Number(y),
+    Number(mo) - 1,
+    Number(d),
+    hours,
+    minutes,
+    0,
+    0,
+  );
+  if (Number.isNaN(combined.getTime())) return null;
+  return combined.toISOString();
+}
+
 export type Urgency = "neutral" | "warn" | "danger" | "late";
 
 export function urgencyFor(iso: string, now: Date = new Date()): Urgency {

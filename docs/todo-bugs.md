@@ -13,7 +13,13 @@ Populated 2026-08-14 during the workflow-alignment review.
 
 ## B1. A typed pickup time can only ever mean today or tomorrow
 
-**Severity: high — produces wrong data silently. Three copies.**
+**FIXED 2026-08-14** — `components/pickup-time-input.tsx` collects a date as
+well as a time, seeded from the order's current effective pickup time, and all
+three screens now use it. Combining logic lives once in `lib/format.ts`
+(`combineDateAndTime`, `toDateInputValue`, `toTimeInputValue`), verified with
+14 assertions. Kept below for the record.
+
+~~Severity: high — produces wrong data silently. Three copies.~~
 
 - `pages/coordinator-order.tsx:513`
 - `pages/rider-order.tsx:283`
@@ -45,7 +51,11 @@ the shared logic wants to live in one place rather than three.
 
 ## B2. An empty `cashPaymentType` discards the whole cash payment
 
-**Severity: medium — silent data loss, narrow trigger.**
+**FIXED 2026-08-14** — the four fields are now tested explicitly rather than
+via `??` short-circuiting. Verified across all six input shapes, including the
+two that previously lost data. Kept below for the record.
+
+~~Severity: medium — silent data loss, narrow trigger.~~
 
 `lib/order-serialize.ts`, the `cashPayment` field:
 
