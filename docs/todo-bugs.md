@@ -161,8 +161,13 @@ shape of latent bug as B2, and it goes live the moment they are surfaced.
 **Fix:** either update both from a structured editor, or make one derived from
 the other rather than storing two independent truths.
 
-The six components are A1–A6 in `docs/field-audit.md`, which also asks the
-prior question this fix depends on: whether they should be surfaced at all.
+The six components are A1–A6 in `docs/field-audit.md` §A–§B. That entry
+confirms the display side is deliberate — every screen renders the flat string
+— and points at the older deferred decision running the other way
+(`todo-out-of-scope.md`, "Legacy `deliveryAddress` text column"), which asks
+whether the components should become canonical instead. This bug is live under
+either answer: what is wrong is holding two independently-writable copies of
+the same fact.
 
 ---
 

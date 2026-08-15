@@ -362,13 +362,54 @@ Consequences that shaped the build:
 
 ---
 
+## D11. The payload keeps the source's inputs so we don't have to go and ask
+
+**Decided 2026-08-15. Nothing to build — this protects what already exists.**
+
+Several fields arrive on every order, are stored, and are read by no code at
+all: the four timing figures `restaurantMinPickupTime`,
+`restaurantMinPrepTime`, `deliveryTeamMinPickupTime`, `deliveryTeamMinPrepTime`,
+alongside `originalPayload`.
+
+**They are kept deliberately.** When a coordinator needs to work out why an
+order came through the way it did, the inputs that drove Bestellenbij's own
+behaviour are already in our payload — nobody has to log into another system or
+ask someone to look something up. The most important things are here.
+
+The consequence for anyone reading this repository: **"nothing reads this
+column" is not evidence a column should go.** These are read by people, after
+the fact, when something looks wrong — and code search cannot see that kind of
+reader. A `git grep` returning nothing tells you a field is unread, not that it
+is pointless.
+
+This is why `docs/field-audit.md` was rewritten within a day of being written.
+Its first pass filed fourteen fields as "dead" on exactly that reasoning; nine
+of them were doing their job.
+
+Two related things this does *not* say:
+
+- It is not a rule that every field must be retained forever. It is a rule that
+  the question "what is this for?" gets asked before the question "can we drop
+  it?" — and answered by someone who knows, not inferred from call sites.
+- It does not extend to fields *we* generate. `heldAt` is ours, so there is no
+  upstream system to avoid having to ask; it is unshown because of a gap, not a
+  design (`field-audit.md` §D).
+
+Two of the six source timing figures *are* consumed —
+`restaurantMinDeliveryTime` and `deliveryTeamMinDeliveryTime` feed the travel
+estimate (D4). D4's decision to apply no prep-time floor is unaffected: the
+prep figures are retained for reading, not for computing.
+
+---
+
 ## Open: audit every computed time before trusting any of them
 
 **Raised 2026-08-14. Not resolved — deliberately parked, to be returned to.**
 
-*Related:* `docs/field-audit.md` §B lists the three fields that feed the time
-calculations and are shown to nobody, and §A9–A12 the four timing figures from
-the source that no formula consumes and whose meaning was never established.
+*Related:* `docs/field-audit.md` §E lists the three fields that feed the time
+calculations and are shown to nobody — the same instinct as D11, turned on our
+own arithmetic instead of the source's. Showing a computed time's inputs next
+to it is most of what this audit would ask for.
 
 The question that opened this: **why is anything computing from `now`?**
 
