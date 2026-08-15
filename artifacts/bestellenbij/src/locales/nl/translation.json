@@ -396,7 +396,6 @@
     "ordered": "Besteld",
     "items_one": "{{count}} artikel",
     "items_other": "{{count}} artikelen",
-    "lineNumber": "Regel {{number}}",
     "deliveryFee": "Bezorgkosten",
     "tipRider": "Fooi — rijder",
     "tipRestaurant": "Fooi — restaurant",

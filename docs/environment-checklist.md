@@ -102,8 +102,9 @@ only. These are the checks worth running once deployed.
       chose. This was B1 — previously the date could only ever be today or
       tomorrow, and the wrong value outranked the correct computed one.
 - [ ] **Print a receipt** from the restaurant card and from the order detail.
-      Item lines should be numbered 1..n for packaging, and the app chrome
-      should not appear in the printed output.
+      The app chrome should not appear in the printed output, and item lines
+      should be unnumbered with room to write on — the kitchen annotates by
+      hand when it labels packaging.
 - [ ] **Hide an item, then reprint.** An "items changed after ordering" line
       should appear with the difference; the charged total must not move.
 - [ ] **Send a cash order** and confirm the rider sees the amount to collect,

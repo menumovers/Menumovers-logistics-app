@@ -298,12 +298,17 @@ feature that consumes them.
 **What the receipt actually is** (clarified 2026-08-14): primarily a *kitchen*
 document, sometimes shown to customers. The customer's formal invoice is
 emailed by the storefront — which is why no BTW, VAT number or KvK data reaches
-this app, and why none is missing. Its main job is the **numbered item list**:
-the kitchen writes those numbers on the packaging and checks them against the
-sheet at handover.
+this app, and why none is missing. It is a sheet of paper the kitchen works
+from, and sometimes writes on: staff may hand-number packaging and mark the
+matching lines.
 
 Consequences that shaped the build:
 
+- **Lines are not pre-numbered.** The annotation is the kitchen's, done by hand
+  when they choose to label. Printing numbers ourselves would promise a
+  labelling scheme that isn't always used, and set an expectation for the
+  customer that the packaging then fails to meet. Lines get room to write on
+  instead of markings.
 - Items lead; the financial block is one self-contained section, because some
   restaurants will eventually want an item-only receipt — that is the section
   not rendering, not a rewrite.

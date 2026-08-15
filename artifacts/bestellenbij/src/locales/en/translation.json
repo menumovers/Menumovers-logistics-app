@@ -396,7 +396,6 @@
     "ordered": "Ordered",
     "items_one": "{{count}} item",
     "items_other": "{{count}} items",
-    "lineNumber": "Line {{number}}",
     "deliveryFee": "Delivery",
     "tipRider": "Tip — rider",
     "tipRestaurant": "Tip — restaurant",

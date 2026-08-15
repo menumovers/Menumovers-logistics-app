@@ -16,9 +16,15 @@ import { formatCurrency, formatDateTime, effectivePickup, formatTime } from "@/l
  * The order receipt — primarily a kitchen document.
  *
  * The customer's formal invoice is emailed by the storefront, so this is not a
- * tax document and deliberately makes no VAT claim: none reaches us. Its main
- * job is the numbered item list, because the kitchen writes those numbers on
- * the packaging and matches them against this sheet.
+ * tax document and deliberately makes no VAT claim: none reaches us. It is a
+ * sheet of paper the kitchen works from — and sometimes writes on: staff may
+ * hand-number packaging and mark the matching lines here.
+ *
+ * That annotation is deliberately NOT pre-printed. Numbering the lines
+ * ourselves would imply every item is labelled, which the restaurant does not
+ * always do, and would set an expectation for the customer that the packaging
+ * then fails to meet. Lines are spaced to be written on and left otherwise
+ * blank.
  *
  * The financial block is kept as one self-contained section so an item-only
  * variant is a matter of not rendering it, rather than a rewrite.
@@ -160,9 +166,11 @@ function Row({ label, value, tabular = false }: { label: string; value: string; 
 }
 
 /**
- * The point of the document. Each line carries a printed number so the kitchen
- * can write the same number on the packaging and check the two against each
- * other at handover.
+ * The item list — the substance of the document.
+ *
+ * Deliberately unnumbered: staff annotate by hand when they label packaging,
+ * and pre-printing numbers would promise a labelling scheme that isn't always
+ * used. Lines are given room rather than markings.
  */
 function ItemLines({ order, lang }: { order: OrderDetail; lang: string }) {
   const { t } = useTranslation();
@@ -171,15 +179,9 @@ function ItemLines({ order, lang }: { order: OrderDetail; lang: string }) {
       <h2 className="text-xs uppercase tracking-wide text-muted-foreground mb-2">
         {t("receipt.items", { count: order.items.length })}
       </h2>
-      <ol className="divide-y divide-border">
+      <ul className="divide-y divide-border">
         {order.items.map((it, i) => (
-          <li key={i} className="flex items-start gap-3 py-2" data-testid={`receipt-line-${i}`}>
-            <span
-              className="grid size-7 shrink-0 place-items-center rounded border border-foreground text-sm font-bold tabular-nums"
-              aria-label={t("receipt.lineNumber", { number: i + 1 })}
-            >
-              {i + 1}
-            </span>
+          <li key={i} className="flex items-start gap-3 py-2.5" data-testid={`receipt-line-${i}`}>
             <span className="flex-1 min-w-0">
               <span className="font-medium">
                 <span className="tabular-nums">{it.quantity}×</span> {it.name}
@@ -198,7 +200,7 @@ function ItemLines({ order, lang }: { order: OrderDetail; lang: string }) {
             </span>
           </li>
         ))}
-      </ol>
+      </ul>
     </section>
   );
 }
