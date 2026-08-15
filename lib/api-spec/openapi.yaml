@@ -97,7 +97,7 @@ paths:
         Idempotent on `externalOrderId`: re-sending the same payload updates the existing
         order record instead of creating a duplicate. If `restaurantNameCode` is absent or
         doesn't match any known restaurant, the order is still accepted — it's filed against
-        a placeholder restaurant and marked parked (`isParked: true`) instead of being rejected.
+        a placeholder restaurant and held (`holdState: parked`) instead of being rejected.
       parameters:
         - in: header
           name: x-inbound-secret
@@ -1381,17 +1381,6 @@ components:
           type: ["string", "null"]
         failureReason:
           type: ["string", "null"]
-        isParked:
-          type: boolean
-          deprecated: true
-          description: |
-            Superseded by `holdState`. True when the inbound restaurant identifier
-            couldn't be resolved. Equivalent to `holdState == "parked"`; retained
-            until the backfill is confirmed.
-        parkedReason:
-          type: ["string", "null"]
-          deprecated: true
-          description: Superseded by `holdReason`.
         holdState:
           oneOf:
             - $ref: "#/components/schemas/OrderHoldState"

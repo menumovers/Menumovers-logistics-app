@@ -47,8 +47,8 @@ question of which role "owns" a status.
 ## D2. "On hold" is a family, and the only real gate
 
 **Decided 2026-08-14. Built 2026-08-14** — `orders.holdState`, `lib/order-hold.ts`,
-and the coordinator triage queue. **Requires a schema push and a backfill** —
-see `docs/environment-checklist.md`.
+and the coordinator triage queue. `isParked` / `parkedReason` were replaced
+outright rather than deprecated. Needs a schema push.
 
 Holds are the one mechanism that genuinely blocks. Members today: `parked`
 (set automatically when an inbound restaurant code doesn't resolve) and a

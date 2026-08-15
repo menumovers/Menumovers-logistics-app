@@ -60,7 +60,7 @@ per-source credential (see `api_credentials`) rather than a single shared secret
 Idempotent on `externalOrderId`: re-sending the same payload updates the existing
 order record instead of creating a duplicate. If `restaurantNameCode` is absent or
 doesn't match any known restaurant, the order is still accepted — it's filed against
-a placeholder restaurant and marked parked (`isParked: true`) instead of being rejected.
+a placeholder restaurant and held (`holdState: parked`) instead of being rejected.
 
  * @summary Receive a new order from the upstream distribution service
  */
@@ -238,13 +238,6 @@ export const IngestOrderResponse = zod.object({
     .optional(),
   pendingRiderNotification: zod.string().nullish(),
   failureReason: zod.string().nullish(),
-  isParked: zod
-    .boolean()
-    .optional()
-    .describe(
-      'Superseded by `holdState`. True when the inbound restaurant identifier\ncouldn\'t be resolved. Equivalent to `holdState == \"parked\"`; retained\nuntil the backfill is confirmed.\n',
-    ),
-  parkedReason: zod.string().nullish().describe("Superseded by `holdReason`."),
   holdState: zod
     .union([zod.enum(["parked", "on_hold"]), zod.null()])
     .optional()
@@ -377,16 +370,6 @@ export const ListOrdersResponseItem = zod
       .optional(),
     pendingRiderNotification: zod.string().nullish(),
     failureReason: zod.string().nullish(),
-    isParked: zod
-      .boolean()
-      .optional()
-      .describe(
-        'Superseded by `holdState`. True when the inbound restaurant identifier\ncouldn\'t be resolved. Equivalent to `holdState == \"parked\"`; retained\nuntil the backfill is confirmed.\n',
-      ),
-    parkedReason: zod
-      .string()
-      .nullish()
-      .describe("Superseded by `holdReason`."),
     holdState: zod
       .union([zod.enum(["parked", "on_hold"]), zod.null()])
       .optional()
@@ -514,16 +497,6 @@ export const GetOrderResponse = zod
       .optional(),
     pendingRiderNotification: zod.string().nullish(),
     failureReason: zod.string().nullish(),
-    isParked: zod
-      .boolean()
-      .optional()
-      .describe(
-        'Superseded by `holdState`. True when the inbound restaurant identifier\ncouldn\'t be resolved. Equivalent to `holdState == \"parked\"`; retained\nuntil the backfill is confirmed.\n',
-      ),
-    parkedReason: zod
-      .string()
-      .nullish()
-      .describe("Superseded by `holdReason`."),
     holdState: zod
       .union([zod.enum(["parked", "on_hold"]), zod.null()])
       .optional()
@@ -735,16 +708,6 @@ export const TransitionOrderStatusResponse = zod
       .optional(),
     pendingRiderNotification: zod.string().nullish(),
     failureReason: zod.string().nullish(),
-    isParked: zod
-      .boolean()
-      .optional()
-      .describe(
-        'Superseded by `holdState`. True when the inbound restaurant identifier\ncouldn\'t be resolved. Equivalent to `holdState == \"parked\"`; retained\nuntil the backfill is confirmed.\n',
-      ),
-    parkedReason: zod
-      .string()
-      .nullish()
-      .describe("Superseded by `holdReason`."),
     holdState: zod
       .union([zod.enum(["parked", "on_hold"]), zod.null()])
       .optional()
@@ -945,16 +908,6 @@ export const AssignOrderResponse = zod
       .optional(),
     pendingRiderNotification: zod.string().nullish(),
     failureReason: zod.string().nullish(),
-    isParked: zod
-      .boolean()
-      .optional()
-      .describe(
-        'Superseded by `holdState`. True when the inbound restaurant identifier\ncouldn\'t be resolved. Equivalent to `holdState == \"parked\"`; retained\nuntil the backfill is confirmed.\n',
-      ),
-    parkedReason: zod
-      .string()
-      .nullish()
-      .describe("Superseded by `holdReason`."),
     holdState: zod
       .union([zod.enum(["parked", "on_hold"]), zod.null()])
       .optional()
@@ -1156,16 +1109,6 @@ export const UpdatePickupTimeResponse = zod
       .optional(),
     pendingRiderNotification: zod.string().nullish(),
     failureReason: zod.string().nullish(),
-    isParked: zod
-      .boolean()
-      .optional()
-      .describe(
-        'Superseded by `holdState`. True when the inbound restaurant identifier\ncouldn\'t be resolved. Equivalent to `holdState == \"parked\"`; retained\nuntil the backfill is confirmed.\n',
-      ),
-    parkedReason: zod
-      .string()
-      .nullish()
-      .describe("Superseded by `holdReason`."),
     holdState: zod
       .union([zod.enum(["parked", "on_hold"]), zod.null()])
       .optional()
@@ -1366,16 +1309,6 @@ export const HideOrderItemResponse = zod
       .optional(),
     pendingRiderNotification: zod.string().nullish(),
     failureReason: zod.string().nullish(),
-    isParked: zod
-      .boolean()
-      .optional()
-      .describe(
-        'Superseded by `holdState`. True when the inbound restaurant identifier\ncouldn\'t be resolved. Equivalent to `holdState == \"parked\"`; retained\nuntil the backfill is confirmed.\n',
-      ),
-    parkedReason: zod
-      .string()
-      .nullish()
-      .describe("Superseded by `holdReason`."),
     holdState: zod
       .union([zod.enum(["parked", "on_hold"]), zod.null()])
       .optional()
@@ -1591,16 +1524,6 @@ export const AddOrderItemResponse = zod
       .optional(),
     pendingRiderNotification: zod.string().nullish(),
     failureReason: zod.string().nullish(),
-    isParked: zod
-      .boolean()
-      .optional()
-      .describe(
-        'Superseded by `holdState`. True when the inbound restaurant identifier\ncouldn\'t be resolved. Equivalent to `holdState == \"parked\"`; retained\nuntil the backfill is confirmed.\n',
-      ),
-    parkedReason: zod
-      .string()
-      .nullish()
-      .describe("Superseded by `holdReason`."),
     holdState: zod
       .union([zod.enum(["parked", "on_hold"]), zod.null()])
       .optional()
@@ -1801,16 +1724,6 @@ export const SetRiderNotificationResponse = zod
       .optional(),
     pendingRiderNotification: zod.string().nullish(),
     failureReason: zod.string().nullish(),
-    isParked: zod
-      .boolean()
-      .optional()
-      .describe(
-        'Superseded by `holdState`. True when the inbound restaurant identifier\ncouldn\'t be resolved. Equivalent to `holdState == \"parked\"`; retained\nuntil the backfill is confirmed.\n',
-      ),
-    parkedReason: zod
-      .string()
-      .nullish()
-      .describe("Superseded by `holdReason`."),
     holdState: zod
       .union([zod.enum(["parked", "on_hold"]), zod.null()])
       .optional()
@@ -2015,16 +1928,6 @@ export const UpdateOrderContactResponse = zod
       .optional(),
     pendingRiderNotification: zod.string().nullish(),
     failureReason: zod.string().nullish(),
-    isParked: zod
-      .boolean()
-      .optional()
-      .describe(
-        'Superseded by `holdState`. True when the inbound restaurant identifier\ncouldn\'t be resolved. Equivalent to `holdState == \"parked\"`; retained\nuntil the backfill is confirmed.\n',
-      ),
-    parkedReason: zod
-      .string()
-      .nullish()
-      .describe("Superseded by `holdReason`."),
     holdState: zod
       .union([zod.enum(["parked", "on_hold"]), zod.null()])
       .optional()
@@ -2229,16 +2132,6 @@ export const HoldOrderResponse = zod
       .optional(),
     pendingRiderNotification: zod.string().nullish(),
     failureReason: zod.string().nullish(),
-    isParked: zod
-      .boolean()
-      .optional()
-      .describe(
-        'Superseded by `holdState`. True when the inbound restaurant identifier\ncouldn\'t be resolved. Equivalent to `holdState == \"parked\"`; retained\nuntil the backfill is confirmed.\n',
-      ),
-    parkedReason: zod
-      .string()
-      .nullish()
-      .describe("Superseded by `holdReason`."),
     holdState: zod
       .union([zod.enum(["parked", "on_hold"]), zod.null()])
       .optional()
@@ -2435,16 +2328,6 @@ export const ReleaseOrderResponse = zod
       .optional(),
     pendingRiderNotification: zod.string().nullish(),
     failureReason: zod.string().nullish(),
-    isParked: zod
-      .boolean()
-      .optional()
-      .describe(
-        'Superseded by `holdState`. True when the inbound restaurant identifier\ncouldn\'t be resolved. Equivalent to `holdState == \"parked\"`; retained\nuntil the backfill is confirmed.\n',
-      ),
-    parkedReason: zod
-      .string()
-      .nullish()
-      .describe("Superseded by `holdReason`."),
     holdState: zod
       .union([zod.enum(["parked", "on_hold"]), zod.null()])
       .optional()
@@ -2649,16 +2532,6 @@ export const SetOrderRestaurantResponse = zod
       .optional(),
     pendingRiderNotification: zod.string().nullish(),
     failureReason: zod.string().nullish(),
-    isParked: zod
-      .boolean()
-      .optional()
-      .describe(
-        'Superseded by `holdState`. True when the inbound restaurant identifier\ncouldn\'t be resolved. Equivalent to `holdState == \"parked\"`; retained\nuntil the backfill is confirmed.\n',
-      ),
-    parkedReason: zod
-      .string()
-      .nullish()
-      .describe("Superseded by `holdReason`."),
     holdState: zod
       .union([zod.enum(["parked", "on_hold"]), zod.null()])
       .optional()
@@ -3178,16 +3051,6 @@ export const GetTripResponse = zod
               .optional(),
             pendingRiderNotification: zod.string().nullish(),
             failureReason: zod.string().nullish(),
-            isParked: zod
-              .boolean()
-              .optional()
-              .describe(
-                'Superseded by `holdState`. True when the inbound restaurant identifier\ncouldn\'t be resolved. Equivalent to `holdState == \"parked\"`; retained\nuntil the backfill is confirmed.\n',
-              ),
-            parkedReason: zod
-              .string()
-              .nullish()
-              .describe("Superseded by `holdReason`."),
             holdState: zod
               .union([zod.enum(["parked", "on_hold"]), zod.null()])
               .optional()
@@ -3377,16 +3240,6 @@ export const UpdateTripResponse = zod
               .optional(),
             pendingRiderNotification: zod.string().nullish(),
             failureReason: zod.string().nullish(),
-            isParked: zod
-              .boolean()
-              .optional()
-              .describe(
-                'Superseded by `holdState`. True when the inbound restaurant identifier\ncouldn\'t be resolved. Equivalent to `holdState == \"parked\"`; retained\nuntil the backfill is confirmed.\n',
-              ),
-            parkedReason: zod
-              .string()
-              .nullish()
-              .describe("Superseded by `holdReason`."),
             holdState: zod
               .union([zod.enum(["parked", "on_hold"]), zod.null()])
               .optional()
@@ -3576,16 +3429,6 @@ export const ReplaceTripStopsResponse = zod
               .optional(),
             pendingRiderNotification: zod.string().nullish(),
             failureReason: zod.string().nullish(),
-            isParked: zod
-              .boolean()
-              .optional()
-              .describe(
-                'Superseded by `holdState`. True when the inbound restaurant identifier\ncouldn\'t be resolved. Equivalent to `holdState == \"parked\"`; retained\nuntil the backfill is confirmed.\n',
-              ),
-            parkedReason: zod
-              .string()
-              .nullish()
-              .describe("Superseded by `holdReason`."),
             holdState: zod
               .union([zod.enum(["parked", "on_hold"]), zod.null()])
               .optional()
@@ -3764,16 +3607,6 @@ export const DissolveTripResponse = zod
               .optional(),
             pendingRiderNotification: zod.string().nullish(),
             failureReason: zod.string().nullish(),
-            isParked: zod
-              .boolean()
-              .optional()
-              .describe(
-                'Superseded by `holdState`. True when the inbound restaurant identifier\ncouldn\'t be resolved. Equivalent to `holdState == \"parked\"`; retained\nuntil the backfill is confirmed.\n',
-              ),
-            parkedReason: zod
-              .string()
-              .nullish()
-              .describe("Superseded by `holdReason`."),
             holdState: zod
               .union([zod.enum(["parked", "on_hold"]), zod.null()])
               .optional()

@@ -36,7 +36,7 @@ import { enqueueOutboundEvent } from "../lib/webhook";
 import { getAllowRiderSelfClaim } from "../lib/settings-readers";
 import { resolveOriginalPickupTime } from "../lib/pickup-time";
 import { SETTINGS, readSetting } from "../lib/settings-registry";
-import { effectiveHoldState, notHeld } from "../lib/order-hold";
+import { notHeld } from "../lib/order-hold";
 import {
   sendPushToRoles,
   sendPushToRider,
@@ -253,8 +253,6 @@ router.post(
         items,
         originalPayload: payload as unknown as Record<string, unknown>,
         pickupTimeOriginal,
-        isParked,
-        parkedReason,
         // A parked order is held: it isn't dispatchable until a coordinator
         // resolves which restaurant it belongs to.
         holdState: isParked ? "parked" : null,
@@ -602,12 +600,11 @@ router.post(
           id: ordersTable.id,
           status: ordersTable.status,
           holdState: ordersTable.holdState,
-          isParked: ordersTable.isParked,
         })
         .from(ordersTable)
         .where(eq(ordersTable.id, id));
       if (!exists) throw httpError(404, "ORDER_NOT_FOUND", "Order not found");
-      const held = effectiveHoldState(exists);
+      const held = exists.holdState;
       if (held) {
         throw httpError(
           409,
@@ -888,7 +885,7 @@ router.post(
     if (!parsed.success) throw httpError(400, "VALIDATION_ERROR", parsed.error.message);
 
     const order = await loadOrderOr404(id);
-    const existing = effectiveHoldState(order);
+    const existing = order.holdState;
     if (existing === "parked") {
       throw httpError(
         422,
@@ -925,7 +922,7 @@ router.post(
   wrap(async (req, res) => {
     const id = req.params["id"] as string;
     const order = await loadOrderOr404(id);
-    const existing = effectiveHoldState(order);
+    const existing = order.holdState;
     if (!existing) throw httpError(422, "ORDER_NOT_HELD", "Order is not on hold");
     if (existing === "parked") {
       throw httpError(
@@ -975,15 +972,13 @@ router.post(
     // Re-pointing is what resolves a parked order, so it lifts the hold in the
     // same write. A manual hold is left alone — it was placed for a separate
     // reason and should be released deliberately.
-    const wasParked = effectiveHoldState(order) === "parked";
+    const wasParked = order.holdState === "parked";
     await db
       .update(ordersTable)
       .set({
         restaurantId: restaurant.id,
         ...(wasParked
           ? {
-              isParked: false,
-              parkedReason: null,
               holdState: null,
               holdReason: null,
               heldByUserId: null,

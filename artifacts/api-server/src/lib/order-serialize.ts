@@ -14,7 +14,6 @@ import {
   type OrderStatusLog,
 } from "@workspace/db";
 import { resolveEffectivePickupTime } from "./pickup-time";
-import { effectiveHoldState, effectiveHoldReason } from "./order-hold";
 
 type Numeric = string;
 
@@ -139,10 +138,8 @@ function baseOrderFields(
     effectivePickupSource: eff.effectivePickupSource,
     pendingRiderNotification: order.pendingRiderNotification,
     failureReason: order.failureReason,
-    isParked: order.isParked,
-    parkedReason: order.parkedReason,
-    holdState: effectiveHoldState(order),
-    holdReason: effectiveHoldReason(order),
+    holdState: order.holdState,
+    holdReason: order.holdReason,
     heldAt: order.heldAt,
     heldByUserName,
     tripId: order.tripId,

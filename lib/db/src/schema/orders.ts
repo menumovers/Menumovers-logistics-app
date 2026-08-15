@@ -133,12 +133,6 @@ export const ordersTable = pgTable(
     deliveryTeamMinPrepTime: integer("delivery_team_min_prep_time"),
     pendingRiderNotification: text("pending_rider_notification"),
     failureReason: text("failure_reason"),
-    // DEPRECATED — superseded by holdState/holdReason below. Retained so a
-    // `drizzle-kit push` cannot drop the column before the backfill has run;
-    // readers fall back to it for rows written before the hold family existed.
-    // Remove once the backfill is confirmed — see docs/environment-checklist.md.
-    isParked: boolean("is_parked").notNull().default(false),
-    parkedReason: text("parked_reason"),
     // The hold family. NULL means the order is not held. A hold blocks *new
     // assignment only* — an order already being worked keeps accepting status
     // reports, so a hold never freezes a rider mid-delivery.

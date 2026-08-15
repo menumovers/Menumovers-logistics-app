@@ -439,20 +439,6 @@ export interface Order {
   pendingRiderNotification?: string | null;
   /** @nullable */
   failureReason?: string | null;
-  /**
-   * Superseded by `holdState`. True when the inbound restaurant identifier
-couldn't be resolved. Equivalent to `holdState == "parked"`; retained
-until the backfill is confirmed.
-
-   * @deprecated
-   */
-  isParked?: boolean;
-  /**
-   * Superseded by `holdReason`.
-   * @deprecated
-   * @nullable
-   */
-  parkedReason?: string | null;
   /** The hold family — the only mechanism that gates an order. Null means not
 held. A hold blocks new assignment only; an order already being worked
 keeps accepting status reports.

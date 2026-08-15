@@ -393,7 +393,7 @@ per-source credential (see `api_credentials`) rather than a single shared secret
 Idempotent on `externalOrderId`: re-sending the same payload updates the existing
 order record instead of creating a duplicate. If `restaurantNameCode` is absent or
 doesn't match any known restaurant, the order is still accepted — it's filed against
-a placeholder restaurant and marked parked (`isParked: true`) instead of being rejected.
+a placeholder restaurant and held (`holdState: parked`) instead of being rejected.
 
  * @summary Receive a new order from the upstream distribution service
  */
