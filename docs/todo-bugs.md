@@ -161,6 +161,9 @@ shape of latent bug as B2, and it goes live the moment they are surfaced.
 **Fix:** either update both from a structured editor, or make one derived from
 the other rather than storing two independent truths.
 
+The six components are A1–A6 in `docs/field-audit.md`, which also asks the
+prior question this fix depends on: whether they should be surfaced at all.
+
 ---
 
 ## B6. The state machine exists in three places and they disagree

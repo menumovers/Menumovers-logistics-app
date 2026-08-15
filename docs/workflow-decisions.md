@@ -366,6 +366,10 @@ Consequences that shaped the build:
 
 **Raised 2026-08-14. Not resolved — deliberately parked, to be returned to.**
 
+*Related:* `docs/field-audit.md` §B lists the three fields that feed the time
+calculations and are shown to nobody, and §A9–A12 the four timing figures from
+the source that no formula consumes and whose meaning was never established.
+
 The question that opened this: **why is anything computing from `now`?**
 
 `now` is the moment *our API server processes a request*. It is not when the
