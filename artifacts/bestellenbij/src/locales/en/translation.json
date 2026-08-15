@@ -162,7 +162,8 @@
     "workloadEmpty": "No riders available",
     "workloadActive": "Active",
     "workloadQueued": "Queued",
-    "workloadOffline": "Offline"
+    "workloadOffline": "Offline",
+    "failedReason": "Failure reason"
   },
   "rider": {
     "title": "My route",
@@ -201,7 +202,8 @@
     "readyForPickup": "Ready for pickup",
     "readyForPickupSent": "Restaurant marked the food ready",
     "hiddenItem": "Hidden by coordinator",
-    "extraItem": "Added by coordinator"
+    "extraItem": "Added by coordinator",
+    "kitchenNotes": "Note for the kitchen"
   },
   "admin": {
     "title": "Admin",

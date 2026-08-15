@@ -96,7 +96,12 @@ short-circuiting.
 
 ## B3. Failure reasons are write-only
 
-**Severity: medium — destroys operational history.**
+**FIXED 2026-08-14** — the reason is now shown on the coordinator order detail
+when an order has failed, *and* carried into the status-log note at transition
+time, so the timeline explains itself without a second lookup. Kept below for
+the record.
+
+~~Severity: medium — destroys operational history.~~
 
 Both the rider (`pages/rider-order.tsx`) and the coordinator
 (`pages/coordinator-order.tsx`) *require* a reason before an order can be

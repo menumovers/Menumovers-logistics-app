@@ -23,7 +23,7 @@ import { PickupTimeInput } from "@/components/pickup-time-input";
 import { useAuth } from "@/lib/auth";
 import { effectivePickup, formatTime } from "@/lib/format";
 import { useToast } from "@/hooks/use-toast";
-import { CheckCircle2, Layers, Clock, Info, Bike } from "lucide-react";
+import { CheckCircle2, Layers, Clock, Info, Bike, ChefHat } from "lucide-react";
 
 export default function RestaurantPage() {
   const { t, i18n } = useTranslation();
@@ -330,6 +330,23 @@ function RestaurantOrderCard({
           <CheckCircle2 className="size-4 mr-2" />
           {t("restaurant.readyForPickup")}
         </Button>
+
+        {/* Notes the source addressed to the kitchen. They arrived on every
+            order and were shown on no screen at all — least of all this one. */}
+        {order.kitchenNotes ? (
+          <div
+            className="flex items-start gap-2 rounded-md border border-accent/40 bg-accent/10 px-2.5 py-2 text-sm"
+            data-testid={`text-kitchen-notes-${order.id}`}
+          >
+            <ChefHat className="size-4 mt-0.5 shrink-0" />
+            <div>
+              <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                {t("restaurant.kitchenNotes")}
+              </div>
+              <div>{order.kitchenNotes}</div>
+            </div>
+          </div>
+        ) : null}
 
         <ul className="text-sm space-y-1">
           {order.items.map((it, i) => {

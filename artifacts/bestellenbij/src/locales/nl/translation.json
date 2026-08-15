@@ -162,7 +162,8 @@
     "workloadEmpty": "Geen rijders beschikbaar",
     "workloadActive": "Actief",
     "workloadQueued": "Wachtrij",
-    "workloadOffline": "Offline"
+    "workloadOffline": "Offline",
+    "failedReason": "Reden mislukken"
   },
   "rider": {
     "title": "Mijn route",
@@ -201,7 +202,8 @@
     "readyForPickup": "Gereed voor ophalen",
     "readyForPickupSent": "Restaurant heeft eten gereed gemeld",
     "hiddenItem": "Verborgen door coördinator",
-    "extraItem": "Toegevoegd door coördinator"
+    "extraItem": "Toegevoegd door coördinator",
+    "kitchenNotes": "Notitie voor de keuken"
   },
   "admin": {
     "title": "Beheer",

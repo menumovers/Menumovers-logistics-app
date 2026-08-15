@@ -41,7 +41,7 @@ import { PickupCountdown, PickupSourceBadge } from "@/components/pickup-countdow
 import { PickupTimeInput } from "@/components/pickup-time-input";
 import { PaymentPanel } from "@/components/payment-panel";
 import { DeliveryMethodBadge, RequestedTimeLabel } from "@/components/delivery-expectation";
-import { ArrowLeft, Bike, MapPin, Phone, Mail, Plus, Eye, EyeOff, Bell, History, PauseCircle, PlayCircle } from "lucide-react";
+import { ArrowLeft, Bike, MapPin, Phone, Mail, Plus, Eye, EyeOff, Bell, History, PauseCircle, PlayCircle, AlertTriangle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { getOriginalOrderItems, unhideOrderItem } from "@/lib/api";
 import { effectivePickup, formatCurrency, formatDateTime, formatTime } from "@/lib/format";
@@ -101,6 +101,21 @@ export default function CoordinatorOrderPage() {
           </span>
         </div>
       </header>
+
+      {o.status === "failed" && o.failureReason ? (
+        <div
+          className="flex items-start gap-3 rounded-lg border border-destructive/40 bg-destructive/[0.06] p-4"
+          data-testid="banner-failure-reason"
+        >
+          <AlertTriangle className="size-5 mt-0.5 shrink-0 text-destructive" />
+          <div>
+            <div className="text-xs uppercase tracking-wide text-destructive">
+              {t("coordinator.failedReason")}
+            </div>
+            <div className="text-sm">{o.failureReason}</div>
+          </div>
+        </div>
+      ) : null}
 
       <div className="grid gap-5 lg:grid-cols-3">
         <div className="lg:col-span-2 space-y-5">

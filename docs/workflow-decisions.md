@@ -258,6 +258,41 @@ per-setting cost is worth removing before it multiplies.
 
 ---
 
+## D10. The money breakdown is receipt data, not operational data
+
+**Decided 2026-08-14. Deliberately not built.**
+
+Six fields arrive on every order and are stored, serialized and typed:
+
+`deliveryFee`, `tipRider`, `tipRestaurant`, `supTotal`, `statiegeldTotal`,
+`administrationCosts` — plus `items[].totalPrice`.
+
+They are **financial fields**. They exist so receipts can eventually be
+created, shown and printed. None of them changes what a rider, restaurant or
+coordinator does during a delivery.
+
+**So they are not surfaced anywhere, and that is the decision — not an
+oversight.** An earlier survey listed them as "stored but rendered nowhere",
+which is true and reads like a gap; it isn't one. Adding `tipRider` to a rider
+card or `statiegeldTotal` to a restaurant view would be noise on screens whose
+job is to get food moved.
+
+Two guesses this corrects, recorded so they aren't repeated:
+
+- `tipRider` looked like something the rider should see. It is a receipt line.
+- `statiegeldTotal` (deposit on returnables) looked operational — a physical
+  thing someone handles. It is a receipt line.
+
+The one payment-shaped thing that *is* operational is `cashPayment`, which
+tells a rider what to do at the door. That is already surfaced, and it is the
+exception rather than the pattern.
+
+**Where the work goes when it happens:** receipts are tracked in
+`docs/todo-roadmap.md`. These fields are its input, and it is the only feature
+that should consume them.
+
+---
+
 ## Open: audit every computed time before trusting any of them
 
 **Raised 2026-08-14. Not resolved — deliberately parked, to be returned to.**

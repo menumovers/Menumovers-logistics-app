@@ -486,6 +486,13 @@ router.post(
     if (toStatus === "failed") {
       updates.failureReason = parsed.data.failureReason ?? "Unspecified";
     }
+    // Both roles are made to type a failure reason, but it was written only to
+    // orders.failureReason while the status log recorded `note` — leaving the
+    // timeline saying an order failed and staying silent on why. Carry it into
+    // the log so the audit trail is self-contained. See docs/todo-bugs.md B3.
+    const logNote =
+      parsed.data.note ??
+      (toStatus === "failed" ? (updates.failureReason ?? null) : null);
     // Atomic guarded update — only transition if status is still what we read.
     const updated = await db
       .update(ordersTable)
@@ -502,7 +509,7 @@ router.post(
       toStatus,
       actorUserId: auth.sub,
       actorRole: auth.role,
-      note: parsed.data.note ?? null,
+      note: logNote,
     });
 
     // Notifications.
