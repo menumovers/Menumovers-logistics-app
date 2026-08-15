@@ -38,6 +38,7 @@ import { Separator } from "@/components/ui/separator";
 import { Spinner } from "@/components/ui/spinner";
 import { StatusBadge } from "@/components/status-badge";
 import { PickupCountdown, PickupSourceBadge } from "@/components/pickup-countdown";
+import { DeliveryMethodBadge, RequestedTimeLabel } from "@/components/delivery-expectation";
 import { ArrowLeft, Bike, MapPin, Phone, Mail, Plus, Eye, EyeOff, Bell, History, PauseCircle, PlayCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { getOriginalOrderItems, unhideOrderItem } from "@/lib/api";
@@ -57,10 +58,11 @@ const TRANSITIONS: Record<OrderStatusType, OrderStatusType[]> = {
 export default function CoordinatorOrderPage() {
   const { id } = useParams();
   const orderId = id!;
+  const { t, i18n } = useTranslation();
+  const lang = i18n.resolvedLanguage ?? "nl";
   const order = useGetOrder(orderId, {
     query: { queryKey: getGetOrderQueryKey(orderId), refetchInterval: 30_000, enabled: !!orderId },
   });
-  const { t } = useTranslation();
 
   if (order.isLoading || !order.data) {
     return <div className="grid place-items-center py-20"><Spinner className="size-6 text-primary" /></div>;
@@ -81,8 +83,12 @@ export default function CoordinatorOrderPage() {
           <div className="text-sm text-muted-foreground">{o.restaurantName}</div>
         </div>
         <div className="flex flex-col items-end gap-2">
-          <StatusBadge status={o.status} />
+          <div className="flex items-center gap-2">
+            <DeliveryMethodBadge order={o} />
+            <StatusBadge status={o.status} />
+          </div>
           <PickupCountdown order={o} size="lg" />
+          <RequestedTimeLabel order={o} lang={lang} withDate />
         </div>
       </header>
 
@@ -233,9 +239,11 @@ function AssignCard({ order }: { order: OrderDetail }) {
   const { toast } = useToast();
   const candidates = (riders.data ?? []).filter((r) => r.availabilityStatus !== "offline" && r.accountStatus === "active");
 
-  // A held order isn't dispatchable — the server refuses the assignment, so
-  // don't offer it. HoldCard above explains why and how to resolve it.
-  if (order.status !== "pending" || order.holdState != null) return null;
+  // Not dispatchable: held orders are refused by the server, and customer
+  // pickup is never rider work at all. Don't offer an action that will fail.
+  if (order.status !== "pending") return null;
+  if (order.holdState != null) return null;
+  if (order.deliveryMethod === "pickup") return null;
 
   return (
     <Card>

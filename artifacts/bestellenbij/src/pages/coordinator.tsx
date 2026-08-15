@@ -31,8 +31,9 @@ import {
 import { Spinner } from "@/components/ui/spinner";
 import { StatusBadge } from "@/components/status-badge";
 import { PickupCountdown, PickupSourceBadge } from "@/components/pickup-countdown";
+import { DeliveryMethodBadge, RequestedTimeLabel } from "@/components/delivery-expectation";
 import { effectivePickup, formatCurrency } from "@/lib/format";
-import { Bike, MapPin, Phone, Bell, ChevronRight, Layers, Plus, PauseCircle, PlayCircle } from "lucide-react";
+import { Bike, MapPin, Phone, Bell, ChevronRight, Layers, Plus, PauseCircle, PlayCircle, ShoppingBag } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
 
@@ -69,7 +70,11 @@ export default function CoordinatorPage() {
   // looking dispatchable — a parked one is attributed to a placeholder
   // restaurant until someone resolves it.
   const held = all.filter((o) => o.holdState != null);
-  const list = all.filter((o) => o.holdState == null);
+  const unheld = all.filter((o) => o.holdState == null);
+  // The customer collects these themselves. They never reach a rider, so they
+  // don't belong in the dispatch grid — but they still need watching.
+  const customerPickup = unheld.filter((o) => o.deliveryMethod === "pickup");
+  const list = unheld.filter((o) => o.deliveryMethod !== "pickup");
   const activeTrips = (trips.data ?? []).filter(
     (tr) => tr.status !== "completed" && tr.status !== "dissolved",
   );
@@ -95,6 +100,10 @@ export default function CoordinatorPage() {
 
       {held.length > 0 ? (
         <HeldSection held={held} restaurants={restaurants.data ?? []} />
+      ) : null}
+
+      {customerPickup.length > 0 ? (
+        <CustomerPickupSection orders={customerPickup} lang={lang} />
       ) : null}
 
       {activeTrips.length > 0 ? <TripsSection trips={activeTrips} /> : null}
@@ -163,6 +172,58 @@ export default function CoordinatorPage() {
         </motion.div>
       )}
     </div>
+  );
+}
+
+/**
+ * Customer-pickup orders. Excluded from rider scope at the SQL level, so they
+ * can never be claimed or assigned — this section exists purely so admins and
+ * coordinators can keep an eye on them. See docs/workflow-decisions.md D5.
+ */
+function CustomerPickupSection({
+  orders,
+  lang,
+}: {
+  orders: OrderListItem[];
+  lang: string;
+}) {
+  const { t } = useTranslation();
+  return (
+    <Card data-testid="card-customer-pickup-section">
+      <CardHeader className="pb-3">
+        <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-2">
+          <ShoppingBag className="size-4" /> {t("delivery.pickupSection", { count: orders.length })}
+        </CardTitle>
+        <p className="text-xs text-muted-foreground">{t("delivery.pickupSectionHelp")}</p>
+      </CardHeader>
+      <CardContent>
+        <ul className="space-y-2">
+          {orders.map((o) => (
+            <li key={o.id}>
+              <Link
+                href={`/coordinator/orders/${o.id}`}
+                className="flex items-center gap-3 rounded-md border border-border px-3 py-2 hover:border-primary/50"
+                data-testid={`customer-pickup-row-${o.id}`}
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2 text-sm">
+                    <span className="text-muted-foreground tabular-nums">#{o.externalOrderId}</span>
+                    <span className="font-medium truncate">{o.customerName}</span>
+                    <StatusBadge status={o.status} />
+                  </div>
+                  <div className="mt-0.5 flex items-center gap-2 text-xs text-muted-foreground">
+                    <span className="truncate">{o.restaurantName}</span>
+                    <span>·</span>
+                    <RequestedTimeLabel order={o} lang={lang} />
+                  </div>
+                </div>
+                <ChevronRight className="size-4 text-muted-foreground shrink-0" />
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -433,7 +494,10 @@ function OrderCard({ order, lang }: { order: OrderListItem; lang: string }) {
                 <div className="font-semibold truncate" data-testid={`text-customer-${order.id}`}>{order.customerName}</div>
                 <div className="text-xs text-muted-foreground truncate">{order.restaurantName}</div>
               </div>
-              <StatusBadge status={order.status} />
+              <div className="flex flex-col items-end gap-1.5">
+                <StatusBadge status={order.status} />
+                <DeliveryMethodBadge order={order} />
+              </div>
             </div>
           </CardHeader>
           <CardContent className="space-y-3">
@@ -441,6 +505,7 @@ function OrderCard({ order, lang }: { order: OrderListItem; lang: string }) {
               <PickupCountdown order={order} />
               <PickupSourceBadge source={eff.source} />
             </div>
+            <RequestedTimeLabel order={order} lang={lang} />
             <div className="flex items-start gap-2 text-sm text-muted-foreground">
               <MapPin className="size-3.5 mt-0.5 shrink-0" />
               <span className="line-clamp-2">{order.deliveryAddress}</span>

@@ -37,6 +37,7 @@ import { getAllowRiderSelfClaim } from "../lib/settings-readers";
 import { resolveOriginalPickupTime } from "../lib/pickup-time";
 import { SETTINGS, readSetting } from "../lib/settings-registry";
 import { notHeld } from "../lib/order-hold";
+import { isRiderDeliverable, riderDeliverable } from "../lib/delivery-method";
 import {
   sendPushToRoles,
   sendPushToRider,
@@ -84,14 +85,16 @@ function orderScopeWhere(auth: NonNullable<Request["auth"]>) {
       ? eq(ordersTable.riderId, auth.riderId)
       : sql`false`;
     return or(
-      // Discovery: unclaimed work. Held orders are excluded here — they are
-      // not dispatchable and have not been triaged. The rider's own assigned
-      // orders below are deliberately NOT filtered, so placing a hold never
-      // makes an in-flight delivery vanish from the rider's screen.
+      // Discovery: unclaimed work. Excludes held orders (not triaged, not
+      // dispatchable) and customer-pickup orders (never rider work at all).
+      // The rider's own assigned orders below are deliberately NOT filtered,
+      // so placing a hold never makes an in-flight delivery vanish from the
+      // rider's screen.
       and(
         eq(ordersTable.status, "pending"),
         sql`${ordersTable.riderId} IS NULL`,
         notHeld(),
+        riderDeliverable(),
       )!,
       ownAssigned,
     )!;
@@ -588,6 +591,7 @@ router.post(
           eq(ordersTable.status, "pending"),
           sql`${ordersTable.riderId} IS NULL`,
           notHeld(),
+          riderDeliverable(),
         ),
       )
       .returning();
@@ -600,10 +604,18 @@ router.post(
           id: ordersTable.id,
           status: ordersTable.status,
           holdState: ordersTable.holdState,
+          deliveryMethod: ordersTable.deliveryMethod,
         })
         .from(ordersTable)
         .where(eq(ordersTable.id, id));
       if (!exists) throw httpError(404, "ORDER_NOT_FOUND", "Order not found");
+      if (!isRiderDeliverable(exists.deliveryMethod)) {
+        throw httpError(
+          422,
+          "NOT_RIDER_DELIVERABLE",
+          "The customer collects this order themselves",
+        );
+      }
       const held = exists.holdState;
       if (held) {
         throw httpError(

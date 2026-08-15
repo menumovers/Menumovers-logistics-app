@@ -140,7 +140,9 @@ cheapest available alarm.
 
 ## D5. Delivery method splits the board
 
-**Decided 2026-08-14. Not yet built.**
+**Decided 2026-08-14. Built 2026-08-14** — `lib/delivery-method.ts`, the rider
+scope and assign guard, and `components/delivery-expectation.tsx`. No schema
+change: `deliveryMethod` was already stored and serialized.
 
 `deliveryMethod` arrives as `delivery`, `pickup`, or `happy_hour` and
 currently drives nothing.

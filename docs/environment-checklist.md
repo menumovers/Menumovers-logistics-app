@@ -23,6 +23,7 @@ Branch `claude/app-workflow-schema-alignment-n4dnrz`.
 | 3 | Outbound webhook off switch, default off, including gating the retry loop | D7 |
 | 4 | Pickup time works scheduled orders back from the promised delivery time | D4 |
 | 5 | The hold family — parked orders are gated, and coordinators can triage them | D2 |
+| 6 | Delivery method — customer pickup out of rider scope, happy hour surfaced | D5 |
 
 ### Schema impact
 
@@ -75,6 +76,12 @@ only. These are the checks worth running once deployed.
       is where to look first.
 - [ ] **Confirm ASAP orders are unchanged.** They should still be
       `now + travel`, exactly as before.
+- [ ] **Send an order with `deliveryMethod: "pickup"`.** It must not appear in
+      any rider's open-orders list, and `/assign` on it must return
+      `422 NOT_RIDER_DELIVERABLE`. It should show in the dispatch board's
+      "Customer pickup" section instead.
+- [ ] **Send one with `deliveryMethod: "happy_hour"`.** It stays normal rider
+      work and gains a badge on both the dispatch and rider cards.
 
 ---
 

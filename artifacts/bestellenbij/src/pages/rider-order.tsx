@@ -22,6 +22,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Spinner } from "@/components/ui/spinner";
 import { StatusBadge } from "@/components/status-badge";
 import { PickupCountdown, PickupSourceBadge } from "@/components/pickup-countdown";
+import { DeliveryMethodBadge, RequestedTimeLabel } from "@/components/delivery-expectation";
 import { ArrowLeft, Phone, MapPin, Bell, BellOff, Store, ChevronRight, Clock, Layers } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { effectivePickup, formatCurrency, formatTime } from "@/lib/format";
@@ -101,7 +102,10 @@ export default function RiderOrderPage() {
               <div className="text-xs text-muted-foreground tabular-nums">#{o.externalOrderId}</div>
               <CardTitle className="text-xl">{o.restaurantName}</CardTitle>
             </div>
-            <StatusBadge status={o.status} />
+            <div className="flex flex-col items-end gap-1.5">
+              <StatusBadge status={o.status} />
+              <DeliveryMethodBadge order={o} />
+            </div>
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -109,6 +113,7 @@ export default function RiderOrderPage() {
             <PickupCountdown order={o} size="lg" />
             <PickupSourceBadge source={effectivePickup(o).source} />
           </div>
+          <RequestedTimeLabel order={o} lang={lang} withDate />
           <div className="space-y-2 text-sm">
             <div className="flex items-start gap-2"><Store className="size-4 mt-0.5 text-muted-foreground" /><span className="font-medium">{o.restaurantName}</span></div>
             <div className="border-t border-border pt-2">

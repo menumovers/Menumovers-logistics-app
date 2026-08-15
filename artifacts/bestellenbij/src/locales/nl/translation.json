@@ -335,5 +335,15 @@
     "holdReasonPlaceholder": "Waarom wordt deze bestelling vastgehouden?",
     "heldNotice": "Deze bestelling staat in de wacht en wordt niet aan rijders aangeboden.",
     "parkedNotice": "De restaurantcode uit de bestelling kwam niet overeen. Wijs het juiste restaurant toe om vrij te geven."
+  },
+  "delivery": {
+    "method_happy_hour": "Happy hour",
+    "method_pickup": "Klant haalt op",
+    "timeType_asap": "Zo snel mogelijk",
+    "timeType_later_today": "Later vandaag",
+    "timeType_other_day": "Andere dag",
+    "requested": "Klant vroeg om",
+    "pickupSection": "Klant haalt op ({{count}})",
+    "pickupSectionHelp": "De klant haalt deze zelf op — ze worden nooit aan rijders aangeboden."
   }
 }
