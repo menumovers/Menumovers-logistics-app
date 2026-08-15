@@ -21,9 +21,10 @@ import { PickupCountdown, PickupSourceBadge } from "@/components/pickup-countdow
 import { AcknowledgeCard } from "@/components/acknowledge-card";
 import { PickupTimeInput } from "@/components/pickup-time-input";
 import { useAuth } from "@/lib/auth";
+import { Link } from "wouter";
 import { effectivePickup, formatTime } from "@/lib/format";
 import { useToast } from "@/hooks/use-toast";
-import { CheckCircle2, Layers, Clock, Info, Bike, ChefHat } from "lucide-react";
+import { CheckCircle2, Layers, Clock, Info, Bike, ChefHat, Printer } from "lucide-react";
 
 export default function RestaurantPage() {
   const { t, i18n } = useTranslation();
@@ -312,6 +313,12 @@ function RestaurantOrderCard({
           <PickupCountdown order={order} />
           <PickupSourceBadge source={eff.source} />
         </div>
+
+        <Button asChild variant="outline" size="sm" className="w-full" data-testid={`button-receipt-${order.id}`}>
+          <Link href={`/orders/${order.id}/receipt`}>
+            <Printer className="size-3.5 mr-1.5" /> {t("receipt.title")}
+          </Link>
+        </Button>
 
         <AcknowledgeCard
           order={order}

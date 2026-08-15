@@ -34,19 +34,24 @@ The system currently assumes server times are UTC and the client renders in `nl-
 
 ## Operations & Admin
 
-### 6a. Receipts — create, show, print
+### 6a. Receipts — variants (base build done)
 Every order already carries the complete financial breakdown from the source:
 `deliveryFee`, `tipRider`, `tipRestaurant`, `supTotal`, `statiegeldTotal`,
 `administrationCosts`, `totalAmount`, and a per-line `items[].totalPrice`.
 Nothing consumes them, deliberately — they are receipt input, not operational
 data (see `docs/workflow-decisions.md` D10).
 
-A receipt feature would render that breakdown into a document that can be
-displayed and printed. Worth settling when it is picked up: who can generate
-one (rider at the door? coordinator after the fact? both?), whether it is a
-customer-facing artefact or an internal record, and whether the totals are
-rendered as sent or recomputed from the lines — the source sends both, and
-they could in principle disagree.
+The base receipt is built (`pages/order-receipt.tsx`, decision D10). What
+remains is variation:
+
+- **Per-restaurant enablement.** Receipts are not a default for every
+  restaurant. Belongs beside `restaurants.acceptanceMode`.
+- **Item-only receipts.** Some restaurants want no financial information at
+  all. The money block is already a single self-contained section, so this is
+  a flag and a conditional render.
+- **Thermal printing.** Currently browser print with a print stylesheet. If
+  kitchens use receipt printers, width and character constraints differ
+  substantially.
 
 
 ### 6. Order export / download

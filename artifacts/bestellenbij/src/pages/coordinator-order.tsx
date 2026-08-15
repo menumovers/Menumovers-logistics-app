@@ -40,7 +40,7 @@ import { PickupCountdown, PickupSourceBadge } from "@/components/pickup-countdow
 import { PickupTimeInput } from "@/components/pickup-time-input";
 import { PaymentPanel } from "@/components/payment-panel";
 import { DeliveryMethodBadge, RequestedTimeLabel } from "@/components/delivery-expectation";
-import { ArrowLeft, Bike, MapPin, Phone, Mail, Plus, Eye, EyeOff, Bell, History, PauseCircle, PlayCircle, AlertTriangle } from "lucide-react";
+import { ArrowLeft, Bike, MapPin, Phone, Mail, Plus, Eye, EyeOff, Bell, History, PauseCircle, PlayCircle, AlertTriangle, Printer } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { getOriginalOrderItems, unhideOrderItem } from "@/lib/api";
 import { effectivePickup, formatCurrency, formatDateTime, formatTime } from "@/lib/format";
@@ -65,6 +65,13 @@ export default function CoordinatorOrderPage() {
         <Link href="/coordinator" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground" data-testid="link-back-coordinator">
           <ArrowLeft className="size-4" /> {t("common.back")}
         </Link>
+      </div>
+      <div className="flex justify-end -mt-2">
+        <Button asChild variant="outline" size="sm" data-testid="button-open-receipt">
+          <Link href={`/orders/${o.id}/receipt`}>
+            <Printer className="size-4 mr-1.5" /> {t("receipt.title")}
+          </Link>
+        </Button>
       </div>
       <header className="flex flex-wrap items-start justify-between gap-4">
         <div>

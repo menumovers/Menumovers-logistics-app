@@ -25,6 +25,7 @@ Branch `claude/app-workflow-schema-alignment-n4dnrz`.
 | 5 | The hold family — parked orders are gated, and coordinators can triage them | D2 |
 | 6 | Delivery method — customer pickup out of rider scope, happy hour surfaced | D5 |
 | 7 | Restaurant acknowledgement, with a per-restaurant confirmation style | D3 |
+| 8 | Order receipt — numbered kitchen document, printable | D10 |
 
 ### Schema impact
 
@@ -100,6 +101,11 @@ only. These are the checks worth running once deployed.
       screen and the restaurant screen. All three should keep the date you
       chose. This was B1 — previously the date could only ever be today or
       tomorrow, and the wrong value outranked the correct computed one.
+- [ ] **Print a receipt** from the restaurant card and from the order detail.
+      Item lines should be numbered 1..n for packaging, and the app chrome
+      should not appear in the printed output.
+- [ ] **Hide an item, then reprint.** An "items changed after ordering" line
+      should appear with the difference; the charged total must not move.
 - [ ] **Send a cash order** and confirm the rider sees the amount to collect,
       the storefront's own payment wording, and any change to bring — plus a
       "Cash" badge on the list card before they open it.

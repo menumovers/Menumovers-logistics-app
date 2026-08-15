@@ -263,7 +263,9 @@ per-setting cost is worth removing before it multiplies.
 
 ## D10. The money breakdown is receipt data, not operational data
 
-**Decided 2026-08-14. Deliberately not built.**
+**Decided 2026-08-14. Receipt built 2026-08-14** — `pages/order-receipt.tsx`.
+The fields remain absent from every operational screen; the receipt is the one
+place they appear. No schema change.
 
 Six fields arrive on every order and are stored, serialized and typed:
 
@@ -290,9 +292,30 @@ The one payment-shaped thing that *is* operational is `cashPayment`, which
 tells a rider what to do at the door. That is already surfaced, and it is the
 exception rather than the pattern.
 
-**Where the work goes when it happens:** receipts are tracked in
-`docs/todo-roadmap.md`. These fields are its input, and it is the only feature
-that should consume them.
+**Where the work goes:** the receipt at `/orders/:id/receipt` is the only
+feature that consumes them.
+
+**What the receipt actually is** (clarified 2026-08-14): primarily a *kitchen*
+document, sometimes shown to customers. The customer's formal invoice is
+emailed by the storefront — which is why no BTW, VAT number or KvK data reaches
+this app, and why none is missing. Its main job is the **numbered item list**:
+the kitchen writes those numbers on the packaging and checks them against the
+sheet at handover.
+
+Consequences that shaped the build:
+
+- Items lead; the financial block is one self-contained section, because some
+  restaurants will eventually want an item-only receipt — that is the section
+  not rendering, not a rewrite.
+- Receipts are not a default for every restaurant. Per-restaurant enablement is
+  **not built** — every order has one today. When it is wanted it belongs beside
+  `restaurants.acceptanceMode`.
+- `totalAmount` is written once at ingestion and never recomputed, so hidden or
+  added items leave the delivered list disagreeing with what was charged. The
+  serializer computes `itemsAdjustment` (delivered minus ordered) and the
+  receipt shows it as its own line. The charged amount stands — we are not the
+  payment authority — and the discrepancy is surfaced rather than reconciled
+  away.
 
 ---
 

@@ -100,6 +100,16 @@ their own transition table.
  */
   allowedTransitions: OrderStatus[];
   /**
+   * Value of the delivered items minus the value of the ordered items, when a
+coordinator has hidden or added anything. Null when untouched. `totalAmount`
+is written once at ingestion and never recomputed, so this is the amount by
+which the delivered list no longer matches what was charged — surfaced on the
+receipt rather than silently producing a breakdown that doesn't add up.
+
+   * @nullable
+   */
+  itemsAdjustment?: string | null;
+  /**
    * When the restaurant acknowledged the order. Null means not yet acknowledged,
 which blocks nothing — it is a read receipt, not a gate.
 

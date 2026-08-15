@@ -57,6 +57,55 @@ export function applyItemOverrides(
   return [...visible, ...added].map(toSerializedItem);
 }
 
+/**
+ * Money arrives as strings to avoid float math, so sums are done in cents.
+ */
+function moneyToCents(value: string | null | undefined): number | null {
+  if (value == null) return null;
+  const cleaned = value.trim().replace(",", ".");
+  if (!/^-?\d+(\.\d{1,2})?$/.test(cleaned)) return null;
+  const negative = cleaned.startsWith("-");
+  const [whole = "0", frac = ""] = cleaned.replace("-", "").split(".");
+  const cents =
+    Number.parseInt(whole, 10) * 100 + Number.parseInt(frac.padEnd(2, "0") || "0", 10);
+  return negative ? -cents : cents;
+}
+
+function centsToMoney(cents: number): string {
+  const sign = cents < 0 ? "-" : "";
+  const abs = Math.abs(cents);
+  return `${sign}${Math.floor(abs / 100)}.${String(abs % 100).padStart(2, "0")}`;
+}
+
+/** A line's value: the source's own line total when present, else price × quantity. */
+function lineCents(item: { price: string; quantity: number; totalPrice?: string | null }): number {
+  const explicit = moneyToCents(item.totalPrice ?? null);
+  if (explicit !== null) return explicit;
+  const unit = moneyToCents(item.price);
+  return unit === null ? 0 : unit * item.quantity;
+}
+
+/**
+ * What the delivered items are worth, minus what the ordered items were worth.
+ * Null when nothing was overridden.
+ *
+ * `totalAmount` is written once at ingestion and never recomputed, so once a
+ * coordinator hides or adds an item the delivered list stops matching the
+ * charged total. The receipt shows this difference explicitly rather than
+ * silently presenting a breakdown that doesn't add up — we are not the payment
+ * authority, so the charged amount stands and the discrepancy is surfaced.
+ */
+function itemsAdjustmentOf(
+  original: OrderItem[],
+  delivered: SerializedOrderItem[],
+  hasOverrides: boolean,
+): string | null {
+  if (!hasOverrides) return null;
+  const before = original.reduce((sum, i) => sum + lineCents(i), 0);
+  const after = delivered.reduce((sum, i) => sum + lineCents(i), 0);
+  return centsToMoney(after - before);
+}
+
 function effectiveOf(order: Order): Date {
   return resolveEffectivePickupTime({
     pickupTimeOriginal: order.pickupTimeOriginal,
@@ -73,6 +122,7 @@ function baseOrderFields(
   tripNumber: number | null,
   heldByUserName: string | null,
   restaurantAcceptedByName: string | null,
+  itemsAdjustment: string | null,
 ) {
   const eff = resolveEffectivePickupTime({
     pickupTimeOriginal: order.pickupTimeOriginal,
@@ -148,6 +198,7 @@ function baseOrderFields(
     // Derived from the state machine, so the UI renders the options the server
     // will actually accept rather than a hand-maintained copy. See B6.
     allowedTransitions: nextStatusesFor(order.status),
+    itemsAdjustment,
     restaurantAcceptedAt: order.restaurantAcceptedAt,
     restaurantAcceptedByName,
     holdState: order.holdState,
@@ -321,6 +372,7 @@ export async function serializeOrderListItem(order: Order) {
       order.restaurantAcceptedByUserId
         ? (holdActorsById.get(order.restaurantAcceptedByUserId) ?? null)
         : null,
+      itemsAdjustmentOf(order.items ?? [], items, overrides.length > 0),
     ),
     restaurantName: restaurant?.name,
     riderName: rider?.name ?? null,
@@ -351,6 +403,7 @@ export async function serializeOrderListItems(orders: Order[]) {
         order.restaurantAcceptedByUserId
           ? (holdActorsById.get(order.restaurantAcceptedByUserId) ?? null)
           : null,
+        itemsAdjustmentOf(order.items ?? [], items, overrides.length > 0),
       ),
       restaurantName: restaurant?.name,
       riderName: rider?.name ?? null,
@@ -403,6 +456,7 @@ export async function serializeOrderDetail(orderId: string) {
       order.restaurantAcceptedByUserId
         ? (joinData.holdActorsById.get(order.restaurantAcceptedByUserId) ?? null)
         : null,
+      itemsAdjustmentOf(order.items ?? [], items, overrides.length > 0),
     ),
     restaurantName: restaurant?.name,
     riderName: rider?.name ?? null,

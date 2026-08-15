@@ -387,5 +387,25 @@
     "bringChange": "{{amount}} wisselgeld meenemen",
     "changeInconsistent": "Klant betaalt {{amount}}, minder dan het ordertotaal — check dit voor je gaat",
     "changeUnknown": "Wisselgeld nodig, maar het bedrag ontbreekt — check bij de coördinator"
+  },
+  "receipt": {
+    "title": "Bon",
+    "print": "Afdrukken",
+    "orderNumber": "Bestelling",
+    "customer": "Klant",
+    "ordered": "Besteld",
+    "items_one": "{{count}} artikel",
+    "items_other": "{{count}} artikelen",
+    "lineNumber": "Regel {{number}}",
+    "deliveryFee": "Bezorgkosten",
+    "tipRider": "Fooi — rijder",
+    "tipRestaurant": "Fooi — restaurant",
+    "supTotal": "Toeslagen",
+    "statiegeld": "Statiegeld",
+    "administration": "Administratiekosten",
+    "adjustment": "Artikelen gewijzigd na bestellen",
+    "adjustmentNote": "Er zijn artikelen toegevoegd of verwijderd na het plaatsen van de bestelling. Het gefactureerde bedrag is ongewijzigd — het verschil staat hierboven.",
+    "charged": "In rekening gebracht",
+    "invoiceNote": "Dit is een bezorgbon, geen factuur. De klant ontvangt de factuur per e-mail."
   }
 }

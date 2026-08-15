@@ -272,6 +272,12 @@ export const IngestOrderResponse = zod.object({
     .describe(
       "Statuses reportable from the order's current one, derived server-side from\nthe state machine. Status is a report rather than a gate: skipping ahead\nand correcting a mis-tap are both accepted. `pending` and `driver_assigned`\nnever appear — they are coupled to `riderId` and written by\n`POST \/orders\/{id}\/assign`. Clients should render these rather than keep\ntheir own transition table.\n",
     ),
+  itemsAdjustment: zod
+    .string()
+    .nullish()
+    .describe(
+      "Value of the delivered items minus the value of the ordered items, when a\ncoordinator has hidden or added anything. Null when untouched. `totalAmount`\nis written once at ingestion and never recomputed, so this is the amount by\nwhich the delivered list no longer matches what was charged — surfaced on the\nreceipt rather than silently producing a breakdown that doesn't add up.\n",
+    ),
   restaurantAcceptedAt: zod.coerce
     .date()
     .nullish()
@@ -431,6 +437,12 @@ export const ListOrdersResponseItem = zod
       .describe(
         "Statuses reportable from the order's current one, derived server-side from\nthe state machine. Status is a report rather than a gate: skipping ahead\nand correcting a mis-tap are both accepted. `pending` and `driver_assigned`\nnever appear — they are coupled to `riderId` and written by\n`POST \/orders\/{id}\/assign`. Clients should render these rather than keep\ntheir own transition table.\n",
       ),
+    itemsAdjustment: zod
+      .string()
+      .nullish()
+      .describe(
+        "Value of the delivered items minus the value of the ordered items, when a\ncoordinator has hidden or added anything. Null when untouched. `totalAmount`\nis written once at ingestion and never recomputed, so this is the amount by\nwhich the delivered list no longer matches what was charged — surfaced on the\nreceipt rather than silently producing a breakdown that doesn't add up.\n",
+      ),
     restaurantAcceptedAt: zod.coerce
       .date()
       .nullish()
@@ -584,6 +596,12 @@ export const GetOrderResponse = zod
       )
       .describe(
         "Statuses reportable from the order's current one, derived server-side from\nthe state machine. Status is a report rather than a gate: skipping ahead\nand correcting a mis-tap are both accepted. `pending` and `driver_assigned`\nnever appear — they are coupled to `riderId` and written by\n`POST \/orders\/{id}\/assign`. Clients should render these rather than keep\ntheir own transition table.\n",
+      ),
+    itemsAdjustment: zod
+      .string()
+      .nullish()
+      .describe(
+        "Value of the delivered items minus the value of the ordered items, when a\ncoordinator has hidden or added anything. Null when untouched. `totalAmount`\nis written once at ingestion and never recomputed, so this is the amount by\nwhich the delivered list no longer matches what was charged — surfaced on the\nreceipt rather than silently producing a breakdown that doesn't add up.\n",
       ),
     restaurantAcceptedAt: zod.coerce
       .date()
@@ -823,6 +841,12 @@ export const TransitionOrderStatusResponse = zod
       .describe(
         "Statuses reportable from the order's current one, derived server-side from\nthe state machine. Status is a report rather than a gate: skipping ahead\nand correcting a mis-tap are both accepted. `pending` and `driver_assigned`\nnever appear — they are coupled to `riderId` and written by\n`POST \/orders\/{id}\/assign`. Clients should render these rather than keep\ntheir own transition table.\n",
       ),
+    itemsAdjustment: zod
+      .string()
+      .nullish()
+      .describe(
+        "Value of the delivered items minus the value of the ordered items, when a\ncoordinator has hidden or added anything. Null when untouched. `totalAmount`\nis written once at ingestion and never recomputed, so this is the amount by\nwhich the delivered list no longer matches what was charged — surfaced on the\nreceipt rather than silently producing a breakdown that doesn't add up.\n",
+      ),
     restaurantAcceptedAt: zod.coerce
       .date()
       .nullish()
@@ -1049,6 +1073,12 @@ export const AssignOrderResponse = zod
       )
       .describe(
         "Statuses reportable from the order's current one, derived server-side from\nthe state machine. Status is a report rather than a gate: skipping ahead\nand correcting a mis-tap are both accepted. `pending` and `driver_assigned`\nnever appear — they are coupled to `riderId` and written by\n`POST \/orders\/{id}\/assign`. Clients should render these rather than keep\ntheir own transition table.\n",
+      ),
+    itemsAdjustment: zod
+      .string()
+      .nullish()
+      .describe(
+        "Value of the delivered items minus the value of the ordered items, when a\ncoordinator has hidden or added anything. Null when untouched. `totalAmount`\nis written once at ingestion and never recomputed, so this is the amount by\nwhich the delivered list no longer matches what was charged — surfaced on the\nreceipt rather than silently producing a breakdown that doesn't add up.\n",
       ),
     restaurantAcceptedAt: zod.coerce
       .date()
@@ -1278,6 +1308,12 @@ export const UpdatePickupTimeResponse = zod
       .describe(
         "Statuses reportable from the order's current one, derived server-side from\nthe state machine. Status is a report rather than a gate: skipping ahead\nand correcting a mis-tap are both accepted. `pending` and `driver_assigned`\nnever appear — they are coupled to `riderId` and written by\n`POST \/orders\/{id}\/assign`. Clients should render these rather than keep\ntheir own transition table.\n",
       ),
+    itemsAdjustment: zod
+      .string()
+      .nullish()
+      .describe(
+        "Value of the delivered items minus the value of the ordered items, when a\ncoordinator has hidden or added anything. Null when untouched. `totalAmount`\nis written once at ingestion and never recomputed, so this is the amount by\nwhich the delivered list no longer matches what was charged — surfaced on the\nreceipt rather than silently producing a breakdown that doesn't add up.\n",
+      ),
     restaurantAcceptedAt: zod.coerce
       .date()
       .nullish()
@@ -1504,6 +1540,12 @@ export const HideOrderItemResponse = zod
       )
       .describe(
         "Statuses reportable from the order's current one, derived server-side from\nthe state machine. Status is a report rather than a gate: skipping ahead\nand correcting a mis-tap are both accepted. `pending` and `driver_assigned`\nnever appear — they are coupled to `riderId` and written by\n`POST \/orders\/{id}\/assign`. Clients should render these rather than keep\ntheir own transition table.\n",
+      ),
+    itemsAdjustment: zod
+      .string()
+      .nullish()
+      .describe(
+        "Value of the delivered items minus the value of the ordered items, when a\ncoordinator has hidden or added anything. Null when untouched. `totalAmount`\nis written once at ingestion and never recomputed, so this is the amount by\nwhich the delivered list no longer matches what was charged — surfaced on the\nreceipt rather than silently producing a breakdown that doesn't add up.\n",
       ),
     restaurantAcceptedAt: zod.coerce
       .date()
@@ -1747,6 +1789,12 @@ export const AddOrderItemResponse = zod
       .describe(
         "Statuses reportable from the order's current one, derived server-side from\nthe state machine. Status is a report rather than a gate: skipping ahead\nand correcting a mis-tap are both accepted. `pending` and `driver_assigned`\nnever appear — they are coupled to `riderId` and written by\n`POST \/orders\/{id}\/assign`. Clients should render these rather than keep\ntheir own transition table.\n",
       ),
+    itemsAdjustment: zod
+      .string()
+      .nullish()
+      .describe(
+        "Value of the delivered items minus the value of the ordered items, when a\ncoordinator has hidden or added anything. Null when untouched. `totalAmount`\nis written once at ingestion and never recomputed, so this is the amount by\nwhich the delivered list no longer matches what was charged — surfaced on the\nreceipt rather than silently producing a breakdown that doesn't add up.\n",
+      ),
     restaurantAcceptedAt: zod.coerce
       .date()
       .nullish()
@@ -1973,6 +2021,12 @@ export const SetRiderNotificationResponse = zod
       )
       .describe(
         "Statuses reportable from the order's current one, derived server-side from\nthe state machine. Status is a report rather than a gate: skipping ahead\nand correcting a mis-tap are both accepted. `pending` and `driver_assigned`\nnever appear — they are coupled to `riderId` and written by\n`POST \/orders\/{id}\/assign`. Clients should render these rather than keep\ntheir own transition table.\n",
+      ),
+    itemsAdjustment: zod
+      .string()
+      .nullish()
+      .describe(
+        "Value of the delivered items minus the value of the ordered items, when a\ncoordinator has hidden or added anything. Null when untouched. `totalAmount`\nis written once at ingestion and never recomputed, so this is the amount by\nwhich the delivered list no longer matches what was charged — surfaced on the\nreceipt rather than silently producing a breakdown that doesn't add up.\n",
       ),
     restaurantAcceptedAt: zod.coerce
       .date()
@@ -2204,6 +2258,12 @@ export const UpdateOrderContactResponse = zod
       )
       .describe(
         "Statuses reportable from the order's current one, derived server-side from\nthe state machine. Status is a report rather than a gate: skipping ahead\nand correcting a mis-tap are both accepted. `pending` and `driver_assigned`\nnever appear — they are coupled to `riderId` and written by\n`POST \/orders\/{id}\/assign`. Clients should render these rather than keep\ntheir own transition table.\n",
+      ),
+    itemsAdjustment: zod
+      .string()
+      .nullish()
+      .describe(
+        "Value of the delivered items minus the value of the ordered items, when a\ncoordinator has hidden or added anything. Null when untouched. `totalAmount`\nis written once at ingestion and never recomputed, so this is the amount by\nwhich the delivered list no longer matches what was charged — surfaced on the\nreceipt rather than silently producing a breakdown that doesn't add up.\n",
       ),
     restaurantAcceptedAt: zod.coerce
       .date()
@@ -2446,6 +2506,12 @@ export const AcknowledgeOrderResponse = zod
       .describe(
         "Statuses reportable from the order's current one, derived server-side from\nthe state machine. Status is a report rather than a gate: skipping ahead\nand correcting a mis-tap are both accepted. `pending` and `driver_assigned`\nnever appear — they are coupled to `riderId` and written by\n`POST \/orders\/{id}\/assign`. Clients should render these rather than keep\ntheir own transition table.\n",
       ),
+    itemsAdjustment: zod
+      .string()
+      .nullish()
+      .describe(
+        "Value of the delivered items minus the value of the ordered items, when a\ncoordinator has hidden or added anything. Null when untouched. `totalAmount`\nis written once at ingestion and never recomputed, so this is the amount by\nwhich the delivered list no longer matches what was charged — surfaced on the\nreceipt rather than silently producing a breakdown that doesn't add up.\n",
+      ),
     restaurantAcceptedAt: zod.coerce
       .date()
       .nullish()
@@ -2677,6 +2743,12 @@ export const HoldOrderResponse = zod
       .describe(
         "Statuses reportable from the order's current one, derived server-side from\nthe state machine. Status is a report rather than a gate: skipping ahead\nand correcting a mis-tap are both accepted. `pending` and `driver_assigned`\nnever appear — they are coupled to `riderId` and written by\n`POST \/orders\/{id}\/assign`. Clients should render these rather than keep\ntheir own transition table.\n",
       ),
+    itemsAdjustment: zod
+      .string()
+      .nullish()
+      .describe(
+        "Value of the delivered items minus the value of the ordered items, when a\ncoordinator has hidden or added anything. Null when untouched. `totalAmount`\nis written once at ingestion and never recomputed, so this is the amount by\nwhich the delivered list no longer matches what was charged — surfaced on the\nreceipt rather than silently producing a breakdown that doesn't add up.\n",
+      ),
     restaurantAcceptedAt: zod.coerce
       .date()
       .nullish()
@@ -2899,6 +2971,12 @@ export const ReleaseOrderResponse = zod
       )
       .describe(
         "Statuses reportable from the order's current one, derived server-side from\nthe state machine. Status is a report rather than a gate: skipping ahead\nand correcting a mis-tap are both accepted. `pending` and `driver_assigned`\nnever appear — they are coupled to `riderId` and written by\n`POST \/orders\/{id}\/assign`. Clients should render these rather than keep\ntheir own transition table.\n",
+      ),
+    itemsAdjustment: zod
+      .string()
+      .nullish()
+      .describe(
+        "Value of the delivered items minus the value of the ordered items, when a\ncoordinator has hidden or added anything. Null when untouched. `totalAmount`\nis written once at ingestion and never recomputed, so this is the amount by\nwhich the delivered list no longer matches what was charged — surfaced on the\nreceipt rather than silently producing a breakdown that doesn't add up.\n",
       ),
     restaurantAcceptedAt: zod.coerce
       .date()
@@ -3130,6 +3208,12 @@ export const SetOrderRestaurantResponse = zod
       )
       .describe(
         "Statuses reportable from the order's current one, derived server-side from\nthe state machine. Status is a report rather than a gate: skipping ahead\nand correcting a mis-tap are both accepted. `pending` and `driver_assigned`\nnever appear — they are coupled to `riderId` and written by\n`POST \/orders\/{id}\/assign`. Clients should render these rather than keep\ntheir own transition table.\n",
+      ),
+    itemsAdjustment: zod
+      .string()
+      .nullish()
+      .describe(
+        "Value of the delivered items minus the value of the ordered items, when a\ncoordinator has hidden or added anything. Null when untouched. `totalAmount`\nis written once at ingestion and never recomputed, so this is the amount by\nwhich the delivered list no longer matches what was charged — surfaced on the\nreceipt rather than silently producing a breakdown that doesn't add up.\n",
       ),
     restaurantAcceptedAt: zod.coerce
       .date()
@@ -3699,6 +3783,12 @@ export const GetTripResponse = zod
               .describe(
                 "Statuses reportable from the order's current one, derived server-side from\nthe state machine. Status is a report rather than a gate: skipping ahead\nand correcting a mis-tap are both accepted. `pending` and `driver_assigned`\nnever appear — they are coupled to `riderId` and written by\n`POST \/orders\/{id}\/assign`. Clients should render these rather than keep\ntheir own transition table.\n",
               ),
+            itemsAdjustment: zod
+              .string()
+              .nullish()
+              .describe(
+                "Value of the delivered items minus the value of the ordered items, when a\ncoordinator has hidden or added anything. Null when untouched. `totalAmount`\nis written once at ingestion and never recomputed, so this is the amount by\nwhich the delivered list no longer matches what was charged — surfaced on the\nreceipt rather than silently producing a breakdown that doesn't add up.\n",
+              ),
             restaurantAcceptedAt: zod.coerce
               .date()
               .nullish()
@@ -3914,6 +4004,12 @@ export const UpdateTripResponse = zod
               )
               .describe(
                 "Statuses reportable from the order's current one, derived server-side from\nthe state machine. Status is a report rather than a gate: skipping ahead\nand correcting a mis-tap are both accepted. `pending` and `driver_assigned`\nnever appear — they are coupled to `riderId` and written by\n`POST \/orders\/{id}\/assign`. Clients should render these rather than keep\ntheir own transition table.\n",
+              ),
+            itemsAdjustment: zod
+              .string()
+              .nullish()
+              .describe(
+                "Value of the delivered items minus the value of the ordered items, when a\ncoordinator has hidden or added anything. Null when untouched. `totalAmount`\nis written once at ingestion and never recomputed, so this is the amount by\nwhich the delivered list no longer matches what was charged — surfaced on the\nreceipt rather than silently producing a breakdown that doesn't add up.\n",
               ),
             restaurantAcceptedAt: zod.coerce
               .date()
@@ -4131,6 +4227,12 @@ export const ReplaceTripStopsResponse = zod
               .describe(
                 "Statuses reportable from the order's current one, derived server-side from\nthe state machine. Status is a report rather than a gate: skipping ahead\nand correcting a mis-tap are both accepted. `pending` and `driver_assigned`\nnever appear — they are coupled to `riderId` and written by\n`POST \/orders\/{id}\/assign`. Clients should render these rather than keep\ntheir own transition table.\n",
               ),
+            itemsAdjustment: zod
+              .string()
+              .nullish()
+              .describe(
+                "Value of the delivered items minus the value of the ordered items, when a\ncoordinator has hidden or added anything. Null when untouched. `totalAmount`\nis written once at ingestion and never recomputed, so this is the amount by\nwhich the delivered list no longer matches what was charged — surfaced on the\nreceipt rather than silently producing a breakdown that doesn't add up.\n",
+              ),
             restaurantAcceptedAt: zod.coerce
               .date()
               .nullish()
@@ -4335,6 +4437,12 @@ export const DissolveTripResponse = zod
               )
               .describe(
                 "Statuses reportable from the order's current one, derived server-side from\nthe state machine. Status is a report rather than a gate: skipping ahead\nand correcting a mis-tap are both accepted. `pending` and `driver_assigned`\nnever appear — they are coupled to `riderId` and written by\n`POST \/orders\/{id}\/assign`. Clients should render these rather than keep\ntheir own transition table.\n",
+              ),
+            itemsAdjustment: zod
+              .string()
+              .nullish()
+              .describe(
+                "Value of the delivered items minus the value of the ordered items, when a\ncoordinator has hidden or added anything. Null when untouched. `totalAmount`\nis written once at ingestion and never recomputed, so this is the amount by\nwhich the delivered list no longer matches what was charged — surfaced on the\nreceipt rather than silently producing a breakdown that doesn't add up.\n",
               ),
             restaurantAcceptedAt: zod.coerce
               .date()

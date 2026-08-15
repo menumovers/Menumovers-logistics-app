@@ -387,5 +387,25 @@
     "bringChange": "bring {{amount}} change",
     "changeInconsistent": "Customer is paying {{amount}}, less than the order total — check before you go",
     "changeUnknown": "Change needed, but the amount didn't come through — check with dispatch"
+  },
+  "receipt": {
+    "title": "Receipt",
+    "print": "Print",
+    "orderNumber": "Order",
+    "customer": "Customer",
+    "ordered": "Ordered",
+    "items_one": "{{count}} item",
+    "items_other": "{{count}} items",
+    "lineNumber": "Line {{number}}",
+    "deliveryFee": "Delivery",
+    "tipRider": "Tip — rider",
+    "tipRestaurant": "Tip — restaurant",
+    "supTotal": "Surcharges",
+    "statiegeld": "Deposit",
+    "administration": "Administration",
+    "adjustment": "Items changed after ordering",
+    "adjustmentNote": "Items were added or removed after the order was placed. The amount charged is unchanged — the difference is shown above.",
+    "charged": "Charged",
+    "invoiceNote": "This is a delivery receipt, not an invoice. The customer receives their invoice by email."
   }
 }
