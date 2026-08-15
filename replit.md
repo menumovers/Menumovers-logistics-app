@@ -80,6 +80,7 @@ One line per domain — go check the registry before writing anything in a cover
 | Document | Contents | Bucket | Update trigger |
 |---|---|---|---|
 | `workflow-decisions.md` | Settled decisions about order-workflow behaviour, so they aren't re-litigated | Routine | A workflow decision is made, reversed, or resolved from the open list |
+| `constraint-overrides.md` | How docs are read (descriptive / soft / hard) + open ledger of superseded constraints | Routine | A documented constraint is superseded, confirmed, or written forward |
 | `environment-checklist.md` | What's built vs. what must still happen in a real environment — schema to apply, settings to set, checks to run | Routine | Work lands that needs a migration, a setting, or live verification |
 | `architecture-sources-of-truth.md` | Full SSOT pattern registry | Routine | New reusable pattern/helper created |
 | `changelog.md` | Dated record of architecturally-significant changes | Routine | New external service goes live, pattern added/retired, major decision made/reversed |
@@ -102,6 +103,8 @@ Shared across **all** Bestellenbij-ecosystem projects, worded identically by des
 >
 > **Centralized patterns first.** Prioritize existing, centralized utilities and patterns (see SSOT Quick-Reference / `architecture-sources-of-truth.md`). If a new pattern or utility is genuinely required, ask before implementing it, and register it once built.
 >
+> *(Open question — see `docs/constraint-overrides.md` O1: whether "new pattern" covers a shared component that falls straight out of an already-approved decision, or only genuinely novel architecture. Under review; the wording itself is ecosystem-shared and not this repo's alone to change.)*
+>
 > **Significant changes need sign-off.** For significant architectural changes or new external dependencies, explain clearly and get explicit approval before proceeding.
 >
 > **Scope discipline.** Don't make changes to files or folders that aren't directly related to the task at hand.
@@ -120,6 +123,8 @@ Governs how Agent treats `replit.md` itself when self-updating (Replit Agent upd
 
 - **Core-contract sections** — Identity, Non-Negotiables, Working Agreement, this Maintenance section — change rarely and deliberately. Never edit these as a side effect of unrelated work. If a session feels one of these needs substantial rewriting, surface that explicitly and wait for confirmation before making the change.
 - **Routine sections** — Run & Operate / Stack / Map update when the underlying facts change (new command, new directory, new dependency). Documentation Index entries update when their target doc's purpose or status changes. SSOT Quick-Reference gets a new line whenever `architecture-sources-of-truth.md` gains a new entry.
+- **Descriptive vs prescriptive** — a doc describing what the system *does* is stale when it disagrees with the code; fix it and move on. A doc saying what we *should* do is either a **hard** constraint (correctness, safety, data integrity) or a **soft** one (an earlier conversation's conclusion, written down so it isn't re-litigated weekly). Most read like rules but are soft.
+- **A contradiction starts a conversation, it does not gate** — when an instruction conflicts with a documented constraint, say what the doc says and which kind it is, then proceed with the live instruction once it's clearly deliberate; the current conversation outranks a written-down old one. Log the supersession in `docs/constraint-overrides.md` so it's visible rather than inferred from a diff, annotate the superseded doc if a reader would otherwise be misled, and reconcile the ledger before the work stream closes. Hard constraints take the same path with more resistance up front: name the specific failure the constraint prevents before crossing it.
 - **Discoveries that don't fit** — if something comes up that doesn't have an obvious home in this structure, propose a new `docs/` entry (assign it a bucket per Part 2's categories) rather than appending it to the cockpit. If genuinely unclear where it belongs, flag it rather than guessing.
 - **Size discipline** — the ~150–180 line range is a diagnostic signal, not a hard cap. If `replit.md` creeps past it, that's a prompt to go through it line by line and ask whether each one still earns its place in the cockpit (per Purpose, above) — not to trim indiscriminately just to hit a number.
 - **Readability** — this file is also human-facing documentation. Keep prose readable, not just terse instruction fragments.
