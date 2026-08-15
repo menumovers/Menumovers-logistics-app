@@ -57,46 +57,50 @@ is acceptable, before proceeding.
 
 ## Active — superseded, not yet confirmed
 
-Entries here are in effect. Each needs a yes/no before it is written forward.
-
-### O1. "Ask before implementing a new pattern"
-
-- **Constraint:** `replit.md` §8 Working Agreement — *"If a new pattern or
-  utility is genuinely required, ask before implementing it, and register it
-  once built."* Soft, and part of an ecosystem-shared section.
-- **What actually happened (2026-08-14):** asked before building the settings
-  registry. Did **not** ask before creating `lib/order-hold.ts`,
-  `lib/delivery-method.ts`, `components/pickup-time-input.tsx`,
-  `components/payment-panel.tsx`, `components/delivery-expectation.tsx` or
-  `components/acknowledge-card.tsx` — all new shared modules.
-- **Why:** each was a direct, obvious consequence of an agreed decision rather
-  than a new architectural direction, and stopping to ask six times would have
-  been friction without information. That is a judgement, not a rule the doc
-  makes.
-- **Needs confirming:** is "new pattern" meant to cover a shared component or
-  helper that falls straight out of an approved decision — or only genuinely
-  novel architecture? If the latter, the Working Agreement wording could say so.
-  Note it is worded identically across ecosystem projects, so a change there is
-  not this repo's alone to make.
-
-### O2. Compatibility shims and migration ceremony
-
-- **Constraint:** general engineering caution — retain old columns, backfill,
-  deprecate before dropping. Never written down here, but applied by default.
-- **Superseded (2026-08-14):** *"There is nothing yet in production, so don't
-  even 1% hold things back because of trying to retain something."*
-- **Now in force:** schema changes in place and gets pushed. No backfills, no
-  deprecation cycles, no compatibility shims. Recorded in
-  `docs/environment-checklist.md` Part 2.
-- **Needs confirming:** the expiry condition. This stops being true the moment
-  anything runs anywhere with real data — worth agreeing now who notices that
-  moment, rather than discovering it after a `push` drops a column.
+*None open.* Both entries from the 2026-08-14 review were answered and written
+forward below.
 
 ---
 
 ## Written forward — confirmed, docs updated
 
 Kept briefly so a reconciliation pass can see what changed, then cleared.
+
+### O1. "Ask before implementing a new pattern"
+
+- **Constraint:** `replit.md` §8 Working Agreement — *"If a new pattern or
+  utility is genuinely required, ask before implementing it."* Soft, and part of
+  an ecosystem-shared section.
+- **What happened (2026-08-14):** asked before the settings registry; did not
+  ask before six other new shared modules (`lib/order-hold.ts`,
+  `lib/delivery-method.ts`, `components/pickup-time-input.tsx`,
+  `components/payment-panel.tsx`, `components/delivery-expectation.tsx`,
+  `components/acknowledge-card.tsx`).
+- **Answered:** leaning yes — a shared component probably does count — but the
+  owner was explicit about being unsure. **All six were retrospectively
+  approved**, so nothing is reverted.
+- **Practice going forward, given a soft yes and genuine uncertainty:** *say,
+  don't ask.* Name a new shared module in the reply that introduces it, rather
+  than stopping for permission. That surfaces it for objection without turning
+  every obvious consequence of an approved decision into a blocking question.
+  If that proves too loose, the answer hardens to asking.
+- **Not changed:** the Working Agreement wording itself. It is worded
+  identically across ecosystem projects, so a real edit isn't this repo's alone
+  to make, and the answer isn't firm enough to warrant proposing one. The
+  in-place annotation pointing here stays.
+
+### O2. Compatibility shims and migration ceremony
+
+- **Constraint:** general engineering caution — retain, backfill, deprecate
+  before dropping.
+- **Superseded (2026-08-14):** *"nothing yet in production, don't hold anything
+  back to retain something."*
+- **Answered: scoped to that conversation only.** Not a standing rule. The
+  authorization has lapsed; a later session re-confirms before dropping
+  anything.
+- **Written forward:** `docs/environment-checklist.md` Part 2 now carries the
+  expiry as a marked warning rather than stating the rule open-endedly — that
+  doc was the one thing likely to mislead a future reader into applying it.
 
 ### D1's reversal of "strict server-validated state transitions"
 
@@ -120,3 +124,19 @@ Before a work stream is considered finished:
 - [ ] Rejected overrides are reverted in code, not just in prose
 - [ ] *Written forward* entries older than the current work stream are cleared —
       `changelog.md` is the permanent record, this file is scaffolding
+
+### 2026-08-14 workflow-alignment review
+
+- [x] Every Active entry answered — O1 (soft yes, all six retrospectively
+      approved) and O2 (scoped to that conversation, now lapsed)
+- [x] Both written forward: O1's practice recorded here, O2's expiry marked in
+      `environment-checklist.md` Part 2
+- [x] Nothing rejected, so nothing to revert
+- [ ] Clear the three *Written forward* entries above once the branch merges —
+      `changelog.md` already carries D1 permanently
+
+**Note for whoever runs the next reconciliation:** O2 is the pattern to watch
+for. It was a time-boxed authorization that read like a standing rule, and it
+had already been written into a checklist in the open-ended voice before anyone
+asked how long it lasted. Authorizations granted mid-conversation should be
+assumed to expire with it unless stated otherwise.

@@ -54,9 +54,20 @@ pnpm --filter @workspace/db run push
 - [ ] Push applied
 - [ ] `pnpm --filter @workspace/db run db:live-drift` reports no delta
 
-The same holds for every change ahead: schema is changed in place and pushed.
-No backfills, no deprecation cycles, no compatibility shims — until something
-is actually running somewhere, retaining old shapes is pure cost.
+### ⚠ The no-ceremony rule expired on 2026-08-14
+
+For the duration of that session only, the owner's instruction was: *"there is
+nothing yet in production, so don't even 1% hold things back trying to retain
+something."* Schema was changed in place and pushed — no backfills, no
+deprecation cycles, no compatibility shims.
+
+**That authorization was scoped to that conversation and has lapsed.** It is not
+a standing rule, and a later session must not read it as one. Before dropping a
+column, skipping a backfill or removing a compatibility path, re-confirm that
+nothing is running anywhere with data worth keeping. The cost of asking is a
+sentence; the cost of assuming is a dropped column.
+
+Recorded in `docs/constraint-overrides.md` O2.
 
 ---
 
