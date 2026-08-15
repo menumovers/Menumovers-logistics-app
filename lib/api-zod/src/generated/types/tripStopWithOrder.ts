@@ -11,8 +11,13 @@ import type { TripStop } from "./tripStop";
 export type TripStopWithOrder = TripStop & {
   externalOrderId: string;
   customerName: string;
+  customerPhone: string;
   restaurantId: string;
   restaurantName: string;
+  /** The pickup address. Carried on the stop so a rider running a
+trip has somewhere to go without opening each order.
+ */
+  restaurantAddress: string;
   deliveryAddress: string;
   orderStatus: OrderStatus;
   effectivePickupTime: Date;

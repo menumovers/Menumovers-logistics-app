@@ -757,20 +757,41 @@ export interface UnsubscribePushRequest {
   endpoint: string;
 }
 
+/**
+ * Derived from the stop's order status — never stored. A pickup stop is
+`done` once the order reads `picked_up` or later; a dropoff stop is
+`done` once it reads `delivered`. A `failed` order marks both of its
+stops `skipped`: settled, but not completed. The status column is
+last-write-wins, so after a failure we cannot tell whether the pickup
+happened first, and the status log is the place to find out.
+
+ */
+export type TripStopState = (typeof TripStopState)[keyof typeof TripStopState];
+
+export const TripStopState = {
+  upcoming: "upcoming",
+  done: "done",
+  skipped: "skipped",
+} as const;
+
 export interface TripStop {
   id: string;
   orderId: string;
   kind: TripStopKind;
   sequence: number;
-  /** @nullable */
-  completedAt?: string | null;
+  state: TripStopState;
 }
 
 export type TripStopWithOrder = TripStop & {
   externalOrderId: string;
   customerName: string;
+  customerPhone: string;
   restaurantId: string;
   restaurantName: string;
+  /** The pickup address. Carried on the stop so a rider running a
+trip has somewhere to go without opening each order.
+ */
+  restaurantAddress: string;
   deliveryAddress: string;
   orderStatus: OrderStatus;
   effectivePickupTime: string;
@@ -788,7 +809,12 @@ export interface TripListItem {
   status: TripStatus;
   orderCount: number;
   stopCount: number;
-  completedStopCount?: number;
+  /** Stops whose order reports them completed. Derived, not stored. */
+  doneStopCount: number;
+  /** Stops belonging to a failed order. Not outstanding, not completed —
+`stopCount - doneStopCount - skippedStopCount` is what is left to do.
+ */
+  skippedStopCount: number;
   createdAt: string;
   updatedAt: string;
 }

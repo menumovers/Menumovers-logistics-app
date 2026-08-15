@@ -25,7 +25,8 @@ Branch `claude/app-workflow-schema-alignment-n4dnrz`.
 | 5 | The hold family — parked orders are gated, and coordinators can triage them | D2 |
 | 6 | Delivery method — customer pickup out of rider scope, happy hour surfaced | D5 |
 | 7 | Restaurant acknowledgement, with a per-restaurant confirmation style | D3 |
-| 8 | Order receipt — numbered kitchen document, printable | D10 |
+| 8 | Order receipt — printable kitchen document | D10 |
+| 9 | Trips — rider trip view, progress derived from order status | D6 |
 
 ### Schema impact
 
@@ -36,6 +37,10 @@ removes `is_parked` / `parked_reason`, which it replaces.
 Item 7 adds a `restaurant_acceptance_mode` enum and `restaurants.acceptance_mode`
 (default `accept`), plus `orders.restaurant_accepted_at` and
 `orders.restaurant_accepted_by_user_id`.
+
+Item 9 **drops** `trip_stops.completed_at`. Nothing has ever written it, so
+there is no data in it to lose — but see the warning below before running a
+drop against anything that has been live.
 
 Items 1–4 and 6 add no DDL — their settings are rows in the existing
 `system_settings` key/value table.
@@ -118,6 +123,19 @@ only. These are the checks worth running once deployed.
       hand when it labels packaging.
 - [ ] **Hide an item, then reprint.** An "items changed after ordering" line
       should appear with the difference; the charged total must not move.
+- [ ] **Build a two-order trip and assign it to a rider.** The trip should
+      appear on that rider's dashboard and nowhere else — check a second
+      rider's dashboard doesn't show it.
+- [ ] **Walk one order through to delivered.** The trip's progress must move on
+      its own, with the rider tapping nothing on the trip screen: its pickup
+      stop turns done at `picked_up`, its dropoff at `delivered`. This was B4 —
+      progress used to sit at 0% forever.
+- [ ] **Fail the other order.** Both of its stops should read as skipped, not
+      done, and the trip should then show no outstanding stops.
+- [ ] **Reorder the stops from the coordinator screen** on a part-finished
+      trip. Progress must survive the reorder — it is read from the orders, and
+      replacing stops no longer has anything to carry across.
+
 - [ ] **Send a cash order** and confirm the rider sees the amount to collect,
       the storefront's own payment wording, and any change to bring — plus a
       "Cash" badge on the list card before they open it.
@@ -159,23 +177,19 @@ as `todo.md` M6.
 
 ## Part 5 — Schema work that is coming
 
-The decisions still to be built *do* require database changes. Listed so they
-can be planned rather than discovered. All of it is applied with a plain
-`push` — nothing is deployed, so nothing needs preserving.
-
-### D6 — trips
-
-- `trip_stops.completedAt` becomes unused once progress derives from order
-  status, and gets dropped with it.
+*Nothing pending.* D6 was the last decision carrying a schema change, and it is
+built — its column drop is folded into Part 1's schema impact above.
 
 ---
 
 ## Part 6 — Known gaps
 
-- **No automated tests, and the stand-in scripts rot.** 87 assertions cover the
-  pure calculations — pickup times, money arithmetic, date handling, delivery
-  method, the state machine, the receipt adjustment. They ran as throwaway
-  scripts outside the repository, because there is no runner (`todo.md` H3).
+- **No automated tests, and the stand-in scripts rot.** 112 assertions across
+  seven scripts cover the pure calculations — pickup times (16), money
+  arithmetic (21), date handling (13), delivery method (5), the state machine
+  (23), the receipt adjustment (9), trip progress (25). All seven were re-run
+  and re-counted on 2026-08-15. They live as throwaway scripts outside the
+  repository, because there is no runner (`todo.md` H3).
 
   One of them proved the risk: it covered helpers that were later deleted with
   the compatibility shim, and passed **zero** assertions for several commits

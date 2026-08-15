@@ -6,12 +6,12 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { TripStopKind } from "./tripStopKind";
+import type { TripStopState } from "./tripStopState";
 
 export interface TripStop {
   id: string;
   orderId: string;
   kind: TripStopKind;
   sequence: number;
-  /** @nullable */
-  completedAt?: Date | null;
+  state: TripStopState;
 }

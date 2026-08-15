@@ -3606,7 +3606,14 @@ export const ListTripsResponseItem = zod.object({
   status: zod.enum(["planned", "in_progress", "completed", "dissolved"]),
   orderCount: zod.number(),
   stopCount: zod.number(),
-  completedStopCount: zod.number().optional(),
+  doneStopCount: zod
+    .number()
+    .describe("Stops whose order reports them completed. Derived, not stored."),
+  skippedStopCount: zod
+    .number()
+    .describe(
+      "Stops belonging to a failed order. Not outstanding, not completed —\n`stopCount - doneStopCount - skippedStopCount` is what is left to do.\n",
+    ),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -3639,7 +3646,16 @@ export const GetTripResponse = zod
     status: zod.enum(["planned", "in_progress", "completed", "dissolved"]),
     orderCount: zod.number(),
     stopCount: zod.number(),
-    completedStopCount: zod.number().optional(),
+    doneStopCount: zod
+      .number()
+      .describe(
+        "Stops whose order reports them completed. Derived, not stored.",
+      ),
+    skippedStopCount: zod
+      .number()
+      .describe(
+        "Stops belonging to a failed order. Not outstanding, not completed —\n`stopCount - doneStopCount - skippedStopCount` is what is left to do.\n",
+      ),
     createdAt: zod.coerce.date(),
     updatedAt: zod.coerce.date(),
   })
@@ -3652,14 +3668,24 @@ export const GetTripResponse = zod
             orderId: zod.string(),
             kind: zod.enum(["pickup", "dropoff"]),
             sequence: zod.number(),
-            completedAt: zod.coerce.date().nullish(),
+            state: zod
+              .enum(["upcoming", "done", "skipped"])
+              .describe(
+                "Derived from the stop's order status — never stored. A pickup stop is\n`done` once the order reads `picked_up` or later; a dropoff stop is\n`done` once it reads `delivered`. A `failed` order marks both of its\nstops `skipped`: settled, but not completed. The status column is\nlast-write-wins, so after a failure we cannot tell whether the pickup\nhappened first, and the status log is the place to find out.\n",
+              ),
           })
           .and(
             zod.object({
               externalOrderId: zod.string(),
               customerName: zod.string(),
+              customerPhone: zod.string(),
               restaurantId: zod.string(),
               restaurantName: zod.string(),
+              restaurantAddress: zod
+                .string()
+                .describe(
+                  "The pickup address. Carried on the stop so a rider running a\ntrip has somewhere to go without opening each order.\n",
+                ),
               deliveryAddress: zod.string(),
               orderStatus: zod.enum([
                 "pending",
@@ -3861,7 +3887,16 @@ export const UpdateTripResponse = zod
     status: zod.enum(["planned", "in_progress", "completed", "dissolved"]),
     orderCount: zod.number(),
     stopCount: zod.number(),
-    completedStopCount: zod.number().optional(),
+    doneStopCount: zod
+      .number()
+      .describe(
+        "Stops whose order reports them completed. Derived, not stored.",
+      ),
+    skippedStopCount: zod
+      .number()
+      .describe(
+        "Stops belonging to a failed order. Not outstanding, not completed —\n`stopCount - doneStopCount - skippedStopCount` is what is left to do.\n",
+      ),
     createdAt: zod.coerce.date(),
     updatedAt: zod.coerce.date(),
   })
@@ -3874,14 +3909,24 @@ export const UpdateTripResponse = zod
             orderId: zod.string(),
             kind: zod.enum(["pickup", "dropoff"]),
             sequence: zod.number(),
-            completedAt: zod.coerce.date().nullish(),
+            state: zod
+              .enum(["upcoming", "done", "skipped"])
+              .describe(
+                "Derived from the stop's order status — never stored. A pickup stop is\n`done` once the order reads `picked_up` or later; a dropoff stop is\n`done` once it reads `delivered`. A `failed` order marks both of its\nstops `skipped`: settled, but not completed. The status column is\nlast-write-wins, so after a failure we cannot tell whether the pickup\nhappened first, and the status log is the place to find out.\n",
+              ),
           })
           .and(
             zod.object({
               externalOrderId: zod.string(),
               customerName: zod.string(),
+              customerPhone: zod.string(),
               restaurantId: zod.string(),
               restaurantName: zod.string(),
+              restaurantAddress: zod
+                .string()
+                .describe(
+                  "The pickup address. Carried on the stop so a rider running a\ntrip has somewhere to go without opening each order.\n",
+                ),
               deliveryAddress: zod.string(),
               orderStatus: zod.enum([
                 "pending",
@@ -4083,7 +4128,16 @@ export const ReplaceTripStopsResponse = zod
     status: zod.enum(["planned", "in_progress", "completed", "dissolved"]),
     orderCount: zod.number(),
     stopCount: zod.number(),
-    completedStopCount: zod.number().optional(),
+    doneStopCount: zod
+      .number()
+      .describe(
+        "Stops whose order reports them completed. Derived, not stored.",
+      ),
+    skippedStopCount: zod
+      .number()
+      .describe(
+        "Stops belonging to a failed order. Not outstanding, not completed —\n`stopCount - doneStopCount - skippedStopCount` is what is left to do.\n",
+      ),
     createdAt: zod.coerce.date(),
     updatedAt: zod.coerce.date(),
   })
@@ -4096,14 +4150,24 @@ export const ReplaceTripStopsResponse = zod
             orderId: zod.string(),
             kind: zod.enum(["pickup", "dropoff"]),
             sequence: zod.number(),
-            completedAt: zod.coerce.date().nullish(),
+            state: zod
+              .enum(["upcoming", "done", "skipped"])
+              .describe(
+                "Derived from the stop's order status — never stored. A pickup stop is\n`done` once the order reads `picked_up` or later; a dropoff stop is\n`done` once it reads `delivered`. A `failed` order marks both of its\nstops `skipped`: settled, but not completed. The status column is\nlast-write-wins, so after a failure we cannot tell whether the pickup\nhappened first, and the status log is the place to find out.\n",
+              ),
           })
           .and(
             zod.object({
               externalOrderId: zod.string(),
               customerName: zod.string(),
+              customerPhone: zod.string(),
               restaurantId: zod.string(),
               restaurantName: zod.string(),
+              restaurantAddress: zod
+                .string()
+                .describe(
+                  "The pickup address. Carried on the stop so a rider running a\ntrip has somewhere to go without opening each order.\n",
+                ),
               deliveryAddress: zod.string(),
               orderStatus: zod.enum([
                 "pending",
@@ -4294,7 +4358,16 @@ export const DissolveTripResponse = zod
     status: zod.enum(["planned", "in_progress", "completed", "dissolved"]),
     orderCount: zod.number(),
     stopCount: zod.number(),
-    completedStopCount: zod.number().optional(),
+    doneStopCount: zod
+      .number()
+      .describe(
+        "Stops whose order reports them completed. Derived, not stored.",
+      ),
+    skippedStopCount: zod
+      .number()
+      .describe(
+        "Stops belonging to a failed order. Not outstanding, not completed —\n`stopCount - doneStopCount - skippedStopCount` is what is left to do.\n",
+      ),
     createdAt: zod.coerce.date(),
     updatedAt: zod.coerce.date(),
   })
@@ -4307,14 +4380,24 @@ export const DissolveTripResponse = zod
             orderId: zod.string(),
             kind: zod.enum(["pickup", "dropoff"]),
             sequence: zod.number(),
-            completedAt: zod.coerce.date().nullish(),
+            state: zod
+              .enum(["upcoming", "done", "skipped"])
+              .describe(
+                "Derived from the stop's order status — never stored. A pickup stop is\n`done` once the order reads `picked_up` or later; a dropoff stop is\n`done` once it reads `delivered`. A `failed` order marks both of its\nstops `skipped`: settled, but not completed. The status column is\nlast-write-wins, so after a failure we cannot tell whether the pickup\nhappened first, and the status log is the place to find out.\n",
+              ),
           })
           .and(
             zod.object({
               externalOrderId: zod.string(),
               customerName: zod.string(),
+              customerPhone: zod.string(),
               restaurantId: zod.string(),
               restaurantName: zod.string(),
+              restaurantAddress: zod
+                .string()
+                .describe(
+                  "The pickup address. Carried on the stop so a rider running a\ntrip has somewhere to go without opening each order.\n",
+                ),
               deliveryAddress: zod.string(),
               orderStatus: zod.enum([
                 "pending",

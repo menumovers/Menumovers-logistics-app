@@ -13,6 +13,7 @@ import CoordinatorTripBuilderPage from "@/pages/coordinator-trip-builder";
 import CoordinatorTripPage from "@/pages/coordinator-trip";
 import RiderPage from "@/pages/rider";
 import RiderOrderPage from "@/pages/rider-order";
+import RiderTripPage from "@/pages/rider-trip";
 import RestaurantPage from "@/pages/restaurant";
 import SettingsPage from "@/pages/settings";
 import { AuthProvider, RequireRole } from "@/lib/auth";
@@ -64,6 +65,9 @@ function Routes() {
       </Route>
       <Route path="/rider/orders/:id">
         <RequireRole roles={["admin", "coordinator", "rider"]}><AppShell><RiderOrderPage /></AppShell></RequireRole>
+      </Route>
+      <Route path="/rider/trips/:id">
+        <RequireRole roles={["admin", "coordinator", "rider"]}><AppShell><RiderTripPage /></AppShell></RequireRole>
       </Route>
       <Route path="/restaurant">
         <RequireRole roles={["admin", "restaurant_staff"]}><AppShell><RestaurantPage /></AppShell></RequireRole>

@@ -17,10 +17,10 @@ import {
   tripStopsTable,
   usersTable,
   type Trip,
-  type TripStop,
   type TripStatus,
   type TripStopKind,
   type Order,
+  type OrderStatus,
 } from "@workspace/db";
 import { requireAuth, requireRole } from "../lib/auth";
 import { httpError } from "../lib/errors";
@@ -37,6 +37,7 @@ import {
   audienceForTripAssigned,
   audienceForTripDissolved,
 } from "../lib/push-triggers";
+import { stopStateFor, tripProgress } from "../lib/trip-progress";
 
 const router: IRouter = Router();
 
@@ -57,7 +58,8 @@ function tripListItemFromRow(args: {
   riderName: string | null;
   orderCount: number;
   stopCount: number;
-  completedStopCount: number;
+  doneStopCount: number;
+  skippedStopCount: number;
 }) {
   return {
     id: args.trip.id,
@@ -68,10 +70,23 @@ function tripListItemFromRow(args: {
     status: args.trip.status,
     orderCount: args.orderCount,
     stopCount: args.stopCount,
-    completedStopCount: args.completedStopCount,
+    doneStopCount: args.doneStopCount,
+    skippedStopCount: args.skippedStopCount,
     createdAt: args.trip.createdAt,
     updatedAt: args.trip.updatedAt,
   };
+}
+
+/** Order statuses for the given ids, for deriving stop state (D6). */
+async function statusesFor(
+  orderIds: ReadonlyArray<string>,
+): Promise<Map<string, OrderStatus>> {
+  if (orderIds.length === 0) return new Map();
+  const rows = await db
+    .select({ id: ordersTable.id, status: ordersTable.status })
+    .from(ordersTable)
+    .where(inArray(ordersTable.id, [...orderIds]));
+  return new Map(rows.map((r) => [r.id, r.status]));
 }
 
 async function loadTripView(tripId: string): Promise<TripView | null> {
@@ -84,8 +99,9 @@ async function loadTripView(tripId: string): Promise<TripView | null> {
     .select()
     .from(tripStopsTable)
     .where(eq(tripStopsTable.tripId, tripId));
-  const orderCount = new Set(stops.map((s) => s.orderId)).size;
-  const completedStopCount = stops.filter((s) => s.completedAt != null).length;
+  const orderIds = Array.from(new Set(stops.map((s) => s.orderId)));
+  const orderCount = orderIds.length;
+  const progress = tripProgress(stops, await statusesFor(orderIds));
   let riderName: string | null = null;
   if (trip.riderId) {
     const [r] = await db
@@ -95,13 +111,7 @@ async function loadTripView(tripId: string): Promise<TripView | null> {
       .where(eq(ridersTable.id, trip.riderId));
     riderName = r?.name ?? null;
   }
-  return tripListItemFromRow({
-    trip,
-    riderName,
-    orderCount,
-    stopCount: stops.length,
-    completedStopCount,
-  });
+  return tripListItemFromRow({ trip, riderName, orderCount, ...progress });
 }
 
 async function loadTripDetail(tripId: string) {
@@ -135,11 +145,16 @@ async function loadTripDetail(tripId: string) {
   );
   const restRows = restaurantIds.length
     ? await db
-        .select({ id: restaurantsTable.id, name: restaurantsTable.name })
+        .select({
+          id: restaurantsTable.id,
+          name: restaurantsTable.name,
+          address: restaurantsTable.address,
+        })
         .from(restaurantsTable)
         .where(inArray(restaurantsTable.id, restaurantIds))
     : [];
   const restName = new Map(restRows.map((r) => [r.id, r.name]));
+  const restAddress = new Map(restRows.map((r) => [r.id, r.address]));
 
   let riderName: string | null = null;
   if (trip.riderId) {
@@ -153,29 +168,34 @@ async function loadTripDetail(tripId: string) {
 
   const stopsWithOrder = stops.map((s) => {
     const o = orderById.get(s.orderId);
+    const status = o?.status ?? "pending";
     return {
       id: s.id,
       orderId: s.orderId,
       kind: s.kind,
       sequence: s.sequence,
-      completedAt: s.completedAt,
+      state: stopStateFor(s.kind, status),
       externalOrderId: o?.externalOrderId ?? "",
       customerName: o?.customerName ?? "",
+      customerPhone: o?.customerPhone ?? "",
       restaurantId: o?.restaurantId ?? "",
       restaurantName: restName.get(o?.restaurantId ?? "") ?? "",
+      restaurantAddress: restAddress.get(o?.restaurantId ?? "") ?? "",
       deliveryAddress: o?.deliveryAddress ?? "",
-      orderStatus: o?.status ?? "pending",
+      orderStatus: status,
       effectivePickupTime: o?.effectivePickupTime ?? new Date(0),
     };
   });
 
-  const completedStopCount = stops.filter((s) => s.completedAt != null).length;
+  const progress = tripProgress(
+    stops,
+    new Map(serializedOrders.map((o) => [o.id, o.status])),
+  );
   const list = tripListItemFromRow({
     trip,
     riderName,
     orderCount: orderIds.length,
-    stopCount: stops.length,
-    completedStopCount,
+    ...progress,
   });
 
   return {
@@ -283,17 +303,18 @@ router.get(
           .where(inArray(ridersTable.id, riderIds))
       : [];
     const riderNameById = new Map(riderRows.map((r) => [r.id, r.name]));
+    const statusByOrderId = await statusesFor(
+      Array.from(new Set(stops.map((s) => s.orderId))),
+    );
 
     const views = rows.map((trip) => {
       const tripStops = stops.filter((s) => s.tripId === trip.id);
       const orderCount = new Set(tripStops.map((s) => s.orderId)).size;
-      const completed = tripStops.filter((s) => s.completedAt != null).length;
       return tripListItemFromRow({
         trip,
         riderName: trip.riderId ? (riderNameById.get(trip.riderId) ?? null) : null,
         orderCount,
-        stopCount: tripStops.length,
-        completedStopCount: completed,
+        ...tripProgress(tripStops, statusByOrderId),
       });
     });
     res.json(views);
@@ -743,18 +764,9 @@ router.put(
         }
       }
 
-      // Capture previous completedAt by (orderId, kind) so we don't lose
-      // progress on reorder.
-      const existing = await tx
-        .select()
-        .from(tripStopsTable)
-        .where(eq(tripStopsTable.tripId, id));
-      const completedKey = (s: TripStop) => `${s.orderId}:${s.kind}`;
-      const prevCompleted = new Map<string, Date>();
-      for (const s of existing) {
-        if (s.completedAt) prevCompleted.set(completedKey(s), s.completedAt);
-      }
-
+      // Stops carry no progress of their own (D6) — it is derived from the
+      // orders, which this does not touch. So replacing them wholesale is
+      // safe; there is nothing to carry across.
       await tx.delete(tripStopsTable).where(eq(tripStopsTable.tripId, id));
       await tx.insert(tripStopsTable).values(
         inputStops.map((s, i) => ({
@@ -762,7 +774,6 @@ router.put(
           orderId: s.orderId,
           kind: s.kind,
           sequence: i,
-          completedAt: prevCompleted.get(`${s.orderId}:${s.kind}`) ?? null,
         })),
       );
     });

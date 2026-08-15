@@ -296,6 +296,8 @@
     "stopAt": "Bij {{place}}",
     "stopFor": "Voor {{name}}",
     "progress": "{{done}}/{{total}} stops",
+    "skippedCount": "{{count}} overgeslagen",
+    "allStopsDone": "Alle stops afgerond",
     "next": "Volgende",
     "completed": "Voltooid",
     "upcoming": "Komende stops",

@@ -130,9 +130,15 @@ null.
 
 Every trip therefore displays 0% forever.
 
-**Covered by decision D6** (progress derives from order status instead), which
-retires the mechanism rather than repairing it. Listed here because it is a
-live wrong number until that lands.
+**FIXED 2026-08-15** — the mechanism is retired rather than repaired, per D6.
+`lib/trip-progress.ts` derives each stop's state from its order's status, and
+`trip_stops.completed_at` is gone from the schema. A trip now reports progress
+from the record the rider is already keeping up to date, so there is no second
+thing to remember and no way for the two to disagree.
+
+The API changed shape with it: `TripStop.completedAt` became
+`TripStop.state` (`upcoming` / `done` / `skipped`), and
+`TripListItem.completedStopCount` became `doneStopCount` + `skippedStopCount`.
 
 ---
 

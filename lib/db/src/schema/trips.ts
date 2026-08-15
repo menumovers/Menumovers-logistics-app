@@ -65,7 +65,12 @@ export const tripsTable = pgTable(
 /**
  * Ordered stops in a trip. Each order can contribute up to two stops
  * (pickup + dropoff). `sequence` is the rider's planned execution order.
- * `completedAt` is set when the rider passes the stop.
+ *
+ * A stop records *what to do and in what order* — nothing about whether it
+ * happened. Progress is derived from the order's status instead (D6), so
+ * there is no second thing for a rider to keep up to date and no way for the
+ * two records to disagree. `completed_at` used to live here and was never
+ * written by anything.
  */
 export const tripStopsTable = pgTable(
   "trip_stops",
@@ -79,7 +84,6 @@ export const tripStopsTable = pgTable(
       .references(() => ordersTable.id, { onDelete: "cascade" }),
     kind: tripStopKindEnum("kind").notNull(),
     sequence: integer("sequence").notNull(),
-    completedAt: timestamp("completed_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => ({

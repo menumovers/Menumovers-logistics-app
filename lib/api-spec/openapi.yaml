@@ -1800,9 +1800,19 @@ components:
       properties:
         endpoint:
           type: string
+    TripStopState:
+      type: string
+      enum: [upcoming, done, skipped]
+      description: |
+        Derived from the stop's order status — never stored. A pickup stop is
+        `done` once the order reads `picked_up` or later; a dropoff stop is
+        `done` once it reads `delivered`. A `failed` order marks both of its
+        stops `skipped`: settled, but not completed. The status column is
+        last-write-wins, so after a failure we cannot tell whether the pickup
+        happened first, and the status log is the place to find out.
     TripStop:
       type: object
-      required: [id, orderId, kind, sequence]
+      required: [id, orderId, kind, sequence, state]
       properties:
         id:
           type: string
@@ -1812,23 +1822,29 @@ components:
           $ref: "#/components/schemas/TripStopKind"
         sequence:
           type: integer
-        completedAt:
-          type: ["string", "null"]
-          format: date-time
+        state:
+          $ref: "#/components/schemas/TripStopState"
     TripStopWithOrder:
       allOf:
         - $ref: "#/components/schemas/TripStop"
         - type: object
-          required: [externalOrderId, customerName, restaurantId, restaurantName, deliveryAddress, orderStatus, effectivePickupTime]
+          required: [externalOrderId, customerName, customerPhone, restaurantId, restaurantName, restaurantAddress, deliveryAddress, orderStatus, effectivePickupTime]
           properties:
             externalOrderId:
               type: string
             customerName:
               type: string
+            customerPhone:
+              type: string
             restaurantId:
               type: string
             restaurantName:
               type: string
+            restaurantAddress:
+              type: string
+              description: |
+                The pickup address. Carried on the stop so a rider running a
+                trip has somewhere to go without opening each order.
             deliveryAddress:
               type: string
             orderStatus:
@@ -1844,6 +1860,8 @@ components:
         - status
         - orderCount
         - stopCount
+        - doneStopCount
+        - skippedStopCount
         - createdAt
         - updatedAt
       properties:
@@ -1863,8 +1881,14 @@ components:
           type: integer
         stopCount:
           type: integer
-        completedStopCount:
+        doneStopCount:
           type: integer
+          description: Stops whose order reports them completed. Derived, not stored.
+        skippedStopCount:
+          type: integer
+          description: |
+            Stops belonging to a failed order. Not outstanding, not completed —
+            `stopCount - doneStopCount - skippedStopCount` is what is left to do.
         createdAt:
           type: string
           format: date-time

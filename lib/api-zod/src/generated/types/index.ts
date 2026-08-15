@@ -61,6 +61,7 @@ export * from "./tripListItem";
 export * from "./tripStatus";
 export * from "./tripStop";
 export * from "./tripStopKind";
+export * from "./tripStopState";
 export * from "./tripStopWithOrder";
 export * from "./unsubscribePushRequest";
 export * from "./updateLocaleRequest";

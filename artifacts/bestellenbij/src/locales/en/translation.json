@@ -296,6 +296,8 @@
     "stopAt": "At {{place}}",
     "stopFor": "For {{name}}",
     "progress": "{{done}}/{{total}} stops",
+    "skippedCount": "{{count}} skipped",
+    "allStopsDone": "All stops done",
     "next": "Next",
     "completed": "Completed",
     "upcoming": "Upcoming",

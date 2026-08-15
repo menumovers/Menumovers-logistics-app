@@ -33,6 +33,7 @@ import { StatusBadge } from "@/components/status-badge";
 import { PickupCountdown, PickupSourceBadge } from "@/components/pickup-countdown";
 import { DeliveryMethodBadge, RequestedTimeLabel } from "@/components/delivery-expectation";
 import { effectivePickup, formatCurrency } from "@/lib/format";
+import { tripProgress } from "@/lib/trip-progress";
 import { Bike, MapPin, Phone, Bell, ChevronRight, Layers, Plus, PauseCircle, PlayCircle, ShoppingBag, CircleDashed } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
@@ -366,9 +367,7 @@ function TripsSection({ trips }: { trips: TripListItem[] }) {
       <CardContent>
         <ul className="space-y-2">
           {trips.map((tr) => {
-            const total = tr.stopCount;
-            const done = tr.completedStopCount ?? 0;
-            const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+            const { total, done, skipped, pct } = tripProgress(tr);
             return (
               <li key={tr.id}>
                 <Link
@@ -394,6 +393,11 @@ function TripsSection({ trips }: { trips: TripListItem[] }) {
                       <span>{tr.riderName ?? t("trip.unassigned")}</span>
                       <span>·</span>
                       <span>{t("trip.progress", { done, total })}</span>
+                      {skipped > 0 ? (
+                        <span data-testid={`trip-skipped-${tr.id}`}>
+                          · {t("trip.skippedCount", { count: skipped })}
+                        </span>
+                      ) : null}
                     </div>
                   </div>
                   <div className="hidden md:flex w-32 items-center gap-2">

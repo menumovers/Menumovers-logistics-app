@@ -1,5 +1,40 @@
 # Changelog
 
+## 2026-08-15 — Trip progress derives from order status
+
+`trip_stops.completed_at` was read in four places to compute the coordinator's
+trip progress bar, and **nothing in the codebase had ever written it**. Every
+trip displayed 0% permanently (`todo-bugs.md` B4). Riders, meanwhile, had no
+trip view at all — no route, no page, only a banner on the order screen.
+
+Rather than add the missing write, the column is dropped and progress is read
+off the record the rider already maintains. `lib/trip-progress.ts` is the only
+place that decides what "done" means: a pickup stop is done once its order
+reads `picked_up` or later, a dropoff once it reads `delivered`.
+
+A failed order marks both of its stops **`skipped`** — a third state, not a
+flavour of done. `orders.status` is last-write-wins, so after a failure there is
+no way to tell whether the pickup happened first; `skipped` says what is known
+(settled, not completed) instead of guessing. Outstanding work is therefore
+`stopCount - doneStopCount - skippedStopCount`, and a failure never counts as
+progress.
+
+The API changed shape with it: `TripStop.completedAt` → `TripStop.state`
+(`upcoming` / `done` / `skipped`), `TripListItem.completedStopCount` →
+`doneStopCount` + `skippedStopCount`. `TripStopWithOrder` also gained
+`restaurantAddress` and `customerPhone`, so a rider running a trip has somewhere
+to go and someone to call without opening each order.
+
+New rider view at `/rider/trips/:id`, reachable from a trips section on the
+rider dashboard. It deliberately has **no controls of its own** — each stop
+links through to the order screen, where status is already advanced. A tick box
+here would have recreated the second record this change removes.
+
+One consequence worth naming: `PUT /trips/:id/stops` used to carry `completedAt`
+across by `(orderId, kind)` so a reorder wouldn't lose progress. Stops are now
+replaced wholesale, because they record what to do and in what order, never
+whether it happened. Rationale in `docs/workflow-decisions.md` D6.
+
 ## 2026-08-14 — Order status is a report, not a gate
 
 Reverses a founding decision. The order state machine enforced a strictly

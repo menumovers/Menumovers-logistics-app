@@ -189,7 +189,7 @@ if ASAP pickup times start disagreeing with the storefront's estimates.
 
 ## D6. Trips: rider-visible, progress derived
 
-**Decided 2026-08-14. Not yet built.**
+**Decided 2026-08-14. Built 2026-08-15.**
 
 Trip bundling stays live but simplified.
 
@@ -202,6 +202,44 @@ This retires a broken mechanism rather than repairing it: nothing in the
 codebase has ever written `completedAt`, so every trip currently displays 0%
 progress permanently. There is also no rider trip route in `App.tsx` at all —
 the `RiderTripStops` mockup was never built.
+
+### How it was built
+
+`api-server/src/lib/trip-progress.ts` holds the derivation, and it is the only
+place that decides what "done" means:
+
+- A **pickup** stop is `done` once its order reads `picked_up` or later.
+- A **dropoff** stop is `done` once its order reads `delivered`.
+- A **failed** order marks *both* of its stops `skipped`.
+
+`skipped` is a third state rather than a flavour of done, and it exists because
+of an honest limitation. `orders.status` is last-write-wins, so once an order
+reads `failed` we can no longer tell whether the pickup happened before it went
+wrong. Calling the pickup complete would be a guess; calling it outstanding
+would leave the rider staring at a stop they will never do. `skipped` says what
+we actually know — settled, not completed — and the status log has the detail
+if anyone needs it.
+
+The API changed shape to match: `TripStop.completedAt` → `TripStop.state`, and
+`TripListItem.completedStopCount` → `doneStopCount` + `skippedStopCount`.
+Outstanding work is `stopCount - doneStopCount - skippedStopCount`, so the two
+counters answer "how much is left" without collapsing a failure into progress.
+
+The rider view is `/rider/trips/:id`, reachable from a trips section on the
+rider dashboard. It shows the ordered stops and calls out the next one, and it
+has **no controls of its own** — every stop links through to the order screen,
+where the rider already advances status. Adding a tick box here would have
+recreated exactly the second record this decision removes.
+
+Two things fell out that were not the point but are worth noting. Replacing a
+trip's stops used to carry `completedAt` across by `(orderId, kind)` so a
+reorder wouldn't lose progress; with progress on the order, stops can be
+replaced wholesale and there is nothing to carry. And `TripStopWithOrder` now
+carries `restaurantAddress` and `customerPhone`, because a rider running a trip
+needs an address to go to and a number to call without opening each order.
+
+Verified with 25 assertions covering every status against both stop kinds, the
+aggregate counts, and the client-side phrasing.
 
 ---
 

@@ -4,15 +4,18 @@ import { useQueryClient } from "@tanstack/react-query";
 import {
   useListOrders,
   useListRiders,
+  useListTrips,
   useSetOwnAvailability,
   useAssignOrder,
   useGetSettingsFlags,
   getGetSettingsFlagsQueryKey,
   getListOrdersQueryKey,
   getListRidersQueryKey,
+  getListTripsQueryKey,
   getGetCurrentUserQueryKey,
   RiderAvailability,
   type OrderListItem,
+  type TripListItem,
   type RiderAvailability as RiderAvailabilityType,
 } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -22,10 +25,11 @@ import { PickupCountdown } from "@/components/pickup-countdown";
 import { DeliveryMethodBadge, RequestedTimeLabel } from "@/components/delivery-expectation";
 import { PaymentBadge } from "@/components/payment-panel";
 import { useAuth } from "@/lib/auth";
-import { Bike, MapPin, Phone, Bell, ChevronRight, Store } from "lucide-react";
+import { Bike, MapPin, Phone, Bell, ChevronRight, Store, Layers } from "lucide-react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
+import { tripProgress } from "@/lib/trip-progress";
 
 const ACTIVE_STATUSES: ReadonlyArray<OrderListItem["status"]> = [
   "en_route_to_restaurant",
@@ -51,6 +55,19 @@ export default function RiderPage() {
     },
   );
 
+  // The server already scopes /trips to the calling rider; the status filter
+  // keeps dissolved and finished trips off the dashboard.
+  const trips = useListTrips(undefined, {
+    query: {
+      queryKey: getListTripsQueryKey(),
+      refetchInterval: 30_000,
+      enabled: !!riderId,
+    },
+  });
+  const myTrips = (trips.data ?? []).filter(
+    (tr) => tr.status === "planned" || tr.status === "in_progress",
+  );
+
   const all = orders.data ?? [];
   const mine = all.filter((o) => o.riderId === riderId);
   const active = mine.filter((o) => ACTIVE_STATUSES.includes(o.status));
@@ -71,6 +88,16 @@ export default function RiderPage() {
         <h1 className="text-2xl font-bold tracking-tight">{t("rider.title")}</h1>
       </header>
       <AvailabilityCard />
+
+      {myTrips.length > 0 ? (
+        <Section title={t("trip.tripsSection")} count={myTrips.length} testId="section-trips">
+          <div className="space-y-2">
+            {myTrips.map((tr) => (
+              <RiderTripRow key={tr.id} trip={tr} />
+            ))}
+          </div>
+        </Section>
+      ) : null}
 
       <Section title={t("rider.sectionActive")} count={active.length} testId="section-active">
         {active.length === 0 ? (
@@ -138,6 +165,37 @@ function Section({
       </div>
       {children}
     </section>
+  );
+}
+
+function RiderTripRow({ trip }: { trip: TripListItem }) {
+  const { t } = useTranslation();
+  const { done, total, skipped, pct } = tripProgress(trip);
+  return (
+    <Link href={`/rider/trips/${trip.id}`}>
+      <div
+        className="flex items-center gap-3 rounded-md border border-primary/30 bg-primary/[0.04] px-3 py-3 hover:border-primary/60"
+        data-testid={`rider-trip-row-${trip.id}`}
+      >
+        <Layers className="size-4 text-primary shrink-0" />
+        <div className="min-w-0 flex-1">
+          <div className="text-sm font-bold tabular-nums">
+            {t("trip.tripNumber", { number: trip.tripNumber })}
+            {trip.name ? (
+              <span className="ml-2 font-normal text-muted-foreground">{trip.name}</span>
+            ) : null}
+          </div>
+          <div className="mt-0.5 text-xs text-muted-foreground">
+            {t("trip.progress", { done, total })}
+            {skipped > 0 ? ` · ${t("trip.skippedCount", { count: skipped })}` : ""}
+          </div>
+        </div>
+        <div className="hidden sm:block h-1.5 w-24 overflow-hidden rounded-full bg-muted">
+          <div className="h-full bg-primary" style={{ width: `${pct}%` }} />
+        </div>
+        <ChevronRight className="size-4 text-muted-foreground shrink-0" />
+      </div>
+    </Link>
   );
 }
 
