@@ -35,8 +35,9 @@ invariants rather than workflow rules:
 - The atomic `UPDATE … WHERE status = <observed>` guard stays; it prevents
   concurrent writes clobbering each other.
 - `delivered` and `failed` are terminal. Leaving them stays deliberate rather
-  than a side effect of a stray tap. (The current table permits
-  `delivered → failed`, which appears accidental.)
+  than a side effect of a stray tap. (`delivered → failed` is currently
+  permitted and is *intentional* — `state-machine.ts` says so explicitly. Worth
+  re-confirming when D1 lands, but it is not an oversight to clean up.)
 
 **Consequence:** a restaurant reporting `picked_up` is a second observer
 corroborating an event, not a claim on the rider's role. This dissolves the
@@ -282,7 +283,7 @@ The distinction to draw when we come back to this:
 | Where | What it does | Concern |
 |---|---|---|
 | `lib/pickup-time.ts` → ASAP branch | `now + travel` | Anchored to ingestion, not to `sourceCreatedAt` or the storefront's own estimate. The originating question. |
-| `pages/coordinator-order.tsx`, `rider-order.tsx`, `restaurant.tsx` | A typed `HH:MM` becomes today; if already past, tomorrow | **Three copies of the same silent assumption.** For an `other_day` order this is simply wrong — the pickup time can never land on the right date. |
+| `pages/coordinator-order.tsx`, `rider-order.tsx`, `restaurant.tsx` | A typed `HH:MM` becomes today; if already past, tomorrow | Three copies of the same silent assumption; wrong for any `other_day` order. Tracked as a defect in `todo-bugs.md` **B1**. |
 | `pages/restaurant.tsx` → "Ready for pickup" | writes `pickupTimeRestaurant = now` | Conflates an event with a schedule. D3 addresses the cause; the write itself still needs revisiting. |
 | `lib/format.ts` → `minutesUntil`, urgency | browser clock | Legitimate for a live countdown, but client and server clocks can disagree, and nothing reconciles them. |
 | `lib/janitor.ts`, `lib/webhook.ts`, `heldAt`, status logs | event timestamps | Correct as-is. Listed so the audit doesn't churn on them. |

@@ -88,7 +88,7 @@ One line per domain — go check the registry before writing anything in a cover
 | `external-services.md` | Per-service env vars, auth, endpoints, status | Routine | External service added/changed |
 | `todo-out-of-scope.md` | Deferred-work backlog | Routine (automated) | Existing protocol — unchanged |
 | `todo.md` | Lean, uncategorized quick-capture inbox | Idea-space | Periodic triage only |
-| `todo-bugs.md` | Confirmed low-priority defects | Idea-space (on-command) | Only when explicitly added/moved |
+| `todo-bugs.md` | Confirmed defects, with how each one actually fails | Idea-space (on-command) | Only when explicitly added/moved |
 | `todo-roadmap.md` | Planned-but-not-built product/feature work | Idea-space (on-command) | Only when explicitly added/moved |
 | `documentation-blueprint.md` | Shared `replit.md` structure template for the Bestellenbij ecosystem | Core-contract | Blueprint revision by ecosystem team only |
 
