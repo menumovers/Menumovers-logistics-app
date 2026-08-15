@@ -337,6 +337,14 @@ see the endpoint description.
   /** @nullable */
   deliveryInstructions?: string | null;
   sourceCreatedAt: string;
+  /** The customer's checkout selection resolved to a timestamp, and the
+storefront's source of truth for fulfilment. For a scheduled order this
+is exactly the time they picked; for an ASAP order it is the storefront's
+calculated delivery estimate. The user-facing string the customer actually
+saw ("Zo snel mogelijk", "vandaag om 18:30") lives in the storefront's
+separate `deliveryTimeDisplay` field and is NOT sent here — so an ASAP
+time should be presented as an estimate, never as a promised time.
+ */
   requestedDeliveryTime: string;
   deliveryTimeType: DeliveryTimeType;
   /** @nullable */
@@ -417,6 +425,14 @@ export interface Order {
   /** @nullable */
   pickupTimeOverride?: string | null;
   sourceCreatedAt: string;
+  /** The customer's checkout selection resolved to a timestamp, and the
+storefront's source of truth for fulfilment. For a scheduled order this
+is exactly the time they picked; for an ASAP order it is the storefront's
+calculated delivery estimate. The user-facing string the customer actually
+saw ("Zo snel mogelijk", "vandaag om 18:30") lives in the storefront's
+separate `deliveryTimeDisplay` field and is NOT sent here — so an ASAP
+time should be presented as an estimate, never as a promised time.
+ */
   requestedDeliveryTime: string;
   deliveryTimeType: DeliveryTimeType;
   /** @nullable */

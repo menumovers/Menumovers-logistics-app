@@ -160,6 +160,25 @@ payload carries and nothing more. Note that the payload carries **no
 happy-hour window**, only the method flag, so the display is the badge plus
 `requestedDeliveryTime` and `deliveryTimeType`.
 
+**What `requestedDeliveryTime` actually is** (confirmed against the storefront,
+2026-08-14): the customer's checkout selection resolved to a timestamp. For a
+scheduled order, exactly the time they picked. For an ASAP order, the
+storefront's calculated delivery estimate. It is the storefront's source of
+truth for fulfilment in both cases — not a placeholder.
+
+The string the customer *saw* — "Zo snel mogelijk", "vandaag om 18:30" — is a
+separate `deliveryTimeDisplay` field on the storefront that is **not sent to
+this app**. So an ASAP timestamp is shown here marked as an estimate: hiding it
+would discard a real figure, and showing it bare would imply a precision the
+customer was never given.
+
+**Open, low priority:** D4 computes ASAP pickup as `now + travel` and ignores
+`requestedDeliveryTime`. Now that it's known to be the storefront's own
+estimate, `requestedDeliveryTime − travel` would also be defensible. Keeping
+`now + travel` for now — it is anchored to when we actually received the order,
+so a queue delay can't produce a pickup time in the past. Worth revisiting only
+if ASAP pickup times start disagreeing with the storefront's estimates.
+
 ---
 
 ## D6. Trips: rider-visible, progress derived

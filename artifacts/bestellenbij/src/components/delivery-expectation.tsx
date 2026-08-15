@@ -48,9 +48,18 @@ export function DeliveryMethodBadge({ order }: { order: Pick<Expectation, "deliv
 }
 
 /**
- * When the customer asked for it. ASAP orders show the label alone — their
- * requested time is an estimate, not a promise, so printing a clock time
- * would imply a commitment nobody made.
+ * When the customer asked for it.
+ *
+ * `requestedDeliveryTime` is the customer's checkout selection resolved to a
+ * timestamp — for a scheduled order, exactly the time they picked; for an ASAP
+ * order, the storefront's calculated delivery estimate. Either way it is the
+ * timestamp the storefront treats as its source of truth for fulfilment, so it
+ * is worth showing in both cases.
+ *
+ * ASAP is marked as an estimate because the customer saw "Zo snel mogelijk",
+ * not a clock time — the storefront keeps the user-facing string in a separate
+ * `deliveryTimeDisplay` field that isn't sent to us. Presenting it bare would
+ * imply a precision the customer was never given.
  */
 export function RequestedTimeLabel({
   order,
@@ -71,15 +80,15 @@ export function RequestedTimeLabel({
       data-testid="label-requested-time"
     >
       {asap ? <Zap className="size-3" /> : <CalendarClock className="size-3" />}
-      {asap ? (
-        t("delivery.timeType_asap")
-      ) : (
-        <span className="tabular-nums">
-          {showDate
+      {asap ? <span>{t("delivery.timeType_asap_short")} ·</span> : null}
+      <span className="tabular-nums">
+        {(() => {
+          const when = showDate
             ? formatDateTime(order.requestedDeliveryTime, lang)
-            : formatTime(order.requestedDeliveryTime, lang)}
-        </span>
-      )}
+            : formatTime(order.requestedDeliveryTime, lang);
+          return asap ? t("delivery.estimated", { time: when }) : when;
+        })()}
+      </span>
     </span>
   );
 }

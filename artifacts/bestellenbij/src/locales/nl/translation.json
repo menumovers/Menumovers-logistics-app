@@ -344,6 +344,8 @@
     "timeType_other_day": "Andere dag",
     "requested": "Klant vroeg om",
     "pickupSection": "Klant haalt op ({{count}})",
-    "pickupSectionHelp": "De klant haalt deze zelf op — ze worden nooit aan rijders aangeboden."
+    "pickupSectionHelp": "De klant haalt deze zelf op — ze worden nooit aan rijders aangeboden.",
+    "timeType_asap_short": "Z.s.m.",
+    "estimated": "ca. {{time}}"
   }
 }

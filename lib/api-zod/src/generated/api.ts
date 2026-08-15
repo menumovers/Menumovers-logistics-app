@@ -143,7 +143,11 @@ export const IngestOrderBody = zod.object({
   kitchenNotes: zod.string().nullish(),
   deliveryInstructions: zod.string().nullish(),
   sourceCreatedAt: zod.coerce.date(),
-  requestedDeliveryTime: zod.coerce.date(),
+  requestedDeliveryTime: zod.coerce
+    .date()
+    .describe(
+      "The customer's checkout selection resolved to a timestamp, and the\nstorefront's source of truth for fulfilment. For a scheduled order this\nis exactly the time they picked; for an ASAP order it is the storefront's\ncalculated delivery estimate. The user-facing string the customer actually\nsaw (\"Zo snel mogelijk\", \"vandaag om 18:30\") lives in the storefront's\nseparate `deliveryTimeDisplay` field and is NOT sent here — so an ASAP\ntime should be presented as an estimate, never as a promised time.\n",
+    ),
   deliveryTimeType: zod.enum(["asap", "later_today", "other_day"]),
   sourceRestaurantReadyTime: zod.coerce.date().nullish(),
   restaurantMinDeliveryTime: zod.number().nullish(),
@@ -223,7 +227,11 @@ export const IngestOrderResponse = zod.object({
   pickupTimeRestaurant: zod.coerce.date().nullish(),
   pickupTimeOverride: zod.coerce.date().nullish(),
   sourceCreatedAt: zod.coerce.date(),
-  requestedDeliveryTime: zod.coerce.date(),
+  requestedDeliveryTime: zod.coerce
+    .date()
+    .describe(
+      "The customer's checkout selection resolved to a timestamp, and the\nstorefront's source of truth for fulfilment. For a scheduled order this\nis exactly the time they picked; for an ASAP order it is the storefront's\ncalculated delivery estimate. The user-facing string the customer actually\nsaw (\"Zo snel mogelijk\", \"vandaag om 18:30\") lives in the storefront's\nseparate `deliveryTimeDisplay` field and is NOT sent here — so an ASAP\ntime should be presented as an estimate, never as a promised time.\n",
+    ),
   deliveryTimeType: zod.enum(["asap", "later_today", "other_day"]),
   sourceRestaurantReadyTime: zod.coerce.date().nullish(),
   restaurantMinDeliveryTime: zod.number().nullish(),
@@ -355,7 +363,11 @@ export const ListOrdersResponseItem = zod
     pickupTimeRestaurant: zod.coerce.date().nullish(),
     pickupTimeOverride: zod.coerce.date().nullish(),
     sourceCreatedAt: zod.coerce.date(),
-    requestedDeliveryTime: zod.coerce.date(),
+    requestedDeliveryTime: zod.coerce
+      .date()
+      .describe(
+        "The customer's checkout selection resolved to a timestamp, and the\nstorefront's source of truth for fulfilment. For a scheduled order this\nis exactly the time they picked; for an ASAP order it is the storefront's\ncalculated delivery estimate. The user-facing string the customer actually\nsaw (\"Zo snel mogelijk\", \"vandaag om 18:30\") lives in the storefront's\nseparate `deliveryTimeDisplay` field and is NOT sent here — so an ASAP\ntime should be presented as an estimate, never as a promised time.\n",
+      ),
     deliveryTimeType: zod.enum(["asap", "later_today", "other_day"]),
     sourceRestaurantReadyTime: zod.coerce.date().nullish(),
     restaurantMinDeliveryTime: zod.number().nullish(),
@@ -482,7 +494,11 @@ export const GetOrderResponse = zod
     pickupTimeRestaurant: zod.coerce.date().nullish(),
     pickupTimeOverride: zod.coerce.date().nullish(),
     sourceCreatedAt: zod.coerce.date(),
-    requestedDeliveryTime: zod.coerce.date(),
+    requestedDeliveryTime: zod.coerce
+      .date()
+      .describe(
+        "The customer's checkout selection resolved to a timestamp, and the\nstorefront's source of truth for fulfilment. For a scheduled order this\nis exactly the time they picked; for an ASAP order it is the storefront's\ncalculated delivery estimate. The user-facing string the customer actually\nsaw (\"Zo snel mogelijk\", \"vandaag om 18:30\") lives in the storefront's\nseparate `deliveryTimeDisplay` field and is NOT sent here — so an ASAP\ntime should be presented as an estimate, never as a promised time.\n",
+      ),
     deliveryTimeType: zod.enum(["asap", "later_today", "other_day"]),
     sourceRestaurantReadyTime: zod.coerce.date().nullish(),
     restaurantMinDeliveryTime: zod.number().nullish(),
@@ -693,7 +709,11 @@ export const TransitionOrderStatusResponse = zod
     pickupTimeRestaurant: zod.coerce.date().nullish(),
     pickupTimeOverride: zod.coerce.date().nullish(),
     sourceCreatedAt: zod.coerce.date(),
-    requestedDeliveryTime: zod.coerce.date(),
+    requestedDeliveryTime: zod.coerce
+      .date()
+      .describe(
+        "The customer's checkout selection resolved to a timestamp, and the\nstorefront's source of truth for fulfilment. For a scheduled order this\nis exactly the time they picked; for an ASAP order it is the storefront's\ncalculated delivery estimate. The user-facing string the customer actually\nsaw (\"Zo snel mogelijk\", \"vandaag om 18:30\") lives in the storefront's\nseparate `deliveryTimeDisplay` field and is NOT sent here — so an ASAP\ntime should be presented as an estimate, never as a promised time.\n",
+      ),
     deliveryTimeType: zod.enum(["asap", "later_today", "other_day"]),
     sourceRestaurantReadyTime: zod.coerce.date().nullish(),
     restaurantMinDeliveryTime: zod.number().nullish(),
@@ -893,7 +913,11 @@ export const AssignOrderResponse = zod
     pickupTimeRestaurant: zod.coerce.date().nullish(),
     pickupTimeOverride: zod.coerce.date().nullish(),
     sourceCreatedAt: zod.coerce.date(),
-    requestedDeliveryTime: zod.coerce.date(),
+    requestedDeliveryTime: zod.coerce
+      .date()
+      .describe(
+        "The customer's checkout selection resolved to a timestamp, and the\nstorefront's source of truth for fulfilment. For a scheduled order this\nis exactly the time they picked; for an ASAP order it is the storefront's\ncalculated delivery estimate. The user-facing string the customer actually\nsaw (\"Zo snel mogelijk\", \"vandaag om 18:30\") lives in the storefront's\nseparate `deliveryTimeDisplay` field and is NOT sent here — so an ASAP\ntime should be presented as an estimate, never as a promised time.\n",
+      ),
     deliveryTimeType: zod.enum(["asap", "later_today", "other_day"]),
     sourceRestaurantReadyTime: zod.coerce.date().nullish(),
     restaurantMinDeliveryTime: zod.number().nullish(),
@@ -1094,7 +1118,11 @@ export const UpdatePickupTimeResponse = zod
     pickupTimeRestaurant: zod.coerce.date().nullish(),
     pickupTimeOverride: zod.coerce.date().nullish(),
     sourceCreatedAt: zod.coerce.date(),
-    requestedDeliveryTime: zod.coerce.date(),
+    requestedDeliveryTime: zod.coerce
+      .date()
+      .describe(
+        "The customer's checkout selection resolved to a timestamp, and the\nstorefront's source of truth for fulfilment. For a scheduled order this\nis exactly the time they picked; for an ASAP order it is the storefront's\ncalculated delivery estimate. The user-facing string the customer actually\nsaw (\"Zo snel mogelijk\", \"vandaag om 18:30\") lives in the storefront's\nseparate `deliveryTimeDisplay` field and is NOT sent here — so an ASAP\ntime should be presented as an estimate, never as a promised time.\n",
+      ),
     deliveryTimeType: zod.enum(["asap", "later_today", "other_day"]),
     sourceRestaurantReadyTime: zod.coerce.date().nullish(),
     restaurantMinDeliveryTime: zod.number().nullish(),
@@ -1294,7 +1322,11 @@ export const HideOrderItemResponse = zod
     pickupTimeRestaurant: zod.coerce.date().nullish(),
     pickupTimeOverride: zod.coerce.date().nullish(),
     sourceCreatedAt: zod.coerce.date(),
-    requestedDeliveryTime: zod.coerce.date(),
+    requestedDeliveryTime: zod.coerce
+      .date()
+      .describe(
+        "The customer's checkout selection resolved to a timestamp, and the\nstorefront's source of truth for fulfilment. For a scheduled order this\nis exactly the time they picked; for an ASAP order it is the storefront's\ncalculated delivery estimate. The user-facing string the customer actually\nsaw (\"Zo snel mogelijk\", \"vandaag om 18:30\") lives in the storefront's\nseparate `deliveryTimeDisplay` field and is NOT sent here — so an ASAP\ntime should be presented as an estimate, never as a promised time.\n",
+      ),
     deliveryTimeType: zod.enum(["asap", "later_today", "other_day"]),
     sourceRestaurantReadyTime: zod.coerce.date().nullish(),
     restaurantMinDeliveryTime: zod.number().nullish(),
@@ -1509,7 +1541,11 @@ export const AddOrderItemResponse = zod
     pickupTimeRestaurant: zod.coerce.date().nullish(),
     pickupTimeOverride: zod.coerce.date().nullish(),
     sourceCreatedAt: zod.coerce.date(),
-    requestedDeliveryTime: zod.coerce.date(),
+    requestedDeliveryTime: zod.coerce
+      .date()
+      .describe(
+        "The customer's checkout selection resolved to a timestamp, and the\nstorefront's source of truth for fulfilment. For a scheduled order this\nis exactly the time they picked; for an ASAP order it is the storefront's\ncalculated delivery estimate. The user-facing string the customer actually\nsaw (\"Zo snel mogelijk\", \"vandaag om 18:30\") lives in the storefront's\nseparate `deliveryTimeDisplay` field and is NOT sent here — so an ASAP\ntime should be presented as an estimate, never as a promised time.\n",
+      ),
     deliveryTimeType: zod.enum(["asap", "later_today", "other_day"]),
     sourceRestaurantReadyTime: zod.coerce.date().nullish(),
     restaurantMinDeliveryTime: zod.number().nullish(),
@@ -1709,7 +1745,11 @@ export const SetRiderNotificationResponse = zod
     pickupTimeRestaurant: zod.coerce.date().nullish(),
     pickupTimeOverride: zod.coerce.date().nullish(),
     sourceCreatedAt: zod.coerce.date(),
-    requestedDeliveryTime: zod.coerce.date(),
+    requestedDeliveryTime: zod.coerce
+      .date()
+      .describe(
+        "The customer's checkout selection resolved to a timestamp, and the\nstorefront's source of truth for fulfilment. For a scheduled order this\nis exactly the time they picked; for an ASAP order it is the storefront's\ncalculated delivery estimate. The user-facing string the customer actually\nsaw (\"Zo snel mogelijk\", \"vandaag om 18:30\") lives in the storefront's\nseparate `deliveryTimeDisplay` field and is NOT sent here — so an ASAP\ntime should be presented as an estimate, never as a promised time.\n",
+      ),
     deliveryTimeType: zod.enum(["asap", "later_today", "other_day"]),
     sourceRestaurantReadyTime: zod.coerce.date().nullish(),
     restaurantMinDeliveryTime: zod.number().nullish(),
@@ -1913,7 +1953,11 @@ export const UpdateOrderContactResponse = zod
     pickupTimeRestaurant: zod.coerce.date().nullish(),
     pickupTimeOverride: zod.coerce.date().nullish(),
     sourceCreatedAt: zod.coerce.date(),
-    requestedDeliveryTime: zod.coerce.date(),
+    requestedDeliveryTime: zod.coerce
+      .date()
+      .describe(
+        "The customer's checkout selection resolved to a timestamp, and the\nstorefront's source of truth for fulfilment. For a scheduled order this\nis exactly the time they picked; for an ASAP order it is the storefront's\ncalculated delivery estimate. The user-facing string the customer actually\nsaw (\"Zo snel mogelijk\", \"vandaag om 18:30\") lives in the storefront's\nseparate `deliveryTimeDisplay` field and is NOT sent here — so an ASAP\ntime should be presented as an estimate, never as a promised time.\n",
+      ),
     deliveryTimeType: zod.enum(["asap", "later_today", "other_day"]),
     sourceRestaurantReadyTime: zod.coerce.date().nullish(),
     restaurantMinDeliveryTime: zod.number().nullish(),
@@ -2117,7 +2161,11 @@ export const HoldOrderResponse = zod
     pickupTimeRestaurant: zod.coerce.date().nullish(),
     pickupTimeOverride: zod.coerce.date().nullish(),
     sourceCreatedAt: zod.coerce.date(),
-    requestedDeliveryTime: zod.coerce.date(),
+    requestedDeliveryTime: zod.coerce
+      .date()
+      .describe(
+        "The customer's checkout selection resolved to a timestamp, and the\nstorefront's source of truth for fulfilment. For a scheduled order this\nis exactly the time they picked; for an ASAP order it is the storefront's\ncalculated delivery estimate. The user-facing string the customer actually\nsaw (\"Zo snel mogelijk\", \"vandaag om 18:30\") lives in the storefront's\nseparate `deliveryTimeDisplay` field and is NOT sent here — so an ASAP\ntime should be presented as an estimate, never as a promised time.\n",
+      ),
     deliveryTimeType: zod.enum(["asap", "later_today", "other_day"]),
     sourceRestaurantReadyTime: zod.coerce.date().nullish(),
     restaurantMinDeliveryTime: zod.number().nullish(),
@@ -2313,7 +2361,11 @@ export const ReleaseOrderResponse = zod
     pickupTimeRestaurant: zod.coerce.date().nullish(),
     pickupTimeOverride: zod.coerce.date().nullish(),
     sourceCreatedAt: zod.coerce.date(),
-    requestedDeliveryTime: zod.coerce.date(),
+    requestedDeliveryTime: zod.coerce
+      .date()
+      .describe(
+        "The customer's checkout selection resolved to a timestamp, and the\nstorefront's source of truth for fulfilment. For a scheduled order this\nis exactly the time they picked; for an ASAP order it is the storefront's\ncalculated delivery estimate. The user-facing string the customer actually\nsaw (\"Zo snel mogelijk\", \"vandaag om 18:30\") lives in the storefront's\nseparate `deliveryTimeDisplay` field and is NOT sent here — so an ASAP\ntime should be presented as an estimate, never as a promised time.\n",
+      ),
     deliveryTimeType: zod.enum(["asap", "later_today", "other_day"]),
     sourceRestaurantReadyTime: zod.coerce.date().nullish(),
     restaurantMinDeliveryTime: zod.number().nullish(),
@@ -2517,7 +2569,11 @@ export const SetOrderRestaurantResponse = zod
     pickupTimeRestaurant: zod.coerce.date().nullish(),
     pickupTimeOverride: zod.coerce.date().nullish(),
     sourceCreatedAt: zod.coerce.date(),
-    requestedDeliveryTime: zod.coerce.date(),
+    requestedDeliveryTime: zod.coerce
+      .date()
+      .describe(
+        "The customer's checkout selection resolved to a timestamp, and the\nstorefront's source of truth for fulfilment. For a scheduled order this\nis exactly the time they picked; for an ASAP order it is the storefront's\ncalculated delivery estimate. The user-facing string the customer actually\nsaw (\"Zo snel mogelijk\", \"vandaag om 18:30\") lives in the storefront's\nseparate `deliveryTimeDisplay` field and is NOT sent here — so an ASAP\ntime should be presented as an estimate, never as a promised time.\n",
+      ),
     deliveryTimeType: zod.enum(["asap", "later_today", "other_day"]),
     sourceRestaurantReadyTime: zod.coerce.date().nullish(),
     restaurantMinDeliveryTime: zod.number().nullish(),
@@ -3036,7 +3092,11 @@ export const GetTripResponse = zod
             pickupTimeRestaurant: zod.coerce.date().nullish(),
             pickupTimeOverride: zod.coerce.date().nullish(),
             sourceCreatedAt: zod.coerce.date(),
-            requestedDeliveryTime: zod.coerce.date(),
+            requestedDeliveryTime: zod.coerce
+              .date()
+              .describe(
+                "The customer's checkout selection resolved to a timestamp, and the\nstorefront's source of truth for fulfilment. For a scheduled order this\nis exactly the time they picked; for an ASAP order it is the storefront's\ncalculated delivery estimate. The user-facing string the customer actually\nsaw (\"Zo snel mogelijk\", \"vandaag om 18:30\") lives in the storefront's\nseparate `deliveryTimeDisplay` field and is NOT sent here — so an ASAP\ntime should be presented as an estimate, never as a promised time.\n",
+              ),
             deliveryTimeType: zod.enum(["asap", "later_today", "other_day"]),
             sourceRestaurantReadyTime: zod.coerce.date().nullish(),
             restaurantMinDeliveryTime: zod.number().nullish(),
@@ -3225,7 +3285,11 @@ export const UpdateTripResponse = zod
             pickupTimeRestaurant: zod.coerce.date().nullish(),
             pickupTimeOverride: zod.coerce.date().nullish(),
             sourceCreatedAt: zod.coerce.date(),
-            requestedDeliveryTime: zod.coerce.date(),
+            requestedDeliveryTime: zod.coerce
+              .date()
+              .describe(
+                "The customer's checkout selection resolved to a timestamp, and the\nstorefront's source of truth for fulfilment. For a scheduled order this\nis exactly the time they picked; for an ASAP order it is the storefront's\ncalculated delivery estimate. The user-facing string the customer actually\nsaw (\"Zo snel mogelijk\", \"vandaag om 18:30\") lives in the storefront's\nseparate `deliveryTimeDisplay` field and is NOT sent here — so an ASAP\ntime should be presented as an estimate, never as a promised time.\n",
+              ),
             deliveryTimeType: zod.enum(["asap", "later_today", "other_day"]),
             sourceRestaurantReadyTime: zod.coerce.date().nullish(),
             restaurantMinDeliveryTime: zod.number().nullish(),
@@ -3414,7 +3478,11 @@ export const ReplaceTripStopsResponse = zod
             pickupTimeRestaurant: zod.coerce.date().nullish(),
             pickupTimeOverride: zod.coerce.date().nullish(),
             sourceCreatedAt: zod.coerce.date(),
-            requestedDeliveryTime: zod.coerce.date(),
+            requestedDeliveryTime: zod.coerce
+              .date()
+              .describe(
+                "The customer's checkout selection resolved to a timestamp, and the\nstorefront's source of truth for fulfilment. For a scheduled order this\nis exactly the time they picked; for an ASAP order it is the storefront's\ncalculated delivery estimate. The user-facing string the customer actually\nsaw (\"Zo snel mogelijk\", \"vandaag om 18:30\") lives in the storefront's\nseparate `deliveryTimeDisplay` field and is NOT sent here — so an ASAP\ntime should be presented as an estimate, never as a promised time.\n",
+              ),
             deliveryTimeType: zod.enum(["asap", "later_today", "other_day"]),
             sourceRestaurantReadyTime: zod.coerce.date().nullish(),
             restaurantMinDeliveryTime: zod.number().nullish(),
@@ -3592,7 +3660,11 @@ export const DissolveTripResponse = zod
             pickupTimeRestaurant: zod.coerce.date().nullish(),
             pickupTimeOverride: zod.coerce.date().nullish(),
             sourceCreatedAt: zod.coerce.date(),
-            requestedDeliveryTime: zod.coerce.date(),
+            requestedDeliveryTime: zod.coerce
+              .date()
+              .describe(
+                "The customer's checkout selection resolved to a timestamp, and the\nstorefront's source of truth for fulfilment. For a scheduled order this\nis exactly the time they picked; for an ASAP order it is the storefront's\ncalculated delivery estimate. The user-facing string the customer actually\nsaw (\"Zo snel mogelijk\", \"vandaag om 18:30\") lives in the storefront's\nseparate `deliveryTimeDisplay` field and is NOT sent here — so an ASAP\ntime should be presented as an estimate, never as a promised time.\n",
+              ),
             deliveryTimeType: zod.enum(["asap", "later_today", "other_day"]),
             sourceRestaurantReadyTime: zod.coerce.date().nullish(),
             restaurantMinDeliveryTime: zod.number().nullish(),
