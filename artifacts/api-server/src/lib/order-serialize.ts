@@ -71,6 +71,7 @@ function baseOrderFields(
   bundlePickupTime: Date | null,
   tripNumber: number | null,
   heldByUserName: string | null,
+  restaurantAcceptedByName: string | null,
 ) {
   const eff = resolveEffectivePickupTime({
     pickupTimeOriginal: order.pickupTimeOriginal,
@@ -138,6 +139,8 @@ function baseOrderFields(
     effectivePickupSource: eff.effectivePickupSource,
     pendingRiderNotification: order.pendingRiderNotification,
     failureReason: order.failureReason,
+    restaurantAcceptedAt: order.restaurantAcceptedAt,
+    restaurantAcceptedByName,
     holdState: order.holdState,
     holdReason: order.holdReason,
     heldAt: order.heldAt,
@@ -162,7 +165,10 @@ async function loadJoins(
    */
   bundlePickupByOrder: Map<string, Date>;
   tripNumbersById: Map<string, number>;
-  /** Display name of whoever placed a deliberate hold, keyed by user id. */
+  /**
+   * Display names for user-valued order columns (hold actor, acknowledging
+   * restaurant staff), keyed by user id. One lookup covers both.
+   */
   holdActorsById: Map<string, string>;
 }> {
   const restaurantsById = new Map<string, { id: string; name: string }>();
@@ -200,7 +206,7 @@ async function loadJoins(
   const holdActorIds = Array.from(
     new Set(
       orders
-        .map((o) => o.heldByUserId)
+        .flatMap((o) => [o.heldByUserId, o.restaurantAcceptedByUserId])
         .filter((x): x is string => typeof x === "string"),
     ),
   );
@@ -303,6 +309,9 @@ export async function serializeOrderListItem(order: Order) {
       bundlePickupByOrder.get(order.id) ?? null,
       order.tripId ? (tripNumbersById.get(order.tripId) ?? null) : null,
       order.heldByUserId ? (holdActorsById.get(order.heldByUserId) ?? null) : null,
+      order.restaurantAcceptedByUserId
+        ? (holdActorsById.get(order.restaurantAcceptedByUserId) ?? null)
+        : null,
     ),
     restaurantName: restaurant?.name,
     riderName: rider?.name ?? null,
@@ -330,6 +339,9 @@ export async function serializeOrderListItems(orders: Order[]) {
         bundlePickupByOrder.get(order.id) ?? null,
         order.tripId ? (tripNumbersById.get(order.tripId) ?? null) : null,
         order.heldByUserId ? (holdActorsById.get(order.heldByUserId) ?? null) : null,
+        order.restaurantAcceptedByUserId
+          ? (holdActorsById.get(order.restaurantAcceptedByUserId) ?? null)
+          : null,
       ),
       restaurantName: restaurant?.name,
       riderName: rider?.name ?? null,
@@ -378,6 +390,9 @@ export async function serializeOrderDetail(orderId: string) {
         : null,
       order.heldByUserId
         ? (joinData.holdActorsById.get(order.heldByUserId) ?? null)
+        : null,
+      order.restaurantAcceptedByUserId
+        ? (joinData.holdActorsById.get(order.restaurantAcceptedByUserId) ?? null)
         : null,
     ),
     restaurantName: restaurant?.name,

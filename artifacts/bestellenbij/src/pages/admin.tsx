@@ -7,9 +7,10 @@ import {
   useListRiders, useCreateRider, useUpdateRider,
   useGetSettings, useUpdateSettings,
   getListUsersQueryKey, getListRestaurantsQueryKey, getListRidersQueryKey, getGetSettingsQueryKey,
-  UserRole, RiderAvailability,
+  UserRole, RiderAvailability, RestaurantAcceptanceMode,
   type Restaurant, type RiderWithWorkload, type User as ApiUser, type UserRole as UserRoleType,
   type RiderAvailability as RiderAvailabilityType, type Settings as ApiSettings,
+  type RestaurantAcceptanceMode as RestaurantAcceptanceModeType,
 } from "@workspace/api-client-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -218,7 +219,8 @@ function RestaurantRow({ restaurant, onUpdate, onInvalidate, onDelete }: { resta
   const [addr, setAddr] = useState(restaurant.address);
   const [phone, setPhone] = useState(restaurant.phone ?? "");
   const [mdt, setMdt] = useState(restaurant.minDeliveryTime);
-  const dirty = name !== restaurant.name || nameCode !== restaurant.nameCode || addr !== restaurant.address || phone !== (restaurant.phone ?? "") || mdt !== restaurant.minDeliveryTime;
+  const [mode, setMode] = useState<RestaurantAcceptanceModeType>(restaurant.acceptanceMode);
+  const dirty = name !== restaurant.name || nameCode !== restaurant.nameCode || addr !== restaurant.address || phone !== (restaurant.phone ?? "") || mdt !== restaurant.minDeliveryTime || mode !== restaurant.acceptanceMode;
   return (
     <Card data-testid={`row-restaurant-${restaurant.id}`}>
       <CardContent className="py-3 grid grid-cols-1 md:grid-cols-6 gap-2 items-end">
@@ -227,11 +229,25 @@ function RestaurantRow({ restaurant, onUpdate, onInvalidate, onDelete }: { resta
         <div className="md:col-span-2"><Label className="text-xs">{t("common.address")}</Label><Input value={addr} onChange={(e) => setAddr(e.target.value)} /></div>
         <div><Label className="text-xs">{t("common.phone")}</Label><Input value={phone} onChange={(e) => setPhone(e.target.value)} /></div>
         <div><Label className="text-xs">{t("admin.minDeliveryTime")}</Label><Input type="number" min={1} value={mdt} onChange={(e) => setMdt(Number(e.target.value))} /></div>
+        <div className="md:col-span-2">
+          <Label className="text-xs">{t("admin.acceptanceMode")}</Label>
+          <Select value={mode} onValueChange={(v) => setMode(v as RestaurantAcceptanceModeType)}>
+            <SelectTrigger data-testid={`select-acceptance-mode-${restaurant.id}`}><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {Object.values(RestaurantAcceptanceMode).map((m) => (
+                <SelectItem key={m} value={m}>{t(`admin.acceptanceMode_${m}`)}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="md:col-span-6 text-xs text-muted-foreground -mt-1">
+          {t("admin.acceptanceModeHelp")}
+        </div>
         <div className="md:col-span-6 flex justify-end gap-2">
           <Button
             variant="outline"
             disabled={!dirty}
-            onClick={() => onUpdate({ id: restaurant.id, data: { name, nameCode, address: addr, phone: phone || null, minDeliveryTime: mdt } }, { onSuccess: onInvalidate, onError: () => toast({ title: t("errors.generic"), variant: "destructive" }) })}
+            onClick={() => onUpdate({ id: restaurant.id, data: { name, nameCode, address: addr, phone: phone || null, minDeliveryTime: mdt, acceptanceMode: mode } }, { onSuccess: onInvalidate, onError: () => toast({ title: t("errors.generic"), variant: "destructive" }) })}
             data-testid={`button-update-restaurant-${restaurant.id}`}
           >
             {t("common.save")}

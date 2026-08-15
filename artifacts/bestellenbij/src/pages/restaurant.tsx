@@ -11,6 +11,7 @@ import {
   getGetOrderQueryKey,
   type OrderListItem,
   type OrderDetail,
+  type RestaurantAcceptanceMode,
 } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -18,6 +19,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { StatusBadge } from "@/components/status-badge";
 import { PickupCountdown, PickupSourceBadge } from "@/components/pickup-countdown";
+import { AcknowledgeCard } from "@/components/acknowledge-card";
 import { useAuth } from "@/lib/auth";
 import { effectivePickup, formatTime } from "@/lib/format";
 import { useToast } from "@/hooks/use-toast";
@@ -36,6 +38,9 @@ export default function RestaurantPage() {
   );
   const restaurants = useListRestaurants({ query: { queryKey: getListRestaurantsQueryKey() } });
   const myRestaurant = restaurants.data?.find((r) => r.id === restId);
+  // How this restaurant is asked to confirm — an operator setting, not a
+  // per-order one. Defaults to the simple confirm until the record loads.
+  const acceptanceMode = myRestaurant?.acceptanceMode ?? "accept";
 
   const active = (orders.data ?? []).filter((o) => !["delivered", "failed"].includes(o.status));
 
@@ -84,12 +89,17 @@ export default function RestaurantPage() {
       ) : (
         <div className="space-y-5">
           {bundleGroups.map((g) => (
-            <BundleCard key={g.tripId} orders={g.orders} lang={lang} />
+            <BundleCard key={g.tripId} orders={g.orders} lang={lang} acceptanceMode={acceptanceMode} />
           ))}
           {solos.length > 0 ? (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               {solos.map((o) => (
-                <RestaurantOrderCard key={o.id} order={o} lang={lang} />
+                <RestaurantOrderCard
+                  key={o.id}
+                  order={o}
+                  lang={lang}
+                  acceptanceMode={acceptanceMode}
+                />
               ))}
             </div>
           ) : null}
@@ -99,7 +109,15 @@ export default function RestaurantPage() {
   );
 }
 
-function BundleCard({ orders, lang }: { orders: OrderListItem[]; lang: string }) {
+function BundleCard({
+  orders,
+  lang,
+  acceptanceMode,
+}: {
+  orders: OrderListItem[];
+  lang: string;
+  acceptanceMode: RestaurantAcceptanceMode;
+}) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const update = useUpdatePickupTime();
@@ -182,7 +200,13 @@ function BundleCard({ orders, lang }: { orders: OrderListItem[]; lang: string })
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {orders.map((o) => (
-            <RestaurantOrderCard key={o.id} order={o} lang={lang} compact />
+            <RestaurantOrderCard
+              key={o.id}
+              order={o}
+              lang={lang}
+              acceptanceMode={acceptanceMode}
+              compact
+            />
           ))}
         </div>
 
@@ -210,7 +234,17 @@ function BundleCard({ orders, lang }: { orders: OrderListItem[]; lang: string })
   );
 }
 
-function RestaurantOrderCard({ order, lang, compact = false }: { order: OrderListItem; lang: string; compact?: boolean }) {
+function RestaurantOrderCard({
+  order,
+  lang,
+  acceptanceMode,
+  compact = false,
+}: {
+  order: OrderListItem;
+  lang: string;
+  acceptanceMode: RestaurantAcceptanceMode;
+  compact?: boolean;
+}) {
   const { t } = useTranslation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -290,6 +324,13 @@ function RestaurantOrderCard({ order, lang, compact = false }: { order: OrderLis
           <PickupCountdown order={order} />
           <PickupSourceBadge source={eff.source} />
         </div>
+
+        <AcknowledgeCard
+          order={order}
+          mode={acceptanceMode}
+          lang={lang}
+          onDone={invalidate}
+        />
 
         <Button
           type="button"

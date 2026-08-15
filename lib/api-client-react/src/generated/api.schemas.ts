@@ -96,6 +96,32 @@ export const OrderHoldState = {
   on_hold: "on_hold",
 } as const;
 
+/**
+ * How this restaurant is asked to acknowledge an order. `accept` is a single
+confirm action; `choose_time` confirms by picking one of three pickup times
+(as proposed, ten minutes earlier, ten minutes later). Acknowledgement never
+gates anything either way.
+
+ */
+export type RestaurantAcceptanceMode =
+  (typeof RestaurantAcceptanceMode)[keyof typeof RestaurantAcceptanceMode];
+
+export const RestaurantAcceptanceMode = {
+  accept: "accept",
+  choose_time: "choose_time",
+} as const;
+
+export interface AcknowledgeOrderRequest {
+  /**
+   * Optional. Supplied when the restaurant confirms by choosing a time other
+than the one proposed; written to `pickupTimeRestaurant` through the same
+path as an explicit pickup-time update. Omit to acknowledge as-is.
+
+   * @nullable
+   */
+  pickupTime?: string | null;
+}
+
 export interface HoldOrderRequest {
   /** @nullable */
   reason?: string | null;
@@ -223,6 +249,7 @@ export interface Restaurant {
   /** @nullable */
   phone?: string | null;
   minDeliveryTime: number;
+  acceptanceMode: RestaurantAcceptanceMode;
   createdAt: string;
 }
 
@@ -234,6 +261,7 @@ export interface CreateRestaurantRequest {
   /** @nullable */
   phone?: string | null;
   minDeliveryTime: number;
+  acceptanceMode?: RestaurantAcceptanceMode;
 }
 
 export interface UpdateRestaurantRequest {
@@ -244,6 +272,7 @@ export interface UpdateRestaurantRequest {
   /** @nullable */
   phone?: string | null;
   minDeliveryTime?: number;
+  acceptanceMode?: RestaurantAcceptanceMode;
 }
 
 export interface OrderItem {
@@ -455,6 +484,15 @@ time should be presented as an estimate, never as a promised time.
   pendingRiderNotification?: string | null;
   /** @nullable */
   failureReason?: string | null;
+  /**
+   * When the restaurant acknowledged the order. Null means not yet acknowledged,
+which blocks nothing — it is a read receipt, not a gate.
+
+   * @nullable
+   */
+  restaurantAcceptedAt?: string | null;
+  /** @nullable */
+  restaurantAcceptedByName?: string | null;
   /** The hold family — the only mechanism that gates an order. Null means not
 held. A hold blocks new assignment only; an order already being worked
 keeps accepting status reports.

@@ -42,6 +42,9 @@ router.post(
           address: parsed.data.address,
           phone: parsed.data.phone ?? null,
           minDeliveryTime: parsed.data.minDeliveryTime,
+          ...(parsed.data.acceptanceMode !== undefined
+            ? { acceptanceMode: parsed.data.acceptanceMode }
+            : {}),
         })
         .returning();
     } catch (err: unknown) {
@@ -68,6 +71,7 @@ router.patch(
     if (parsed.data.address !== undefined) updates.address = parsed.data.address;
     if (parsed.data.phone !== undefined) updates.phone = parsed.data.phone ?? null;
     if (parsed.data.minDeliveryTime !== undefined) updates.minDeliveryTime = parsed.data.minDeliveryTime;
+    if (parsed.data.acceptanceMode !== undefined) updates.acceptanceMode = parsed.data.acceptanceMode;
     if (Object.keys(updates).length === 0) {
       const [existing] = await db
         .select()

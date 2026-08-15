@@ -364,6 +364,39 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/OrderDetail"
+  /orders/{id}/acknowledge:
+    post:
+      operationId: acknowledgeOrder
+      tags: [orders]
+      summary: Restaurant acknowledges an order
+      description: |
+        Records that the restaurant has seen the order and its pickup time. This is a
+        read receipt, not a gate — nothing waits on it, and the delivery team works
+        the order before and without it. Restaurant staff may acknowledge orders for
+        their own restaurant; admins and coordinators may acknowledge any order.
+
+        When `pickupTime` is supplied (the `choose_time` acceptance mode), it is
+        written to `pickupTimeRestaurant` and logged as a pickup-time adjustment,
+        exactly as an explicit pickup-time update would be.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AcknowledgeOrderRequest"
+      responses:
+        "200":
+          description: Acknowledged
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrderDetail"
   /orders/{id}/hold:
     post:
       operationId: holdOrder
@@ -935,6 +968,24 @@ components:
     OrderHoldState:
       type: string
       enum: [parked, on_hold]
+    RestaurantAcceptanceMode:
+      type: string
+      enum: [accept, choose_time]
+      description: |
+        How this restaurant is asked to acknowledge an order. `accept` is a single
+        confirm action; `choose_time` confirms by picking one of three pickup times
+        (as proposed, ten minutes earlier, ten minutes later). Acknowledgement never
+        gates anything either way.
+    AcknowledgeOrderRequest:
+      type: object
+      properties:
+        pickupTime:
+          type: ["string", "null"]
+          format: date-time
+          description: |
+            Optional. Supplied when the restaurant confirms by choosing a time other
+            than the one proposed; written to `pickupTimeRestaurant` through the same
+            path as an explicit pickup-time update. Omit to acknowledge as-is.
     HoldOrderRequest:
       type: object
       properties:
@@ -1050,7 +1101,7 @@ components:
           type: ["string", "null"]
     Restaurant:
       type: object
-      required: [id, name, nameCode, address, minDeliveryTime, createdAt]
+      required: [id, name, nameCode, address, minDeliveryTime, acceptanceMode, createdAt]
       properties:
         id:
           type: string
@@ -1065,6 +1116,8 @@ components:
           type: ["string", "null"]
         minDeliveryTime:
           type: integer
+        acceptanceMode:
+          $ref: "#/components/schemas/RestaurantAcceptanceMode"
         createdAt:
           type: string
           format: date-time
@@ -1083,6 +1136,8 @@ components:
           type: ["string", "null"]
         minDeliveryTime:
           type: integer
+        acceptanceMode:
+          $ref: "#/components/schemas/RestaurantAcceptanceMode"
     UpdateRestaurantRequest:
       type: object
       properties:
@@ -1097,6 +1152,8 @@ components:
           type: ["string", "null"]
         minDeliveryTime:
           type: integer
+        acceptanceMode:
+          $ref: "#/components/schemas/RestaurantAcceptanceMode"
     OrderItem:
       type: object
       required: [name, quantity, price]
@@ -1396,6 +1453,14 @@ components:
         pendingRiderNotification:
           type: ["string", "null"]
         failureReason:
+          type: ["string", "null"]
+        restaurantAcceptedAt:
+          type: ["string", "null"]
+          format: date-time
+          description: |
+            When the restaurant acknowledged the order. Null means not yet acknowledged,
+            which blocks nothing — it is a read receipt, not a gate.
+        restaurantAcceptedByName:
           type: ["string", "null"]
         holdState:
           oneOf:

@@ -118,9 +118,10 @@ export const ordersTable = pgTable(
     pickupTimeRider: timestamp("pickup_time_rider", { withTimezone: true }),
     pickupTimeRestaurant: timestamp("pickup_time_restaurant", { withTimezone: true }),
     pickupTimeOverride: timestamp("pickup_time_override", { withTimezone: true }),
-    // Raw time data from the source. Landed for storage only — pickupTimeOriginal's
-    // computation still reads only restaurant.minDeliveryTime; wiring these in is a
-    // separate, still-open decision (exact formula not decided yet).
+    // Time data from the source. Feeds pickupTimeOriginal via
+    // lib/pickup-time.ts → resolveOriginalPickupTime: sourceRestaurantReadyTime
+    // wins outright, ASAP counts forward from ingestion, and scheduled orders
+    // count backwards from requestedDeliveryTime. See workflow-decisions D4.
     sourceCreatedAt: timestamp("source_created_at", { withTimezone: true }).notNull(),
     requestedDeliveryTime: timestamp("requested_delivery_time", { withTimezone: true }).notNull(),
     deliveryTimeType: text("delivery_time_type").notNull(),
@@ -133,6 +134,14 @@ export const ordersTable = pgTable(
     deliveryTeamMinPrepTime: integer("delivery_team_min_prep_time"),
     pendingRiderNotification: text("pending_rider_notification"),
     failureReason: text("failure_reason"),
+    // Restaurant acknowledgement: "we've seen this order and the pickup time".
+    // An acknowledgement, not a gate — nothing waits on it, and the delivery
+    // team works the order before and without it. See workflow-decisions D3.
+    restaurantAcceptedAt: timestamp("restaurant_accepted_at", { withTimezone: true }),
+    restaurantAcceptedByUserId: uuid("restaurant_accepted_by_user_id").references(
+      () => usersTable.id,
+      { onDelete: "set null" },
+    ),
     // The hold family. NULL means the order is not held. A hold blocks *new
     // assignment only* — an order already being worked keeps accepting status
     // reports, so a hold never freezes a rider mid-delivery.

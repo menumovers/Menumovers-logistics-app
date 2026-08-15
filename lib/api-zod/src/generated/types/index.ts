@@ -7,6 +7,7 @@
  */
 
 export * from "./accountStatus";
+export * from "./acknowledgeOrderRequest";
 export * from "./addItemRequest";
 export * from "./assignOrderRequest";
 export * from "./authSession";
@@ -44,6 +45,7 @@ export * from "./pushSubscriptionRequest";
 export * from "./pushSubscriptionRequestKeys";
 export * from "./replaceTripStopsRequest";
 export * from "./restaurant";
+export * from "./restaurantAcceptanceMode";
 export * from "./riderAvailability";
 export * from "./riderWithWorkload";
 export * from "./setAvailabilityRequest";

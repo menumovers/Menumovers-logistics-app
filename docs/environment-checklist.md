@@ -24,13 +24,20 @@ Branch `claude/app-workflow-schema-alignment-n4dnrz`.
 | 4 | Pickup time works scheduled orders back from the promised delivery time | D4 |
 | 5 | The hold family — parked orders are gated, and coordinators can triage them | D2 |
 | 6 | Delivery method — customer pickup out of rider scope, happy hour surfaced | D5 |
+| 7 | Restaurant acknowledgement, with a per-restaurant confirmation style | D3 |
 
 ### Schema impact
 
 Item 5 adds an `order_hold_state` enum and four columns to `orders`
 (`hold_state`, `hold_reason`, `held_by_user_id`, `held_at`) plus an index, and
-removes `is_parked` / `parked_reason`, which it replaces. Items 1–4 add no DDL
-— their settings are rows in the existing `system_settings` key/value table.
+removes `is_parked` / `parked_reason`, which it replaces.
+
+Item 7 adds a `restaurant_acceptance_mode` enum and `restaurants.acceptance_mode`
+(default `accept`), plus `orders.restaurant_accepted_at` and
+`orders.restaurant_accepted_by_user_id`.
+
+Items 1–4 and 6 add no DDL — their settings are rows in the existing
+`system_settings` key/value table.
 
 ---
 
@@ -82,6 +89,13 @@ only. These are the checks worth running once deployed.
       "Customer pickup" section instead.
 - [ ] **Send one with `deliveryMethod: "happy_hour"`.** It stays normal rider
       work and gains a badge on both the dispatch and rider cards.
+- [ ] **Confirm an order as restaurant staff** in each acceptance mode. Single
+      confirm should record the acknowledgement and leave the pickup time alone;
+      choosing "10 min later" should move `pickupTimeRestaurant` and log a
+      pickup-time adjustment. Confirming twice must not overwrite who confirmed.
+- [ ] **Check the coordinator board** shows "Unconfirmed" on orders the
+      restaurant hasn't acknowledged — and that assigning one still works,
+      since acknowledgement gates nothing.
 
 ---
 
@@ -123,11 +137,6 @@ as `todo.md` M6.
 The decisions still to be built *do* require database changes. Listed so they
 can be planned rather than discovered. All of it is applied with a plain
 `push` — nothing is deployed, so nothing needs preserving.
-
-### D3 — restaurant acceptance
-
-- `restaurants` gains an acceptance-mode column.
-- `orders` gains an acknowledgement timestamp and the actor who confirmed.
 
 ### D6 — trips
 

@@ -89,6 +89,14 @@ export default function CoordinatorOrderPage() {
           </div>
           <PickupCountdown order={o} size="lg" />
           <RequestedTimeLabel order={o} lang={lang} withDate />
+          <span
+            className={`text-xs ${o.restaurantAcceptedAt ? "text-chart-5" : "text-muted-foreground"}`}
+            data-testid="text-acknowledged"
+          >
+            {o.restaurantAcceptedAt
+              ? t("acknowledge.doneAt", { time: formatTime(o.restaurantAcceptedAt, lang) })
+              : t("acknowledge.notYet")}
+          </span>
         </div>
       </header>
 

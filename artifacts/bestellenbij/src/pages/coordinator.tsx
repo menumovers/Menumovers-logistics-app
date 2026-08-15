@@ -33,7 +33,7 @@ import { StatusBadge } from "@/components/status-badge";
 import { PickupCountdown, PickupSourceBadge } from "@/components/pickup-countdown";
 import { DeliveryMethodBadge, RequestedTimeLabel } from "@/components/delivery-expectation";
 import { effectivePickup, formatCurrency } from "@/lib/format";
-import { Bike, MapPin, Phone, Bell, ChevronRight, Layers, Plus, PauseCircle, PlayCircle, ShoppingBag } from "lucide-react";
+import { Bike, MapPin, Phone, Bell, ChevronRight, Layers, Plus, PauseCircle, PlayCircle, ShoppingBag, CircleDashed } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
 
@@ -505,7 +505,18 @@ function OrderCard({ order, lang }: { order: OrderListItem; lang: string }) {
               <PickupCountdown order={order} />
               <PickupSourceBadge source={eff.source} />
             </div>
-            <RequestedTimeLabel order={order} lang={lang} />
+            <div className="flex items-center justify-between gap-2">
+              <RequestedTimeLabel order={order} lang={lang} />
+              {/* Visibility, not escalation — acknowledgement gates nothing. */}
+              {order.restaurantAcceptedAt ? null : (
+                <span
+                  className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wide text-muted-foreground"
+                  data-testid={`text-unconfirmed-${order.id}`}
+                >
+                  <CircleDashed className="size-3" /> {t("acknowledge.notYetShort")}
+                </span>
+              )}
+            </div>
             <div className="flex items-start gap-2 text-sm text-muted-foreground">
               <MapPin className="size-3.5 mt-0.5 shrink-0" />
               <span className="line-clamp-2">{order.deliveryAddress}</span>

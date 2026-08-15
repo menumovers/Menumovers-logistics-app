@@ -230,7 +230,11 @@
     "pickupTiming": "Pickup timing",
     "pickupTravelOverride": "Travel time override (minutes)",
     "pickupTravelOverrideHelp": "Minutes from leaving the restaurant to reaching the customer. Leave empty to use the estimates sent with each order. A value here overrides them for every restaurant.",
-    "pickupTravelOverrideClear": "Use per-order estimates"
+    "pickupTravelOverrideClear": "Use per-order estimates",
+    "acceptanceMode": "Confirmation style",
+    "acceptanceMode_accept": "Single confirm",
+    "acceptanceMode_choose_time": "Choose one of three times",
+    "acceptanceModeHelp": "How this restaurant confirms an order. Confirming never blocks dispatch either way — it just records that they've seen it."
   },
   "settings": {
     "title": "Settings",
@@ -347,5 +351,20 @@
     "pickupSectionHelp": "The customer collects these themselves — they are never offered to riders.",
     "timeType_asap_short": "ASAP",
     "estimated": "est. {{time}}"
+  },
+  "acknowledge": {
+    "title": "Confirm this order",
+    "prompt": "Have you seen this order and the pickup time?",
+    "promptChoose": "Confirm the pickup time that works:",
+    "accept": "Confirm",
+    "asProposed": "As proposed",
+    "earlier": "{{minutes}} min earlier",
+    "later": "{{minutes}} min later",
+    "done": "Confirmed",
+    "doneAt": "Confirmed at {{time}}",
+    "confirmedBy": "by {{name}}",
+    "notYet": "Not yet confirmed",
+    "notYetShort": "Unconfirmed",
+    "toast": "Order confirmed"
   }
 }

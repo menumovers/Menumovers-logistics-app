@@ -230,7 +230,11 @@
     "pickupTiming": "Ophaaltijden",
     "pickupTravelOverride": "Overschrijving reistijd (minuten)",
     "pickupTravelOverrideHelp": "Minuten tussen vertrek bij het restaurant en aankomst bij de klant. Laat leeg om de schattingen uit de bestelling te gebruiken. Een waarde hier overschrijft die voor alle restaurants.",
-    "pickupTravelOverrideClear": "Schattingen per bestelling gebruiken"
+    "pickupTravelOverrideClear": "Schattingen per bestelling gebruiken",
+    "acceptanceMode": "Bevestigingswijze",
+    "acceptanceMode_accept": "Eén keer bevestigen",
+    "acceptanceMode_choose_time": "Kies uit drie tijden",
+    "acceptanceModeHelp": "Hoe dit restaurant een bestelling bevestigt. Bevestigen blokkeert de toewijzing nooit — het legt alleen vast dat ze het gezien hebben."
   },
   "settings": {
     "title": "Instellingen",
@@ -347,5 +351,20 @@
     "pickupSectionHelp": "De klant haalt deze zelf op — ze worden nooit aan rijders aangeboden.",
     "timeType_asap_short": "Z.s.m.",
     "estimated": "ca. {{time}}"
+  },
+  "acknowledge": {
+    "title": "Bevestig deze bestelling",
+    "prompt": "Heb je deze bestelling en de ophaaltijd gezien?",
+    "promptChoose": "Bevestig de ophaaltijd die uitkomt:",
+    "accept": "Bevestigen",
+    "asProposed": "Zoals voorgesteld",
+    "earlier": "{{minutes}} min eerder",
+    "later": "{{minutes}} min later",
+    "done": "Bevestigd",
+    "doneAt": "Bevestigd om {{time}}",
+    "confirmedBy": "door {{name}}",
+    "notYet": "Nog niet bevestigd",
+    "notYetShort": "Onbevestigd",
+    "toast": "Bestelling bevestigd"
   }
 }

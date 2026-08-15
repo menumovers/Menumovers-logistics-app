@@ -24,6 +24,7 @@ import {
   ListOrdersQueryParams,
   HoldOrderBody,
   SetOrderRestaurantBody,
+  AcknowledgeOrderBody,
 } from "@workspace/api-zod";
 import { requireAuth, requireRole, requireInboundCredential } from "../lib/auth";
 import { httpError } from "../lib/errors";
@@ -878,6 +879,70 @@ router.post(
     if (Object.keys(updates).length > 0) {
       await db.update(ordersTable).set(updates).where(eq(ordersTable.id, id));
     }
+    const detail = await serializeOrderDetail(id);
+    res.json(detail);
+  }),
+);
+
+// =====================================================================
+// POST /orders/:id/acknowledge — restaurant read receipt
+// =====================================================================
+router.post(
+  "/orders/:id/acknowledge",
+  requireAuth,
+  requireRole("admin", "coordinator", "restaurant_staff"),
+  wrap(async (req, res) => {
+    const id = req.params["id"] as string;
+    const auth = req.auth!;
+    const parsed = AcknowledgeOrderBody.safeParse(req.body ?? {});
+    if (!parsed.success) throw httpError(400, "VALIDATION_ERROR", parsed.error.message);
+
+    const order = await loadOrderOr404(id);
+    if (
+      auth.role === "restaurant_staff" &&
+      auth.restaurantId !== order.restaurantId
+    ) {
+      throw httpError(403, "FORBIDDEN", "Forbidden");
+    }
+
+    // Acknowledging is idempotent: the first acknowledgement stands, so a
+    // double-tap doesn't rewrite who confirmed or when.
+    const updates: Partial<typeof ordersTable.$inferInsert> = {};
+    if (!order.restaurantAcceptedAt) {
+      updates.restaurantAcceptedAt = new Date();
+      updates.restaurantAcceptedByUserId = auth.sub;
+    }
+
+    // `choose_time` mode confirms by picking a pickup time. It writes the same
+    // column, at the same priority, and logs the same adjustment as an explicit
+    // pickup-time update — acknowledgement adds no second mechanism.
+    const chosen = parsed.data.pickupTime ?? null;
+    if (chosen) {
+      updates.pickupTimeRestaurant = chosen;
+    }
+
+    if (Object.keys(updates).length > 0) {
+      await db.update(ordersTable).set(updates).where(eq(ordersTable.id, id));
+    }
+
+    if (chosen) {
+      await db.insert(pickupTimeAdjustmentsTable).values({
+        orderId: id,
+        source: "restaurant",
+        previousValue: order.pickupTimeRestaurant,
+        newValue: chosen,
+        actorUserId: auth.sub,
+        actorRole: auth.role,
+        reason: "Chosen at acknowledgement",
+      });
+      await enqueueOutboundEvent({
+        eventType: "order.pickup_time_updated",
+        orderId: id,
+        payload: { source: "restaurant", pickupTime: chosen.toISOString() },
+        correlationId: String(req.id),
+      });
+    }
+
     const detail = await serializeOrderDetail(id);
     res.json(detail);
   }),

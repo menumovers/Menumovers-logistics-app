@@ -91,6 +91,15 @@ time should be presented as an estimate, never as a promised time.
   pendingRiderNotification?: string | null;
   /** @nullable */
   failureReason?: string | null;
+  /**
+   * When the restaurant acknowledged the order. Null means not yet acknowledged,
+which blocks nothing — it is a read receipt, not a gate.
+
+   * @nullable
+   */
+  restaurantAcceptedAt?: Date | null;
+  /** @nullable */
+  restaurantAcceptedByName?: string | null;
   /** The hold family — the only mechanism that gates an order. Null means not
 held. A hold blocks new assignment only; an order already being worked
 keeps accepting status reports.

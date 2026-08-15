@@ -17,6 +17,7 @@ import type {
 } from "@tanstack/react-query";
 
 import type {
+  AcknowledgeOrderRequest,
   AddItemRequest,
   AssignOrderRequest,
   AuthSession,
@@ -1269,6 +1270,102 @@ export const useUpdateOrderContact = <
   TContext
 > => {
   return useMutation(getUpdateOrderContactMutationOptions(options));
+};
+
+/**
+ * Records that the restaurant has seen the order and its pickup time. This is a
+read receipt, not a gate — nothing waits on it, and the delivery team works
+the order before and without it. Restaurant staff may acknowledge orders for
+their own restaurant; admins and coordinators may acknowledge any order.
+
+When `pickupTime` is supplied (the `choose_time` acceptance mode), it is
+written to `pickupTimeRestaurant` and logged as a pickup-time adjustment,
+exactly as an explicit pickup-time update would be.
+
+ * @summary Restaurant acknowledges an order
+ */
+export const getAcknowledgeOrderUrl = (id: string) => {
+  return `/api/orders/${id}/acknowledge`;
+};
+
+export const acknowledgeOrder = async (
+  id: string,
+  acknowledgeOrderRequest?: AcknowledgeOrderRequest,
+  options?: RequestInit,
+): Promise<OrderDetail> => {
+  return customFetch<OrderDetail>(getAcknowledgeOrderUrl(id), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(acknowledgeOrderRequest),
+  });
+};
+
+export const getAcknowledgeOrderMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof acknowledgeOrder>>,
+    TError,
+    { id: string; data: BodyType<AcknowledgeOrderRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof acknowledgeOrder>>,
+  TError,
+  { id: string; data: BodyType<AcknowledgeOrderRequest> },
+  TContext
+> => {
+  const mutationKey = ["acknowledgeOrder"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof acknowledgeOrder>>,
+    { id: string; data: BodyType<AcknowledgeOrderRequest> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return acknowledgeOrder(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AcknowledgeOrderMutationResult = NonNullable<
+  Awaited<ReturnType<typeof acknowledgeOrder>>
+>;
+export type AcknowledgeOrderMutationBody = BodyType<AcknowledgeOrderRequest>;
+export type AcknowledgeOrderMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Restaurant acknowledges an order
+ */
+export const useAcknowledgeOrder = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof acknowledgeOrder>>,
+    TError,
+    { id: string; data: BodyType<AcknowledgeOrderRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof acknowledgeOrder>>,
+  TError,
+  { id: string; data: BodyType<AcknowledgeOrderRequest> },
+  TContext
+> => {
+  return useMutation(getAcknowledgeOrderMutationOptions(options));
 };
 
 /**

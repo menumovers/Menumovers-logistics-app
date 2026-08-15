@@ -78,7 +78,9 @@ self-claimed. Rider discovery now excludes held orders at the SQL level, and
 
 ## D3. Restaurant acceptance is an acknowledgement, not a gate
 
-**Decided 2026-08-14. Not yet built.**
+**Decided 2026-08-14. Built 2026-08-14** — `restaurants.acceptanceMode`,
+`orders.restaurantAcceptedAt`, `POST /orders/:id/acknowledge`, and
+`components/acknowledge-card.tsx`. Needs a schema push.
 
 Acceptance means the restaurant confirms they have seen the order, seen the
 pickup time, and accept it. The default assumption is that they will. Nothing
@@ -252,6 +254,46 @@ URL resolution existed in both `lib/webhook.ts` and `routes/settings.ts`, and
 `allow_rider_self_claim` had near-identical readers in `routes/settings.ts`
 and `lib/settings-readers.ts`. Given D8, settings will be added often, so the
 per-setting cost is worth removing before it multiplies.
+
+---
+
+## Open: audit every computed time before trusting any of them
+
+**Raised 2026-08-14. Not resolved — deliberately parked, to be returned to.**
+
+The question that opened this: **why is anything computing from `now`?**
+
+`now` is the moment *our API server processes a request*. It is not when the
+customer ordered, and it is not when the storefront made its estimate. Treating
+the two as interchangeable assumes ingestion is instantaneous — which holds
+right up until a queue backs up, a retry fires, or a payload is replayed.
+`sourceCreatedAt` carries the real order time and is currently used by nothing.
+
+The distinction to draw when we come back to this:
+
+- **Event timestamps** — *when did this happen?* `heldAt`, status-log rows,
+  webhook attempt times. `now` is correct here; the event is happening now.
+- **Derived times** — *when should this happen?* Pickup times, countdowns,
+  urgency. These should be anchored to source data. `now` is a convenience that
+  quietly encodes "we received this the instant it was placed."
+
+### Inventory to work through
+
+| Where | What it does | Concern |
+|---|---|---|
+| `lib/pickup-time.ts` → ASAP branch | `now + travel` | Anchored to ingestion, not to `sourceCreatedAt` or the storefront's own estimate. The originating question. |
+| `pages/coordinator-order.tsx`, `rider-order.tsx`, `restaurant.tsx` | A typed `HH:MM` becomes today; if already past, tomorrow | **Three copies of the same silent assumption.** For an `other_day` order this is simply wrong — the pickup time can never land on the right date. |
+| `pages/restaurant.tsx` → "Ready for pickup" | writes `pickupTimeRestaurant = now` | Conflates an event with a schedule. D3 addresses the cause; the write itself still needs revisiting. |
+| `lib/format.ts` → `minutesUntil`, urgency | browser clock | Legitimate for a live countdown, but client and server clocks can disagree, and nothing reconciles them. |
+| `lib/janitor.ts`, `lib/webhook.ts`, `heldAt`, status logs | event timestamps | Correct as-is. Listed so the audit doesn't churn on them. |
+
+Related: `deliveryTimeType` (`asap` / `later_today` / `other_day`) is itself a
+statement of customer expectation and should inform these computations rather
+than only labelling them.
+
+**Scope when resumed:** enumerate every computed time, name its anchor, and
+justify the anchor explicitly. The goal is not necessarily to change them all —
+it is that none of them is an assumption nobody chose.
 
 ---
 
