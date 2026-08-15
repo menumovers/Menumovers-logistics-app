@@ -25,7 +25,13 @@ export type InboundOrderPayloadCashPayment = {
    * @nullable
    */
   type?: string | null;
-  /** @nullable */
+  /**
+   * The amount the customer will pay WITH — not the change owed. The change
+a rider carries back is `changeAmount - totalAmount`. Only meaningful
+for the physical-cash types (`exact`, `custom`).
+
+   * @nullable
+   */
   changeAmount?: string | null;
   /** @nullable */
   changeRequired?: string | null;

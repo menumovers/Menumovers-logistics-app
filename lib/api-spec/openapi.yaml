@@ -1269,6 +1269,10 @@ components:
                 `qr` — scan to pay, nothing physical changes hands.
             changeAmount:
               type: ["string", "null"]
+              description: |
+                The amount the customer will pay WITH — not the change owed. The change
+                a rider carries back is `changeAmount - totalAmount`. Only meaningful
+                for the physical-cash types (`exact`, `custom`).
             changeRequired:
               type: ["string", "null"]
             label:

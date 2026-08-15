@@ -378,8 +378,11 @@
     "action_cash": "Contant innen",
     "action_tikkie": "Tikkie sturen",
     "action_qr": "QR-code tonen",
-    "changeNeeded": "Wisselgeld meenemen:",
     "method": "Betaling: {{method}}",
-    "type": "Soort: {{type}}"
+    "type": "Soort: {{type}}",
+    "paysWith": "Klant betaalt met {{amount}} —",
+    "bringChange": "{{amount}} wisselgeld meenemen",
+    "changeInconsistent": "Klant betaalt {{amount}}, minder dan het ordertotaal — check dit voor je gaat",
+    "changeUnknown": "Wisselgeld nodig, maar het bedrag ontbreekt — check bij de coördinator"
   }
 }

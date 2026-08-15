@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { Banknote, CreditCard, Smartphone, QrCode, AlertTriangle } from "lucide-react";
 import type { Order } from "@workspace/api-client-react";
-import { formatCurrency } from "@/lib/format";
+import { formatCurrency, moneyToCents, subtractMoney } from "@/lib/format";
 
 /**
  * What the rider has to do at the door.
@@ -15,8 +15,12 @@ import { formatCurrency } from "@/lib/format";
  *   - `qr`     — scan to pay; nothing physical changes hands
  *
  * Only `exact` and `custom` involve carrying money, so change is the one thing
- * that must never be shown for the digital two. The whole payment side of the
- * payload was previously stored, typed and rendered nowhere.
+ * that must never be shown for the digital two.
+ *
+ * `changeAmount` is **the amount the customer will pay with**, not the change
+ * owed — so the change the rider carries back is `changeAmount − totalAmount`.
+ * Computed in integer cents, because amounts travel as strings precisely to
+ * avoid float math.
  */
 
 type PaymentOrder = Pick<Order, "paymentMethod" | "cashPayment" | "totalAmount">;
@@ -79,12 +83,16 @@ export function PaymentPanel({
   const Icon = ICONS[kind];
 
   // "false"/"0"/"nee"/empty all mean no change needed.
-  const changeRequired =
-    kind === "cash" &&
+  const flaggedChangeRequired =
     onDelivery.changeRequired != null &&
     !["false", "0", "nee", "no", ""].includes(
       onDelivery.changeRequired.trim().toLowerCase(),
     );
+
+  // changeAmount is what the customer hands over; the difference is what the
+  // rider carries back. Only meaningful for physical cash.
+  const changeOwed = kind === "cash" ? subtractMoney(onDelivery.changeAmount, order.totalAmount) : null;
+  const changeOwedCents = moneyToCents(changeOwed);
 
   return (
     <div
@@ -109,23 +117,43 @@ export function PaymentPanel({
         </p>
       ) : null}
 
-      {changeRequired ? (
+      {kind === "cash" && changeOwedCents !== null && changeOwedCents > 0 ? (
         <div
           className="flex items-start gap-2 rounded bg-background/60 px-2 py-1.5 text-sm"
           data-testid="text-change-required"
         >
           <AlertTriangle className="size-3.5 mt-0.5 shrink-0" />
           <span>
-            {t("payment.changeNeeded")}
-            {onDelivery.changeAmount ? (
-              <>
-                {" "}
-                <span className="font-semibold tabular-nums">
-                  {formatCurrency(onDelivery.changeAmount, lang)}
-                </span>
-              </>
-            ) : null}
+            {t("payment.paysWith", {
+              amount: formatCurrency(onDelivery.changeAmount, lang),
+            })}{" "}
+            <span className="font-semibold tabular-nums" data-testid="text-change-to-bring">
+              {t("payment.bringChange", { amount: formatCurrency(changeOwed, lang) })}
+            </span>
           </span>
+        </div>
+      ) : kind === "cash" && changeOwedCents !== null && changeOwedCents < 0 ? (
+        // The customer is paying with less than the total. That is a data
+        // problem, not an instruction — show it rather than a negative sum.
+        <div
+          className="flex items-start gap-2 rounded bg-destructive/10 px-2 py-1.5 text-sm text-destructive"
+          data-testid="text-change-inconsistent"
+        >
+          <AlertTriangle className="size-3.5 mt-0.5 shrink-0" />
+          <span>
+            {t("payment.changeInconsistent", {
+              amount: formatCurrency(onDelivery.changeAmount, lang),
+            })}
+          </span>
+        </div>
+      ) : kind === "cash" && changeOwedCents === null && flaggedChangeRequired ? (
+        // Flagged as needing change but the amount is missing or unparseable.
+        <div
+          className="flex items-start gap-2 rounded bg-background/60 px-2 py-1.5 text-sm"
+          data-testid="text-change-unknown"
+        >
+          <AlertTriangle className="size-3.5 mt-0.5 shrink-0" />
+          <span>{t("payment.changeUnknown")}</span>
         </div>
       ) : null}
 

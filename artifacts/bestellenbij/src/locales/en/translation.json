@@ -378,8 +378,11 @@
     "action_cash": "Collect cash",
     "action_tikkie": "Send a Tikkie",
     "action_qr": "Show the QR code",
-    "changeNeeded": "Bring change:",
     "method": "Payment: {{method}}",
-    "type": "Type: {{type}}"
+    "type": "Type: {{type}}",
+    "paysWith": "Customer pays with {{amount}} —",
+    "bringChange": "bring {{amount}} change",
+    "changeInconsistent": "Customer is paying {{amount}}, less than the order total — check before you go",
+    "changeUnknown": "Change needed, but the amount didn't come through — check with dispatch"
   }
 }

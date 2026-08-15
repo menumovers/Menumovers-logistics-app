@@ -24,6 +24,41 @@ export function formatCurrency(amount: string | null | undefined, lang: string):
   return `€ ${display}`;
 }
 
+/**
+ * Parse a money string to integer cents. Returns null if unparseable.
+ *
+ * Amounts travel as strings ("12.50") specifically to avoid float math, so
+ * arithmetic on them is done in cents rather than by parsing to a Number and
+ * hoping. Accepts a comma decimal separator too, defensively.
+ */
+export function moneyToCents(value: string | null | undefined): number | null {
+  if (value == null) return null;
+  const cleaned = value.trim().replace(",", ".");
+  if (!/^-?\d+(\.\d{1,2})?$/.test(cleaned)) return null;
+  const negative = cleaned.startsWith("-");
+  const [whole = "0", frac = ""] = cleaned.replace("-", "").split(".");
+  const cents = Number.parseInt(whole, 10) * 100 + Number.parseInt(frac.padEnd(2, "0") || "0", 10);
+  return negative ? -cents : cents;
+}
+
+/** Render integer cents back to the "12.50" string shape the backend uses. */
+export function centsToMoney(cents: number): string {
+  const sign = cents < 0 ? "-" : "";
+  const abs = Math.abs(cents);
+  return `${sign}${Math.floor(abs / 100)}.${String(abs % 100).padStart(2, "0")}`;
+}
+
+/** `a - b` in cents, returned in the same string shape. Null if either is unparseable. */
+export function subtractMoney(
+  a: string | null | undefined,
+  b: string | null | undefined,
+): string | null {
+  const ac = moneyToCents(a);
+  const bc = moneyToCents(b);
+  if (ac === null || bc === null) return null;
+  return centsToMoney(ac - bc);
+}
+
 export function formatTime(iso: string | null | undefined, lang: string): string {
   if (!iso) return "—";
   return new Intl.DateTimeFormat(uiLocale(lang), {

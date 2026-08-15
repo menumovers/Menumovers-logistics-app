@@ -134,7 +134,12 @@ export const IngestOrderBody = zod.object({
         .describe(
           "`exact` — physical cash, customer has it exactly.\n`custom` — physical cash, customer pays with more, change needed.\n`tikkie` — payment request, nothing physical changes hands.\n`qr` — scan to pay, nothing physical changes hands.\n",
         ),
-      changeAmount: zod.string().nullish(),
+      changeAmount: zod
+        .string()
+        .nullish()
+        .describe(
+          "The amount the customer will pay WITH — not the change owed. The change\na rider carries back is `changeAmount - totalAmount`. Only meaningful\nfor the physical-cash types (`exact`, `custom`).\n",
+        ),
       changeRequired: zod.string().nullish(),
       label: zod
         .string()
