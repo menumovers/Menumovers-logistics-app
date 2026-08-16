@@ -217,8 +217,8 @@ function resolveFrom<T>(
   return { value: def.fallback, source: "unset" };
 }
 
-/** Resolve one setting, with its source. */
-export async function resolveSetting<T>(
+/** Resolve one setting, with its source. Internal — callers use `readSetting`. */
+async function resolveSetting<T>(
   def: SettingDefinition<T>,
 ): Promise<Resolved<T>> {
   const [row] = await db

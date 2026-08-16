@@ -1,5 +1,5 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
-import { and, asc, desc, eq, ilike, or, sql } from "drizzle-orm";
+import { and, desc, eq, ilike, or, sql } from "drizzle-orm";
 import {
   db,
   ordersTable,
@@ -34,7 +34,6 @@ import {
   serializeOrderListItems,
 } from "../lib/order-serialize";
 import { enqueueOutboundEvent } from "../lib/webhook";
-import { getAllowRiderSelfClaim } from "../lib/settings-readers";
 import { resolveOriginalPickupTime, leadTimeMinutes } from "../lib/pickup-time";
 import { SETTINGS, readSetting } from "../lib/settings-registry";
 import { notHeld } from "../lib/order-hold";
@@ -591,7 +590,7 @@ router.post(
       if (auth.riderId === null || auth.riderId !== riderId) {
         throw httpError(403, "FORBIDDEN", "Riders can only claim orders for themselves");
       }
-      const allowed = await getAllowRiderSelfClaim();
+      const allowed = await readSetting(SETTINGS.allowRiderSelfClaim);
       if (!allowed) {
         throw httpError(403, "SELF_CLAIM_DISABLED", "Rider self-claim is disabled");
       }

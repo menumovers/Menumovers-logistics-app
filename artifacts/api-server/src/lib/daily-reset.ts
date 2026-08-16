@@ -11,8 +11,8 @@
  * `Intl` rather than arithmetic on UTC hours, which would drift twice a year.
  */
 
-export const RESET_TIME_ZONE = "Europe/Amsterdam";
-export const RESET_HOUR = 3;
+const RESET_TIME_ZONE = "Europe/Amsterdam";
+const RESET_HOUR = 3;
 
 type WallClock = {
   year: number;
@@ -35,7 +35,7 @@ const FORMATTER = new Intl.DateTimeFormat("en-US", {
 });
 
 /** The wall-clock reading in Amsterdam at a given instant. */
-export function wallClockAt(instant: Date): WallClock {
+function wallClockAt(instant: Date): WallClock {
   const parts: Record<string, string> = {};
   for (const part of FORMATTER.formatToParts(instant)) {
     if (part.type !== "literal") parts[part.type] = part.value;
@@ -65,7 +65,7 @@ function offsetMsAt(instant: Date): number {
  * offset at the naive instant, then correct once using the offset that actually
  * applies there. Two passes settle every case including DST transitions.
  */
-export function instantForWallClock(
+function instantForWallClock(
   year: number,
   month: number,
   day: number,
@@ -78,9 +78,9 @@ export function instantForWallClock(
 }
 
 /**
- * The most recent reset boundary at or before `now`.
- *
- * A value written before this belongs to a previous operational day.
+ * The most recent reset boundary at or before `now`. Exported alongside
+ * `isStale` because "when did the day roll over" is the meaningful unit to
+ * test and to reason about; the offset mechanics below it are not.
  */
 export function lastResetBefore(now: Date): Date {
   const w = wallClockAt(now);

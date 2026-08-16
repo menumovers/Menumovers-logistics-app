@@ -6,7 +6,6 @@ import {
   timestamp,
   numeric,
   jsonb,
-  boolean,
   integer,
   uniqueIndex,
   index,
@@ -143,18 +142,25 @@ export const ordersTable = pgTable(
      *   requestedDeliveryTime      the customer's checkout selection, parsed to
      *                              a timestamp.
      *   deliveryTimeType           asap | later_today | other_day.
-     *   sourceRestaurantReadyTime  when the source calculated the restaurant
-     *                              should have the order ready, from that
-     *                              restaurant's settings at order time.
-     *                              ASAP ORDERS ONLY.
+     *   sourceRestaurantReadyTime  the source's calculation of when the
+     *                              restaurant should have the order ready.
+     *                              ASAP ONLY, and a guesstimate — a soft
+     *                              border, never a bound to clamp against.
      *
      * The six integers are MINUTES FROM CHECKOUT, in a restaurant and a
      * deliveryTeam variant:
      *
      *   *MinDeliveryTime  checkout → doorstep. The whole journey, prep
-     *                     included. NOT travel time.
-     *   *MinPickupTime    checkout → pickup at the restaurant.
+     *                     included. NOT travel time, and rough enough that
+     *                     nothing should be derived from it.
+     *   *MinPickupTime    a minimum lead time — the least notice either party
+     *                     needs. Not a scheduling offset.
      *   *MinPrepTime      LEGACY at the source. Ignore.
+     *
+     * ALL SIX, and sourceRestaurantReadyTime, are AUDIT-ONLY: kept so a
+     * coordinator can work out why an order came through as it did (D11), and
+     * read by no code. The pickup calculation uses requestedDeliveryTime and
+     * sourceCreatedAt only. See D13.
      */
     sourceCreatedAt: timestamp("source_created_at", { withTimezone: true }).notNull(),
     requestedDeliveryTime: timestamp("requested_delivery_time", { withTimezone: true }).notNull(),

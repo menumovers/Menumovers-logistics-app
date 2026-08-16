@@ -51,8 +51,6 @@ const wrap =
 // Helpers
 // =====================================================================
 
-type TripView = ReturnType<typeof tripListItemFromRow>;
-
 function tripListItemFromRow(args: {
   trip: Trip;
   riderName: string | null;
@@ -87,31 +85,6 @@ async function statusesFor(
     .from(ordersTable)
     .where(inArray(ordersTable.id, [...orderIds]));
   return new Map(rows.map((r) => [r.id, r.status]));
-}
-
-async function loadTripView(tripId: string): Promise<TripView | null> {
-  const [trip] = await db
-    .select()
-    .from(tripsTable)
-    .where(eq(tripsTable.id, tripId));
-  if (!trip) return null;
-  const stops = await db
-    .select()
-    .from(tripStopsTable)
-    .where(eq(tripStopsTable.tripId, tripId));
-  const orderIds = Array.from(new Set(stops.map((s) => s.orderId)));
-  const orderCount = orderIds.length;
-  const progress = tripProgress(stops, await statusesFor(orderIds));
-  let riderName: string | null = null;
-  if (trip.riderId) {
-    const [r] = await db
-      .select({ name: usersTable.name })
-      .from(ridersTable)
-      .innerJoin(usersTable, eq(usersTable.id, ridersTable.userId))
-      .where(eq(ridersTable.id, trip.riderId));
-    riderName = r?.name ?? null;
-  }
-  return tripListItemFromRow({ trip, riderName, orderCount, ...progress });
 }
 
 async function loadTripDetail(tripId: string) {
