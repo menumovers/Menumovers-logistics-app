@@ -338,6 +338,7 @@
     "state_parked": "Parked",
     "state_on_hold": "On hold",
     "noReason": "No reason given",
+    "heldSince": "since {{time}}",
     "assignRestaurant": "Correct restaurant",
     "selectRestaurant": "Choose a restaurant",
     "resolve": "Resolve",

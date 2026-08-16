@@ -1907,6 +1907,56 @@ export const AddOrderItemResponse = zod
   );
 
 /**
+ * Deletes the `hide` override for one item index. Returns no body, unlike
+its `POST /orders/{id}/items/hide` counterpart which returns the updated
+`OrderDetail` — callers must refetch the order.
+
+ * @summary Remove a hide override, restoring the item to the displayed list
+ */
+export const unhideOrderItemPathItemIndexMin = 0;
+
+export const UnhideOrderItemParams = zod.object({
+  id: zod.coerce.string(),
+  itemIndex: zod.coerce
+    .number()
+    .min(unhideOrderItemPathItemIndexMin)
+    .describe("Zero-based index into the order's original item list."),
+});
+
+/**
+ * Admin and coordinator only. Every other order serializer returns the
+override-applied list, which is what riders and restaurants must see;
+this is the unmodified list as the source sent it, for comparing against
+what is currently displayed.
+
+ * @summary The immutable upstream item list, before any overrides
+ */
+export const GetOriginalOrderItemsParams = zod.object({
+  id: zod.coerce.string(),
+});
+
+export const GetOriginalOrderItemsResponse = zod.object({
+  items: zod.array(
+    zod.object({
+      name: zod.string(),
+      quantity: zod.number(),
+      price: zod.string(),
+      notes: zod.string().nullish(),
+      totalPrice: zod
+        .string()
+        .nullish()
+        .describe(
+          "Line total as sent by the source, not computed here. Absent for items added later via the admin add-item flow.",
+        ),
+      externalId: zod
+        .string()
+        .nullish()
+        .describe("POS\/kitchen article id, when the source provides one."),
+    }),
+  ),
+});
+
+/**
  * @summary Set or clear the pending banner message shown to the assigned rider
  */
 export const SetRiderNotificationParams = zod.object({

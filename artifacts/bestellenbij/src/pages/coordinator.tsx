@@ -32,7 +32,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { StatusBadge } from "@/components/status-badge";
 import { PickupCountdown, PickupSourceBadge } from "@/components/pickup-countdown";
 import { DeliveryMethodBadge, RequestedTimeLabel } from "@/components/delivery-expectation";
-import { effectivePickup, formatCurrency } from "@/lib/format";
+import { effectivePickup, formatCurrency, formatTime } from "@/lib/format";
 import { tripProgress } from "@/lib/trip-progress";
 import { Bike, MapPin, Phone, Bell, ChevronRight, Layers, Plus, PauseCircle, PlayCircle, ShoppingBag, CircleDashed } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -266,7 +266,8 @@ function HeldRow({
   order: OrderListItem;
   restaurants: Restaurant[];
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const lang = i18n.resolvedLanguage ?? "nl";
   const qc = useQueryClient();
   const release = useReleaseOrder();
   const setRestaurant = useSetOrderRestaurant();
@@ -302,6 +303,9 @@ function HeldRow({
           <div className="mt-0.5 text-xs text-muted-foreground">
             {order.holdReason ?? t("hold.noReason")}
             {order.heldByUserName ? <> · {order.heldByUserName}</> : null}
+            {order.heldAt ? (
+              <> · {t("hold.heldSince", { time: formatTime(order.heldAt, lang) })}</>
+            ) : null}
           </div>
         </div>
         <Link

@@ -39,6 +39,7 @@ export * from "./orderItem";
 export * from "./orderListItem";
 export * from "./orderStatus";
 export * from "./orderStatusLog";
+export * from "./originalOrderItemsResponse";
 export * from "./pickupTimeSource";
 export * from "./pushSubscriptionAck";
 export * from "./pushSubscriptionRequest";

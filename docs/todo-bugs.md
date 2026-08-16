@@ -194,7 +194,19 @@ be resolved at the same time rather than updated three times over.
 
 ## B7. Two endpoints are missing from the OpenAPI contract
 
-**Severity: low — contract drift.**
+**FIXED 2026-08-15** — both are in `openapi.yaml` with a new
+`OriginalOrderItemsResponse` schema, and `coordinator-order.tsx` uses the
+generated `useGetOriginalOrderItems` / `useUnhideOrderItem`. The hand-written
+functions and the `authHeaders` helper are deleted; `lib/api.ts` is now token
+storage and client configuration only.
+
+Two things fell out. Unhide had no error path — it threw inside a
+`try`/`finally` with no `catch`, so a failure surfaced as an unhandled
+rejection rather than a toast; it now matches every other mutation. And the
+manual `pendingUnhideIndex` state is gone, since the pending row reads off the
+mutation's own variables.
+
+~~Severity: low — contract drift.~~
 
 `GET /orders/:id/items/original` and `DELETE /orders/:id/items/hide/:itemIndex`
 exist in `routes/order-items.ts` but are absent from `lib/api-spec/openapi.yaml`.

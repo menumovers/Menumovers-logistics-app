@@ -1,13 +1,15 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useParams } from "wouter";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   useGetOrder,
   useAssignOrder,
   useTransitionOrderStatus,
   useUpdatePickupTime,
   useHideOrderItem,
+  useUnhideOrderItem,
+  useGetOriginalOrderItems,
   useAddOrderItem,
   useSetRiderNotification,
   useUpdateOrderContact,
@@ -15,6 +17,7 @@ import {
   useReleaseOrder,
   useListRiders,
   getGetOrderQueryKey,
+  getGetOriginalOrderItemsQueryKey,
   getListRidersQueryKey,
   getListOrdersQueryKey,
   type OrderDetail,
@@ -42,7 +45,6 @@ import { PaymentPanel } from "@/components/payment-panel";
 import { DeliveryMethodBadge, RequestedTimeLabel } from "@/components/delivery-expectation";
 import { ArrowLeft, Bike, MapPin, Phone, Mail, Plus, Eye, EyeOff, Bell, History, PauseCircle, PlayCircle, AlertTriangle, Printer } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { getOriginalOrderItems, unhideOrderItem } from "@/lib/api";
 import { effectivePickup, formatCurrency, formatDateTime, formatTime } from "@/lib/format";
 
 export default function CoordinatorOrderPage() {
@@ -134,16 +136,12 @@ export default function CoordinatorOrderPage() {
   );
 }
 
-function originalOrderItemsQueryKey(orderId: string) {
-  return ["original-order-items", orderId] as const;
-}
-
 function useInvalidateOrder(orderId: string) {
   const qc = useQueryClient();
   return () => {
     qc.invalidateQueries({ queryKey: getGetOrderQueryKey(orderId) });
     qc.invalidateQueries({ queryKey: getListOrdersQueryKey() });
-    qc.invalidateQueries({ queryKey: originalOrderItemsQueryKey(orderId) });
+    qc.invalidateQueries({ queryKey: getGetOriginalOrderItemsQueryKey(orderId) });
   };
 }
 
@@ -153,7 +151,8 @@ function useInvalidateOrder(orderId: string) {
  * is placed and released here.
  */
 function HoldCard({ order }: { order: OrderDetail }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const lang = i18n.resolvedLanguage ?? "nl";
   const hold = useHoldOrder();
   const release = useReleaseOrder();
   const invalidate = useInvalidateOrder(order.id);
@@ -190,8 +189,12 @@ function HoldCard({ order }: { order: OrderDetail }) {
           {order.holdReason ? (
             <p className="text-xs italic text-muted-foreground">{order.holdReason}</p>
           ) : null}
-          {order.heldByUserName ? (
-            <p className="text-xs text-muted-foreground">{order.heldByUserName}</p>
+          {order.heldByUserName || order.heldAt ? (
+            <p className="text-xs text-muted-foreground" data-testid="text-hold-attribution">
+              {order.heldByUserName}
+              {order.heldByUserName && order.heldAt ? " · " : ""}
+              {order.heldAt ? t("hold.heldSince", { time: formatTime(order.heldAt, lang) }) : ""}
+            </p>
           ) : null}
           <Button
             variant="outline"
@@ -366,15 +369,16 @@ function ItemsCard({ order }: { order: OrderDetail }) {
   const { t, i18n } = useTranslation();
   const lang = i18n.resolvedLanguage ?? "nl";
   const hide = useHideOrderItem();
+  const unhide = useUnhideOrderItem();
   const add = useAddOrderItem();
   const invalidate = useInvalidateOrder(order.id);
   const { toast } = useToast();
-  const originalItems = useQuery({
-    queryKey: originalOrderItemsQueryKey(order.id),
-    queryFn: () => getOriginalOrderItems(order.id),
-    refetchInterval: 30_000,
+  const originalItems = useGetOriginalOrderItems(order.id, {
+    query: {
+      queryKey: getGetOriginalOrderItemsQueryKey(order.id),
+      refetchInterval: 30_000,
+    },
   });
-  const [pendingUnhideIndex, setPendingUnhideIndex] = useState<number | null>(null);
   const hidden = new Set(
     (order.itemOverrides ?? []).filter((o) => o.type === "hide" && o.itemIndex != null).map((o) => o.itemIndex as number),
   );
@@ -386,16 +390,9 @@ function ItemsCard({ order }: { order: OrderDetail }) {
   const [price, setPrice] = useState("0.00");
   const [notes, setNotes] = useState("");
 
-  async function unhide(itemIndex: number) {
-    setPendingUnhideIndex(itemIndex);
-    try {
-      await unhideOrderItem(order.id, itemIndex);
-      toast({ title: t("coordinator.unhideItem") });
-      invalidate();
-    } finally {
-      setPendingUnhideIndex(null);
-    }
-  }
+  // One mutation covers every row, so the pending row is read off its
+  // variables rather than tracked in separate state.
+  const unhidingIndex = unhide.isPending ? (unhide.variables?.itemIndex ?? null) : null;
 
   return (
     <Card>
@@ -441,8 +438,20 @@ function ItemsCard({ order }: { order: OrderDetail }) {
                   <Button
                     variant="ghost"
                     size="sm"
-                    disabled={pendingUnhideIndex === i}
-                    onClick={() => void unhide(i)}
+                    disabled={unhidingIndex === i}
+                    onClick={() =>
+                      unhide.mutate(
+                        { id: order.id, itemIndex: i },
+                        {
+                          onSuccess: () => {
+                            toast({ title: t("coordinator.unhideItem") });
+                            invalidate();
+                          },
+                          onError: () =>
+                            toast({ title: t("errors.generic"), variant: "destructive" }),
+                        },
+                      )
+                    }
                     title={t("coordinator.unhideItemLabel", { name: it.name })}
                     data-testid={`button-unhide-item-${i}`}
                   >

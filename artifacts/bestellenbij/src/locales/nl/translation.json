@@ -338,6 +338,7 @@
     "state_parked": "Geparkeerd",
     "state_on_hold": "In de wacht",
     "noReason": "Geen reden opgegeven",
+    "heldSince": "sinds {{time}}",
     "assignRestaurant": "Juiste restaurant",
     "selectRestaurant": "Kies een restaurant",
     "resolve": "Oplossen",

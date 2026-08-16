@@ -37,6 +37,7 @@ import type {
   Order,
   OrderDetail,
   OrderListItem,
+  OriginalOrderItemsResponse,
   PushSubscriptionAck,
   PushSubscriptionRequest,
   ReplaceTripStopsRequest,
@@ -1095,6 +1096,191 @@ export const useAddOrderItem = <
 > => {
   return useMutation(getAddOrderItemMutationOptions(options));
 };
+
+/**
+ * Deletes the `hide` override for one item index. Returns no body, unlike
+its `POST /orders/{id}/items/hide` counterpart which returns the updated
+`OrderDetail` — callers must refetch the order.
+
+ * @summary Remove a hide override, restoring the item to the displayed list
+ */
+export const getUnhideOrderItemUrl = (id: string, itemIndex: number) => {
+  return `/api/orders/${id}/items/hide/${itemIndex}`;
+};
+
+export const unhideOrderItem = async (
+  id: string,
+  itemIndex: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getUnhideOrderItemUrl(id, itemIndex), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getUnhideOrderItemMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof unhideOrderItem>>,
+    TError,
+    { id: string; itemIndex: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof unhideOrderItem>>,
+  TError,
+  { id: string; itemIndex: number },
+  TContext
+> => {
+  const mutationKey = ["unhideOrderItem"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof unhideOrderItem>>,
+    { id: string; itemIndex: number }
+  > = (props) => {
+    const { id, itemIndex } = props ?? {};
+
+    return unhideOrderItem(id, itemIndex, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UnhideOrderItemMutationResult = NonNullable<
+  Awaited<ReturnType<typeof unhideOrderItem>>
+>;
+
+export type UnhideOrderItemMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Remove a hide override, restoring the item to the displayed list
+ */
+export const useUnhideOrderItem = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof unhideOrderItem>>,
+    TError,
+    { id: string; itemIndex: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof unhideOrderItem>>,
+  TError,
+  { id: string; itemIndex: number },
+  TContext
+> => {
+  return useMutation(getUnhideOrderItemMutationOptions(options));
+};
+
+/**
+ * Admin and coordinator only. Every other order serializer returns the
+override-applied list, which is what riders and restaurants must see;
+this is the unmodified list as the source sent it, for comparing against
+what is currently displayed.
+
+ * @summary The immutable upstream item list, before any overrides
+ */
+export const getGetOriginalOrderItemsUrl = (id: string) => {
+  return `/api/orders/${id}/items/original`;
+};
+
+export const getOriginalOrderItems = async (
+  id: string,
+  options?: RequestInit,
+): Promise<OriginalOrderItemsResponse> => {
+  return customFetch<OriginalOrderItemsResponse>(
+    getGetOriginalOrderItemsUrl(id),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetOriginalOrderItemsQueryKey = (id: string) => {
+  return [`/api/orders/${id}/items/original`] as const;
+};
+
+export const getGetOriginalOrderItemsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getOriginalOrderItems>>,
+  TError = ErrorType<unknown>,
+>(
+  id: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getOriginalOrderItems>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetOriginalOrderItemsQueryKey(id);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getOriginalOrderItems>>
+  > = ({ signal }) => getOriginalOrderItems(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getOriginalOrderItems>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetOriginalOrderItemsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getOriginalOrderItems>>
+>;
+export type GetOriginalOrderItemsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary The immutable upstream item list, before any overrides
+ */
+
+export function useGetOriginalOrderItems<
+  TData = Awaited<ReturnType<typeof getOriginalOrderItems>>,
+  TError = ErrorType<unknown>,
+>(
+  id: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getOriginalOrderItems>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetOriginalOrderItemsQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
 
 /**
  * @summary Set or clear the pending banner message shown to the assigned rider

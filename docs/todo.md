@@ -76,7 +76,9 @@ Resolved with option (c) plus an explicit confirmation gate. `PATCH /api/trips/:
 
 We removed the casts during the Task #3 review rounds, but the rule is enforced by code review, not by lint. Add an ESLint rule (`@typescript-eslint/consistent-type-assertions` with `assertionStyle: "as"` and `objectLiteralTypeAssertions: "never"`, plus a custom rule for double-`as`) so a future PR can't sneak one in. Priority: low.
 
-### L8. `heldAt` is stored and shown nowhere
+### L8. `heldAt` is stored and shown nowhere — DONE (2026-08-15)
+
+Both hold surfaces now show it: the coordinator order detail's hold card and the dispatch board's held row, as "sinds 14:20" next to who placed the hold. Original entry below.
 
 The hold panel (`pages/coordinator.tsx`, `pages/coordinator-order.tsx`) shows who held an order and why, but not when. `orders.heldAt` is written, serialized as `heldAt`, and rendered by nothing. "Held since 14:20" is what a coordinator triaging a queue wants, and it is roughly one line next to the existing `heldByUserName`. Investigation: done — the field is already on the wire, so this is display only. Retention is settled separately by D11; this is the display half. From `docs/field-audit.md` §3. Priority: low.
 

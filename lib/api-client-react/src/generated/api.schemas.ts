@@ -293,6 +293,10 @@ export interface OrderItem {
   externalId?: string | null;
 }
 
+export interface OriginalOrderItemsResponse {
+  items: OrderItem[];
+}
+
 export type InboundOrderPayloadCustomer = {
   name: string;
   phone: string;

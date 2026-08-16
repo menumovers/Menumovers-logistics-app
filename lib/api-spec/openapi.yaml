@@ -316,6 +316,54 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/OrderDetail"
+  /orders/{id}/items/hide/{itemIndex}:
+    delete:
+      operationId: unhideOrderItem
+      tags: [orders]
+      summary: Remove a hide override, restoring the item to the displayed list
+      description: |
+        Deletes the `hide` override for one item index. Returns no body, unlike
+        its `POST /orders/{id}/items/hide` counterpart which returns the updated
+        `OrderDetail` — callers must refetch the order.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: itemIndex
+          required: true
+          description: Zero-based index into the order's original item list.
+          schema:
+            type: integer
+            minimum: 0
+      responses:
+        "204":
+          description: Override removed
+  /orders/{id}/items/original:
+    get:
+      operationId: getOriginalOrderItems
+      tags: [orders]
+      summary: The immutable upstream item list, before any overrides
+      description: |
+        Admin and coordinator only. Every other order serializer returns the
+        override-applied list, which is what riders and restaurants must see;
+        this is the unmodified list as the source sent it, for comparing against
+        what is currently displayed.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Original items
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OriginalOrderItemsResponse"
   /orders/{id}/notification:
     post:
       operationId: setRiderNotification
@@ -1172,6 +1220,14 @@ components:
         externalId:
           type: ["string", "null"]
           description: POS/kitchen article id, when the source provides one.
+    OriginalOrderItemsResponse:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/OrderItem"
     InboundOrderPayload:
       type: object
       required:
