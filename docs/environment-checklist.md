@@ -55,13 +55,12 @@ Item 7 adds a `restaurant_acceptance_mode` enum and `restaurants.acceptance_mode
 `orders.restaurant_accepted_by_user_id`.
 
 Item 10 **renames** `orders.delivery_address` to `delivery_address_original`.
-A rename, not a drop — no data is lost — but `drizzle-kit push` may offer it as
-a drop-and-add rather than a rename, which would empty it. Confirm the prompt
-before accepting.
+`drizzle-kit push` may offer this as a drop-and-add rather than a rename. On a
+table with real data that would matter; here it does not — see the
+re-confirmation below.
 
-Item 9 **drops** `trip_stops.completed_at`. Nothing has ever written it, so
-there is no data in it to lose — but see the warning below before running a
-drop against anything that has been live.
+Item 9 **drops** `trip_stops.completed_at`. Nothing has ever written it, so it
+is null everywhere.
 
 Item 11 adds no DDL. It replaces the `pickup_travel_override_minutes`
 `system_settings` row with `pickup_offset_minutes`, `pickup_within_minutes` and
