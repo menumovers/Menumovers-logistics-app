@@ -411,6 +411,55 @@ when is missing the thing a coordinator triaging a queue actually wants
 
 ---
 
+# Told once, not to be asked again
+
+The two sections below exist because the decision log above did not stop things
+being re-raised. It records *decisions about the product*. It had nowhere to put
+a **fact about the world** or a **decision about what we are working on**, so
+both kept living only in conversation — and conversation gets compacted.
+
+Added 2026-08-15 after the owner pointed out, for the second time, that settled
+things keep coming back. The first time was 2026-08-14, about the outbound
+webhook, and produced this document. That fix was incomplete.
+
+## F. Established facts
+
+Things the owner has stated about systems **outside this repository**. They
+cannot be verified from the code, so absent a written record the honest-looking
+default is "unknown" — and re-raising a settled question dressed as diligence
+is still re-raising it.
+
+**Treat every line here as established. Do not re-open one without new
+evidence, and never soften one back into a question.**
+
+| Fact | Where it is applied |
+|---|---|
+| `latitude` / `longitude` are **not populated** by the source. Empty vs. omitted is immaterial — there is no coordinate data | `field-audit.md` §2 |
+| `deliveryTimeType` sends exactly `asap`, `later_today`, `other_day` | D4 |
+| `requestedDeliveryTime` is the customer's checkout selection as a timestamp; for ASAP it is the storefront's *estimate*, not a promise. The string the customer saw is a separate field not sent to us | D4, OpenAPI `InboundOrderPayload` |
+| `cashPayment` means **any payment not made online** — not necessarily cash | D-none; `components/payment-panel.tsx`, OpenAPI |
+| `changeAmount` is what the customer will **pay with**, not the change owed | OpenAPI, `payment-panel.tsx` |
+| Bestellenbij already accounts for prep time upstream | D4's no-prep-floor choice |
+| `happy_hour` is information to display, not logic | D5 |
+| Restaurants sometimes hand-number items on packaging; the receipt is paper to write on, so it must not pre-number | D10 |
+| Receipts are not enabled for every restaurant, and some will eventually be item-only | D10 |
+
+## G. Deliberately not now
+
+Real work, deliberately sequenced out of the current stream. **Do not propose
+any of these as a next step.** Listing one as "still open" is technically true
+and practically noise — they are open because someone decided they should be.
+
+| Deferred | Decided | Note |
+|---|---|---|
+| **Applying schema, database work, the whole environment checklist** | 2026-08-14, restated 2026-08-15 | *"That is the end game. Do not worry about its checkboxes. Right now we're just working on code and architecture."* `environment-checklist.md` is a **parking lot**, not a to-do list |
+| Time-computation audit | 2026-08-14 | Parked by the owner mid-stream, to return to. Below |
+| Bundling automation | 2026-08-14 | Not automated; no logic to build yet |
+| Per-restaurant receipt enablement | 2026-08-14 | Belongs beside `restaurants.acceptanceMode` when wanted |
+| Outbound webhook signing | 2026-08-14 | Prerequisite for enabling the webhook, which is off (D7) |
+
+---
+
 ## Open: audit every computed time before trusting any of them
 
 **Raised 2026-08-14. Not resolved — deliberately parked, to be returned to.**

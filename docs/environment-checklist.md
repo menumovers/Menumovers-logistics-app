@@ -1,7 +1,21 @@
 # Environment Checklist
 
-What was built in the workflow-alignment work, and what still has to happen in
-a real environment before any of it is trustworthy.
+> ## This is a parking lot, not a to-do list
+>
+> Applying the schema, database work and every checkbox below is **end-game
+> work, deliberately deferred** by the owner (2026-08-14, restated 2026-08-15):
+> *"That is the end game. Do not worry about its checkboxes. Right now we're
+> just working on code and architecture."*
+>
+> **Do not propose any of it as a next step, and do not report the unchecked
+> boxes as open risk.** They are unchecked because that is the plan. This file
+> exists so the work is not forgotten later — not so it is raised now.
+>
+> Recorded in `workflow-decisions.md` §G.
+
+What was built in the workflow-alignment work, and what will have to happen in
+a real environment before any of it is trustworthy — later, when that is the
+task.
 
 Code changes are only half of a change. This file tracks the other half: schema
 that must reach the database, settings that must be set, and behaviour that

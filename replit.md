@@ -66,6 +66,10 @@ So: ask **"what is this for?"** before asking **"can we drop it?"**, and get the
 
 Decision → `docs/workflow-decisions.md` D11. Worked example → `docs/field-audit.md`, whose first pass filed fourteen fields as "dead" on exactly this reasoning; nine were doing their job.
 
+**Read `docs/workflow-decisions.md` §F and §G before answering "what's open?" or proposing a next step.** §F holds facts about systems outside this repo that the owner has already stated — things unverifiable from the code, where the honest-looking default is "unknown". Restating one as an open question is not diligence; it is asking twice. §G holds work deliberately sequenced out of the current stream — listing it as open is technically true and practically noise.
+
+Both sections exist because a decision log alone did not stop settled things resurfacing. It records decisions about the *product*; a fact about the world and a decision about *what we are working on* had nowhere to live, so they survived only in conversation — and conversation gets compacted.
+
 ---
 
 ## 6. SSOT Quick-Reference

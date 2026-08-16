@@ -60,18 +60,19 @@ independently-writable copies of one fact.
 list for `customer` and `NOT NULL` in the schema. It is simply not worth
 showing, since every order is Dutch.
 
-`latitude` / `longitude` are optional (`["string", "null"]` in the contract,
-nullable in the schema) and **whether the source populates them is unknown**.
-There are no fixtures or sample payloads in the repository, so this cannot be
-settled from code — it needs a look at real rows. Carried to `todo.md` L9.
+**`latitude` / `longitude` are not populated by the source** — confirmed by the
+owner. Whether the payload sends them empty or omits them entirely is
+immaterial; either way there is no coordinate data and nothing to do. Both are
+optional in the contract and nullable in the schema, which is the correct shape
+for a field that arrives without a value. **This is settled — not an open
+question.**
 
 An earlier draft of this audit called these "the biggest miss" and asserted
-that a geocoded position arrives with every order. Nothing established that.
-The app does lack a map, a navigation hand-off and any distance estimate —
-trip stops sequence by pickup time because geography is not available to the
-code that sequences them — but that is a feature never built, not data being
-wasted, and it stays speculative until someone confirms the coordinates are
-actually there.
+that a geocoded position arrives with every order. That was invented. The app
+does lack a map, a navigation hand-off and any distance estimate — trip stops
+sequence by pickup time — but that is a feature never built, and building it
+would require geocoding the address ourselves, because the coordinates are not
+in the payload.
 
 ## 3. Retained so questions can be answered afterwards
 
