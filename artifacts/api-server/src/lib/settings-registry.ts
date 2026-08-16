@@ -1,6 +1,7 @@
 import { eq, inArray } from "drizzle-orm";
 import { db, systemSettingsTable, SETTING_KEYS } from "@workspace/db";
 import { httpError } from "./errors";
+import { DEFAULT_PICKUP_ESTIMATE_MINUTES } from "./pickup-time";
 
 /**
  * Declarative registry for `system_settings`.
@@ -94,6 +95,33 @@ function defineInteger(
   };
 }
 
+/**
+ * An integer setting that always resolves to a number, because its fallback is
+ * one. Distinct from `defineInteger` so consumers of a setting with a real
+ * default don't have to null-check a value that can never be null.
+ */
+function defineRequiredInteger(
+  key: string,
+  opts: {
+    fallback: number;
+    envVar?: string;
+    validate?: (value: number) => void;
+  },
+): SettingDefinition<number> {
+  return {
+    key,
+    parse: (raw) => {
+      const parsed = Number.parseInt(raw, 10);
+      return Number.isFinite(parsed) ? parsed : opts.fallback;
+    },
+    // null is not expressible here: clearing the row restores the fallback.
+    serialize: (value) => String(value),
+    fallback: opts.fallback,
+    ...(opts.envVar !== undefined ? { envVar: opts.envVar } : {}),
+    ...(opts.validate !== undefined ? { validate: opts.validate } : {}),
+  };
+}
+
 function assertNonNegativeInteger(field: string) {
   return (value: number | null): void => {
     if (value === null) return;
@@ -146,12 +174,38 @@ export const SETTINGS = {
    * setting it overrides them outright, so an operator can correct bad
    * upstream figures without waiting on the source. See workflow-decisions D4.
    */
-  pickupTravelOverrideMinutes: defineInteger(
-    SETTING_KEYS.PICKUP_TRAVEL_OVERRIDE_MINUTES,
+  /**
+   * Our baseline estimate: how long before delivery a rider should collect.
+   * Every scheduled order uses it, and it is the last fallback for an ASAP
+   * order whose payload carried no minimum pickup time.
+   */
+  pickupEstimateDefaultMinutes: defineRequiredInteger(
+    SETTING_KEYS.PICKUP_ESTIMATE_DEFAULT_MINUTES,
+    {
+      fallback: DEFAULT_PICKUP_ESTIMATE_MINUTES,
+      validate: assertNonNegativeInteger("pickupEstimateDefaultMinutes"),
+    },
+  ),
+  /**
+   * Today's conditions, in absolute minutes — "we need 45 today", not "+15".
+   * ASAP orders only: how busy we are now says nothing about an order
+   * scheduled for next week. Cleared each day at 03:00 Europe/Amsterdam.
+   */
+  pickupEstimateInTheMomentMinutes: defineInteger(
+    SETTING_KEYS.PICKUP_ESTIMATE_IN_THE_MOMENT_MINUTES,
     {
       fallback: null,
-      validate: assertNonNegativeInteger("pickupTravelOverrideMinutes"),
+      validate: assertNonNegativeInteger("pickupEstimateInTheMomentMinutes"),
     },
+  ),
+  /**
+   * Internal companion to the above: when it was last written, so the janitor
+   * can tell whether it belongs to a previous day. Not exposed in the admin
+   * payload — it is bookkeeping, not a knob.
+   */
+  pickupEstimateInTheMomentSetAt: defineString(
+    SETTING_KEYS.PICKUP_ESTIMATE_IN_THE_MOMENT_SET_AT,
+    { fallback: null },
   ),
 } as const;
 

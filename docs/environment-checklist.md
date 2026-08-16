@@ -35,13 +35,14 @@ Branch `claude/app-workflow-schema-alignment-n4dnrz`.
 | 1 | `docs/workflow-decisions.md` — nine settled decisions recorded so they stop being re-litigated | — |
 | 2 | Settings registry (`api-server/src/lib/settings-registry.ts`) — settings declared once; reads, admin payload and validation derive from it | D9 |
 | 3 | Outbound webhook off switch, default off, including gating the retry loop | D7 |
-| 4 | Pickup time works scheduled orders back from the promised delivery time | D4 |
+| 4 | Pickup time works scheduled orders back from the promised delivery time | D4, superseded by D13 |
 | 5 | The hold family — parked orders are gated, and coordinators can triage them | D2 |
 | 6 | Delivery method — customer pickup out of rider scope, happy hour surfaced | D5 |
 | 7 | Restaurant acknowledgement, with a per-restaurant confirmation style | D3 |
 | 8 | Order receipt — printable kitchen document | D10 |
 | 9 | Trips — rider trip view, progress derived from order status | D6 |
 | 10 | Address — components canonical, the source's line kept immutable for audit | D12 |
+| 11 | Temporal mapping — pickup times anchored to source timestamps, clock no longer read | D13 |
 
 ### Schema impact
 
@@ -61,6 +62,12 @@ before accepting.
 Item 9 **drops** `trip_stops.completed_at`. Nothing has ever written it, so
 there is no data in it to lose — but see the warning below before running a
 drop against anything that has been live.
+
+Item 11 adds no DDL. It replaces the `pickup_travel_override_minutes`
+`system_settings` row with `pickup_estimate_default_minutes`,
+`pickup_estimate_in_the_moment_minutes` and
+`pickup_estimate_in_the_moment_set_at`. The old row can simply be deleted; if
+left, nothing reads it.
 
 Items 1–4 and 6 add no DDL — their settings are rows in the existing
 `system_settings` key/value table.
@@ -103,23 +110,34 @@ None of this could be exercised in the build container: there is no
 only. These are the checks worth running once deployed.
 
 - [ ] **Admin → Settings loads and saves.** This exercises the whole registry
-      read/write path. Save the webhook URL, the self-claim toggle and the new
-      travel override; confirm each persists across a reload.
+      read/write path. Save the webhook URL, the self-claim toggle and both
+      pickup estimates; confirm each persists across a reload.
 - [ ] **Webhook source label still reads correctly.** It should show `settings`
       when set through the UI, `env` when only `WEBHOOK_URL` is present, and
       `unset` when neither — the registry took over this resolution.
-- [ ] **Clearing the travel override.** Emptying the field should delete the
-      row and fall back to per-order estimates, not store a zero.
+- [ ] **Clearing the in-the-moment estimate.** Emptying the field should delete
+      the row and its `set_at` companion, not store a zero.
 - [ ] **Send a scheduled test order** with `deliveryTimeType: "later_today"`
-      and a `requestedDeliveryTime` several hours out. The pickup time should
-      land *before* the requested time by the travel figure — not 30 minutes
-      from now. This is the bug the work exists to fix.
+      and a `requestedDeliveryTime` several hours out. The pickup time must land
+      exactly `pickupEstimateDefaultMinutes` before the requested time — not
+      near now, and not offset by any figure from the payload.
+- [ ] **Send an ASAP order with a `sourceCreatedAt` well in the past** (say an
+      hour). The pickup time must be `sourceCreatedAt + lead time`, i.e. also in
+      the past — *not* an hour from now. This is the defect D13 exists to fix:
+      an ingestion delay must not push the pickup time later.
+- [ ] **Set the in-the-moment value, then send one ASAP and one scheduled
+      order.** The ASAP pickup must use it; the scheduled one must ignore it
+      entirely.
+- [ ] **Leave the in-the-moment value set overnight.** After 03:00 Amsterdam it
+      should be gone from the admin screen without anyone touching it — and the
+      stored row should be empty, not merely ignored.
+- [ ] **Check the lead-time log field.** A short-notice order should show a small
+      `leadMinutes` and still be accepted.
 - [ ] **Check the ingestion log line.** Each new order logs
-      `"Computed original pickup time"` with `pickupBasis` (`source` / `asap` /
-      `scheduled`) and `travelMinutes`. If a pickup time ever looks wrong, this
+      `"Computed original pickup time"` with `pickupBasis` (`asap` /
+      `scheduled`), `estimateMinutes`, `estimateSource` (`in_the_moment` /
+      `source_min_pickup` / `default`), `leadMinutes` and `sourceCreatedAt`. If a pickup time ever looks wrong, this
       is where to look first.
-- [ ] **Confirm ASAP orders are unchanged.** They should still be
-      `now + travel`, exactly as before.
 - [ ] **Send an order with `deliveryMethod: "pickup"`.** It must not appear in
       any rider's open-orders list, and `/assign` on it must return
       `422 NOT_RIDER_DELIVERABLE`. It should show in the dispatch board's
@@ -212,11 +230,12 @@ built — its column drop is folded into Part 1's schema impact above.
 
 ## Part 6 — Known gaps
 
-- **No automated tests, and the stand-in scripts rot.** 133 assertions across
-  eight scripts cover the pure calculations — pickup times (16), money
-  arithmetic (21), date handling (13), delivery method (5), the state machine
-  (23), the receipt adjustment (9), trip progress (25), address formatting (21).
-  All eight were re-run and re-counted on 2026-08-15. They live as throwaway scripts outside the
+- **No automated tests, and the stand-in scripts rot.** 166 assertions across
+  nine scripts cover the pure calculations — pickup times (27), money arithmetic
+  (21), date handling (13), delivery method (5), the state machine (23), the
+  receipt adjustment (9), trip progress (25), address formatting (21), the daily
+  reset including both DST transitions (22). All nine were re-run and re-counted
+  on 2026-08-15. They live as throwaway scripts outside the
   repository, because there is no runner (`todo.md` H3).
 
   One of them proved the risk: it covered helpers that were later deleted with

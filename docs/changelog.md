@@ -1,5 +1,64 @@
 # Changelog
 
+## 2026-08-15 — Nothing computes a pickup time from the clock any more
+
+Closes the question that opened this audit: *why is anything computing from
+`now`?* `now` is when our API processes a request — not when the customer
+ordered. Treating them as the same assumes ingestion is instantaneous, so any
+delay silently pushed an ASAP pickup time later by however long the delay was.
+
+ASAP now counts forward from `sourceCreatedAt`, the moment checkout completed.
+Scheduled orders work back from `requestedDeliveryTime`. Both are source
+timestamps; the ingestion path no longer reads the clock at all.
+
+**The old formula was wrong at the root, not just anchored badly.** It derived a
+travel time from `*MinDeliveryTime`. That field is checkout-to-doorstep — the
+whole journey, prep included — and a rough figure a coordinator sets and rarely
+revisits. Subtracting it from the delivery time lands at checkout, not at
+pickup. `MinDeliveryTime − MinPickupTime` would be arithmetically valid and
+epistemically junk: a number that looks derived while inheriting the reliability
+of the worse input.
+
+There is no trustworthy travel figure in the payload, so we stopped pretending
+there was. Scheduled orders use **our own estimate, labelled as ours**.
+
+`*MinPickupTime` is finally read. It is a *minimum lead time* — "we need this
+much notice" — so for an ASAP order the earliest possible pickup is checkout
+plus that lead time, and the larger of the restaurant's and delivery team's
+figures binds. `sourceRestaurantReadyTime` and `*MinDeliveryTime` become
+audit-only; `*MinPrepTime` is legacy at the source and read by nothing.
+
+Two settings replace `pickupTravelOverrideMinutes`, which overrode a quantity
+that no longer exists:
+
+- **`pickupEstimateDefaultMinutes`** (20) — the baseline every scheduled order
+  works back from.
+- **`pickupEstimateInTheMomentMinutes`** — today's conditions, entered in
+  absolute terms because that is how a coordinator thinks ("we need 45 minutes
+  today", not "+15"). **ASAP only**: how busy we are now says nothing about an
+  order scheduled for next Tuesday.
+
+The in-the-moment value is **cleared** at 03:00 Europe/Amsterdam rather than
+expired on read, so the stored row always says what is actually in effect — the
+same stored-versus-true divergence D12 removed from the address. It runs on the
+existing five-minute janitor instead of a 03:00 cron, which makes it
+self-healing: if the server was down at 03:00, the first tick after it returns
+clears the value. `lib/daily-reset.ts` does the boundary through `Intl`, because
+Amsterdam observes DST and two resets are not always 24 hours apart.
+
+Lead time (`requestedDeliveryTime − sourceCreatedAt`) is now logged as an
+observation. An order placed at 17:20 for 17:30 is still accepted: feasibility
+is Bestellenbij's, and a pickup time in the past is a true statement about what
+happened upstream. We surface it and let a coordinator go and ask, rather than
+clamping it into looking possible.
+
+Half of the ten inbound time fields had no confirmed meaning before this and
+were being read off their names — which is how the old formula went wrong. The
+definitions are now recorded in `openapi.yaml`, the `orders` schema comment and
+`workflow-decisions.md` §F, with an explicit instruction not to re-infer them.
+
+Supersedes D4. Rationale in `docs/workflow-decisions.md` D13.
+
 ## 2026-08-15 — The address components become canonical; the source's line becomes a receipt
 
 The source keeps the address as components, sends them to us as-is, and also

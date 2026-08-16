@@ -18,14 +18,32 @@ regardless of this flag.
  */
   outboundWebhookEnabled: boolean;
   allowRiderSelfClaim: boolean;
+  /** Our baseline estimate in minutes: how long before delivery a rider
+should collect. Used for every scheduled order, and as the last
+fallback for an ASAP order whose payload carried no minimum pickup
+time. Defaults to 20.
+ */
+  pickupEstimateDefaultMinutes: number;
   /**
-   * Minutes from leaving the restaurant to reaching the customer, used to
-derive the original pickup time. Null means use the per-order estimates
-from the inbound payload; a value overrides them outright.
+   * Today's conditions, set by a coordinator in **absolute** terms —
+"we need 45 minutes today", not an adjustment to apply. **ASAP
+orders only:** how busy we are right now says nothing about an order
+scheduled for next week.
+
+Cleared automatically once a new operational day begins at 03:00
+Europe/Amsterdam. Null means no adjustment is in effect.
 
    * @nullable
    */
-  pickupTravelOverrideMinutes?: number | null;
+  pickupEstimateInTheMomentMinutes?: number | null;
+  /**
+   * When the in-the-moment value was last written. Read-only — set
+automatically alongside the value so the daily reset knows which
+operational day it belongs to.
+
+   * @nullable
+   */
+  pickupEstimateInTheMomentSetAt?: Date | null;
   vapidConfigured: boolean;
   inboundSecretConfigured?: boolean;
 }

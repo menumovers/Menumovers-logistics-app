@@ -35,7 +35,7 @@ import {
 } from "../lib/order-serialize";
 import { enqueueOutboundEvent } from "../lib/webhook";
 import { getAllowRiderSelfClaim } from "../lib/settings-readers";
-import { resolveOriginalPickupTime } from "../lib/pickup-time";
+import { resolveOriginalPickupTime, leadTimeMinutes } from "../lib/pickup-time";
 import { SETTINGS, readSetting } from "../lib/settings-registry";
 import { notHeld } from "../lib/order-hold";
 import { isRiderDeliverable, riderDeliverable } from "../lib/delivery-method";
@@ -184,21 +184,27 @@ router.post(
       : null;
 
     // pickup_time_original is immutable after insert — computed here and never
-    // recomputed on replay. ASAP orders count forward from now; scheduled ones
-    // work backwards from the time the customer was promised. See
-    // docs/workflow-decisions.md D4.
-    const travelOverrideMinutes = await readSetting(
-      SETTINGS.pickupTravelOverrideMinutes,
-    );
-    const { pickupTimeOriginal, travelMinutes, basis } = resolveOriginalPickupTime({
-      deliveryTimeType: payload.deliveryTimeType,
+    // recomputed on replay. ASAP counts forward from sourceCreatedAt (not from
+    // now: an ingestion delay must not push the pickup time later); scheduled
+    // orders work backwards from what the customer chose, using our own
+    // estimate. See docs/workflow-decisions.md D13.
+    const [defaultEstimateMinutes, inTheMomentMinutes] = await Promise.all([
+      readSetting(SETTINGS.pickupEstimateDefaultMinutes),
+      readSetting(SETTINGS.pickupEstimateInTheMomentMinutes),
+    ]);
+    const { pickupTimeOriginal, estimateMinutes, estimateSource, basis } =
+      resolveOriginalPickupTime({
+        deliveryTimeType: payload.deliveryTimeType,
+        sourceCreatedAt: payload.sourceCreatedAt,
+        requestedDeliveryTime: payload.requestedDeliveryTime,
+        restaurantMinPickupTime: payload.restaurantMinPickupTime ?? null,
+        deliveryTeamMinPickupTime: payload.deliveryTeamMinPickupTime ?? null,
+        defaultEstimateMinutes,
+        inTheMomentMinutes,
+      });
+    const leadMinutes = leadTimeMinutes({
+      sourceCreatedAt: payload.sourceCreatedAt,
       requestedDeliveryTime: payload.requestedDeliveryTime,
-      sourceRestaurantReadyTime: payload.sourceRestaurantReadyTime ?? null,
-      restaurantMinDeliveryTime: payload.restaurantMinDeliveryTime ?? null,
-      deliveryTeamMinDeliveryTime: payload.deliveryTeamMinDeliveryTime ?? null,
-      restaurantDefaultMinDeliveryTime: restaurant.minDeliveryTime ?? 30,
-      travelOverrideMinutes,
-      now: new Date(),
     });
 
     const items = payload.items.map((it) => ({
@@ -332,7 +338,10 @@ router.post(
           externalOrderId: row.externalOrderId,
           deliveryTimeType: payload.deliveryTimeType,
           pickupBasis: basis,
-          travelMinutes,
+          estimateMinutes,
+          estimateSource,
+          leadMinutes,
+          sourceCreatedAt: payload.sourceCreatedAt.toISOString(),
           pickupTimeOriginal: pickupTimeOriginal.toISOString(),
         },
         "Computed original pickup time",

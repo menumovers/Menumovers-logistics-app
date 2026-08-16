@@ -33,7 +33,9 @@ async function buildSettings() {
     outboundWebhookUrlSource: resolved.outboundWebhookUrl.source,
     outboundWebhookEnabled: resolved.outboundWebhookEnabled.value,
     allowRiderSelfClaim: resolved.allowRiderSelfClaim.value,
-    pickupTravelOverrideMinutes: resolved.pickupTravelOverrideMinutes.value,
+    pickupEstimateDefaultMinutes: resolved.pickupEstimateDefaultMinutes.value,
+    pickupEstimateInTheMomentMinutes: resolved.pickupEstimateInTheMomentMinutes.value,
+    pickupEstimateInTheMomentSetAt: resolved.pickupEstimateInTheMomentSetAt.value,
     vapidConfigured: Boolean(
       process.env["VAPID_PUBLIC_KEY"] && process.env["VAPID_PRIVATE_KEY"],
     ),
@@ -82,10 +84,22 @@ router.patch(
       await writeSetting(SETTINGS.allowRiderSelfClaim, parsed.data.allowRiderSelfClaim);
     }
 
-    if (parsed.data.pickupTravelOverrideMinutes !== undefined) {
+    if (parsed.data.pickupEstimateDefaultMinutes !== undefined) {
       await writeSetting(
-        SETTINGS.pickupTravelOverrideMinutes,
-        parsed.data.pickupTravelOverrideMinutes,
+        SETTINGS.pickupEstimateDefaultMinutes,
+        parsed.data.pickupEstimateDefaultMinutes,
+      );
+    }
+
+    if (parsed.data.pickupEstimateInTheMomentMinutes !== undefined) {
+      const value = parsed.data.pickupEstimateInTheMomentMinutes;
+      await writeSetting(SETTINGS.pickupEstimateInTheMomentMinutes, value);
+      // Stamped alongside the value so the janitor can tell which operational
+      // day it belongs to. Cleared with it, so a null value never leaves a
+      // stray timestamp behind.
+      await writeSetting(
+        SETTINGS.pickupEstimateInTheMomentSetAt,
+        value === null ? null : new Date().toISOString(),
       );
     }
 

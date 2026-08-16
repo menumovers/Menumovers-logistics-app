@@ -3766,21 +3766,43 @@ export const GetSettingsResponse = zod.object({
       "Master switch for outbound delivery. Off by default — the receiving\nend is not built yet. When off, no event is dispatched or queued and\nthe retry loop does no work. An unset URL counts as disabled\nregardless of this flag.\n",
     ),
   allowRiderSelfClaim: zod.boolean(),
-  pickupTravelOverrideMinutes: zod
+  pickupEstimateDefaultMinutes: zod
+    .number()
+    .describe(
+      "Our baseline estimate in minutes: how long before delivery a rider\nshould collect. Used for every scheduled order, and as the last\nfallback for an ASAP order whose payload carried no minimum pickup\ntime. Defaults to 20.\n",
+    ),
+  pickupEstimateInTheMomentMinutes: zod
     .number()
     .nullish()
     .describe(
-      "Minutes from leaving the restaurant to reaching the customer, used to\nderive the original pickup time. Null means use the per-order estimates\nfrom the inbound payload; a value overrides them outright.\n",
+      'Today\'s conditions, set by a coordinator in \*\*absolute\*\* terms —\n\"we need 45 minutes today\", not an adjustment to apply. \*\*ASAP\norders only:\*\* how busy we are right now says nothing about an order\nscheduled for next week.\n\nCleared automatically once a new operational day begins at 03:00\nEurope\/Amsterdam. Null means no adjustment is in effect.\n',
+    ),
+  pickupEstimateInTheMomentSetAt: zod.coerce
+    .date()
+    .nullish()
+    .describe(
+      "When the in-the-moment value was last written. Read-only — set\nautomatically alongside the value so the daily reset knows which\noperational day it belongs to.\n",
     ),
   vapidConfigured: zod.boolean(),
   inboundSecretConfigured: zod.boolean().optional(),
 });
 
+export const updateSettingsBodyPickupEstimateDefaultMinutesMin = 0;
+
+export const updateSettingsBodyPickupEstimateInTheMomentMinutesMin = 0;
+
 export const UpdateSettingsBody = zod.object({
   outboundWebhookUrl: zod.string().nullish(),
   outboundWebhookEnabled: zod.boolean().optional(),
   allowRiderSelfClaim: zod.boolean().optional(),
-  pickupTravelOverrideMinutes: zod.number().nullish(),
+  pickupEstimateDefaultMinutes: zod
+    .number()
+    .min(updateSettingsBodyPickupEstimateDefaultMinutesMin)
+    .optional(),
+  pickupEstimateInTheMomentMinutes: zod
+    .number()
+    .min(updateSettingsBodyPickupEstimateInTheMomentMinutesMin)
+    .nullish(),
 });
 
 export const UpdateSettingsResponse = zod.object({
@@ -3792,11 +3814,22 @@ export const UpdateSettingsResponse = zod.object({
       "Master switch for outbound delivery. Off by default — the receiving\nend is not built yet. When off, no event is dispatched or queued and\nthe retry loop does no work. An unset URL counts as disabled\nregardless of this flag.\n",
     ),
   allowRiderSelfClaim: zod.boolean(),
-  pickupTravelOverrideMinutes: zod
+  pickupEstimateDefaultMinutes: zod
+    .number()
+    .describe(
+      "Our baseline estimate in minutes: how long before delivery a rider\nshould collect. Used for every scheduled order, and as the last\nfallback for an ASAP order whose payload carried no minimum pickup\ntime. Defaults to 20.\n",
+    ),
+  pickupEstimateInTheMomentMinutes: zod
     .number()
     .nullish()
     .describe(
-      "Minutes from leaving the restaurant to reaching the customer, used to\nderive the original pickup time. Null means use the per-order estimates\nfrom the inbound payload; a value overrides them outright.\n",
+      'Today\'s conditions, set by a coordinator in \*\*absolute\*\* terms —\n\"we need 45 minutes today\", not an adjustment to apply. \*\*ASAP\norders only:\*\* how busy we are right now says nothing about an order\nscheduled for next week.\n\nCleared automatically once a new operational day begins at 03:00\nEurope\/Amsterdam. Null means no adjustment is in effect.\n',
+    ),
+  pickupEstimateInTheMomentSetAt: zod.coerce
+    .date()
+    .nullish()
+    .describe(
+      "When the in-the-moment value was last written. Read-only — set\nautomatically alongside the value so the daily reset knows which\noperational day it belongs to.\n",
     ),
   vapidConfigured: zod.boolean(),
   inboundSecretConfigured: zod.boolean().optional(),

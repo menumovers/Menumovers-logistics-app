@@ -108,22 +108,22 @@ triaging a queue wants. Carried to `todo.md` L8.
 
 ## 4. Consumed by logic, shown to nobody
 
-| Field | What consumes it |
-|---|---|
-| `sourceRestaurantReadyTime` | `resolveOriginalPickupTime` — wins outright when sent (D4) |
-| `restaurantMinDeliveryTime` | `resolveTravelMinutes` — the larger of the two wins |
-| `deliveryTeamMinDeliveryTime` | ” |
+**Superseded 2026-08-15 by D13.** As audited, three fields decided an order's
+pickup time and were shown to nobody: `sourceRestaurantReadyTime`,
+`restaurantMinDeliveryTime` and `deliveryTeamMinDeliveryTime`.
 
-**The sharpest finding left.** These three decide what pickup time an order
-gets, and nothing tells a human they exist. The ingestion log line
-`"Computed original pickup time"` carries `pickupBasis` and `travelMinutes`, so
-the reasoning is recoverable — from server logs, by someone with server log
-access. A coordinator asking "why does this say 18:10?" cannot get there.
+That was the sharpest finding here, and pulling on it found something worse than
+invisibility — the formula was reading the wrong fields entirely.
+`*MinDeliveryTime` is checkout-to-doorstep, so subtracting it from a delivery
+time lands at checkout. All three are now **audit-only**, and the pickup time is
+built from `sourceCreatedAt`, `requestedDeliveryTime` and `*MinPickupTime`
+instead.
 
-It is the same instinct as §3 turned on our own arithmetic rather than the
-source's: keep the inputs available to whoever has to explain the output.
-Folded into the open pin **audit every computed time**
-(`workflow-decisions.md`), which is where it will be acted on.
+The visibility complaint stands and is now narrower: the ingestion log records
+`pickupBasis`, `estimateMinutes`, `estimateSource`, `leadMinutes` and
+`sourceCreatedAt`, so the reasoning is recoverable — from server logs, by
+someone with server log access. A coordinator asking "why does this say 18:10?"
+still cannot get there from the UI.
 
 ## 5. Reaching exactly one screen
 

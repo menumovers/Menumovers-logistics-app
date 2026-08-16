@@ -115,8 +115,17 @@ and permanently pins the effective pickup time to the moment it was pressed.
 
 ## D4. Pickup time is right for ASAP, wrong for scheduled orders
 
-**Decided 2026-08-14. Built 2026-08-14** — `lib/pickup-time.ts` →
-`resolveOriginalPickupTime`, wired into `POST /inbound/orders`.
+**Decided 2026-08-14. Built 2026-08-14. SUPERSEDED 2026-08-15 by D13.**
+
+D4 diagnosed the right problem — scheduled orders were counting forward from
+`now` instead of working back from the promised time — and then fixed it with a
+travel figure derived from `*MinDeliveryTime`. That turned out to be wrong at
+the root: `MinDeliveryTime` is checkout-to-doorstep, prep included, and a rough
+coordinator-set number that often sits stale. Subtracting it from the delivery
+time lands at checkout, not at pickup.
+
+D13 replaces the formula. What survives is D4's refusal to clamp, restated
+there with a better reason. Kept below for the record.
 
 `now + minDeliveryTime` is correct when the customer wants the order as soon
 as possible. It fails only when there is a real requested time to work back
@@ -141,6 +150,103 @@ time into the slots it offers customers, so this can only occur when our
 figures and the storefront's disagree — a signal worth surfacing, not
 smoothing over. A pickup time that reads as already-late is true, and is the
 cheapest available alarm.
+
+---
+
+## D13. The temporal mapping: what we know, what we estimate, what we observe
+
+**Decided 2026-08-15. Built 2026-08-15.** Supersedes D4's formula. Answers the
+parked question *"why is anything computing from `now`?"*
+
+The answer was: it shouldn't be, and now nothing does.
+
+### What the source actually gives us
+
+Ten time fields arrive; two had a confirmed meaning before this. The rest were
+being read off their names, which is how the old formula went wrong. The
+definitions are now recorded in §F, `openapi.yaml` and the schema comment.
+
+The decisive one: **`*MinDeliveryTime` is checkout-to-doorstep** — the whole
+journey including prep — and it is a rough figure a coordinator sets and rarely
+revisits. It is a gap filler, not a source of truth. Deriving travel time from
+it (`MinDeliveryTime − MinPickupTime`) is arithmetically fine and
+epistemically junk: the result inherits the reliability of the worse input
+while looking derived. **We have no trustworthy travel figure, and pretending
+otherwise was the root error.**
+
+### The mapping
+
+```
+ASAP:       pickup = sourceCreatedAt + (inTheMoment ?? MAX(min pickup times) ?? default)
+scheduled:  pickup = requestedDeliveryTime − default
+observed:   leadTime = requestedDeliveryTime − sourceCreatedAt
+```
+
+**ASAP is now entirely source data.** It counts forward from `sourceCreatedAt`,
+the moment checkout completed — not from when our API happened to process the
+request. An ingestion delay used to push the pickup time later by however long
+the delay was, silently. That was the whole of the original question.
+
+`MinPickupTime` is a **minimum lead time** — "we need this much notice" — not a
+scheduling offset. For an ASAP order the earliest possible pickup *is* checkout
+plus that lead time, so it doubles as the offset. The larger of the restaurant's
+and the delivery team's binds, because whichever party needs longer is the one
+that decides.
+
+**Scheduled orders use our own estimate, and that is stated plainly rather than
+dressed up as derived.** Nothing in the payload can honestly produce a travel
+figure. The alternative considered was leaving the pickup time unset until a
+person fills it in — more honest, and rejected: a blank pickup time is honest
+and useless, and the system exists to make a rider's job easier, not to wait for
+someone to act.
+
+**`sourceRestaurantReadyTime` is deliberately not an input.** The source
+calculates it for ASAP orders only, so depending on it means two code paths
+where one will do — and we can compute the same thing ourselves. Retained as a
+cross-check: if it and our ASAP figure disagree, that is worth seeing.
+
+### The two settings
+
+| Setting | Applies to | Behaviour |
+|---|---|---|
+| `pickupEstimateDefaultMinutes` | every scheduled order; ASAP fallback | Baseline, default 20. Cannot be unset — scheduled orders would have nothing to work back from. |
+| `pickupEstimateInTheMomentMinutes` | **ASAP only** | Today's conditions. Absolute, not an adjustment. Cleared at 03:00 Europe/Amsterdam. |
+
+**In-the-moment is absolute because that is how a coordinator thinks:** "we
+need 45 minutes today", not "+15 on whatever the restaurant said". Absolute also
+handles sooner and later without a sign.
+
+**It is ASAP-only because it describes right now**, and a scheduled order is not
+happening now. Today's rush must not govern next Tuesday's delivery.
+
+**The reset is a clear, not an expiry computed on read.** The stored row should
+say what is actually in effect; a value of 45 sitting in settings while the
+effective value is "empty" is the same divergence between stored and true state
+that D12 removed from the address. The cost is a job that could be missed, so it
+runs on the existing five-minute janitor rather than a 03:00 cron — which makes
+it self-healing: if the server was down at 03:00, the first tick after it
+returns clears the value. `lib/daily-reset.ts` handles the boundary through
+`Intl`, because Amsterdam observes DST and two resets are not always 24 hours
+apart. 22 assertions, including both transitions.
+
+### Feasibility is not ours
+
+An order placed at 17:20 for 17:30 is not ours to reject or repair.
+Bestellenbij owns what the customer is offered; we take what arrives and make it
+usable. So we surface the lead time and let a coordinator go and ask, rather
+than clamping the pickup time into looking possible.
+
+That is D4's no-clamp rule, kept for a better reason than it gave. A pickup time
+in the past is a true statement about what happened upstream.
+
+### What was removed
+
+`pickupTravelOverrideMinutes` is gone — it overrode a quantity that no longer
+exists. `resolveTravelMinutes`, `restaurantDefaultMinDeliveryTime` and the `now`
+input went with it. `restaurants.minDeliveryTime` is no longer read by the
+pickup path.
+
+Verified with 27 assertions on the formula and 22 on the daily reset.
 
 ---
 
@@ -559,54 +665,33 @@ and practically noise — they are open because someone decided they should be.
 
 ---
 
-## Open: audit every computed time before trusting any of them
+## Closed: audit every computed time — resolved by D13
 
-**Raised 2026-08-14. Parked on a condition, and the condition is now met.**
+**Raised 2026-08-14. Resolved 2026-08-15.**
 
-The parking was *"put a pin in it and finish the rest"* — not a deferral like
-the ones in §G. The rest is finished: D1–D11 are built. **This is due, and it
-is the only substantial open item in the work stream.**
+The question was: **why is anything computing from `now`?** `now` is when our
+API processes a request. It is not when the customer ordered, and treating them
+as interchangeable assumes ingestion is instantaneous.
 
-*Related:* `docs/field-audit.md` §4 lists the three fields that feed the time
-calculations and are shown to nobody — the same instinct as D11, turned on our
-own arithmetic instead of the source's. Showing a computed time's inputs next
-to it is most of what this audit would ask for.
+**Answer: nothing computes from `now` any more.** The ASAP branch counts forward
+from `sourceCreatedAt`; the scheduled branch works back from
+`requestedDeliveryTime`. Both are source timestamps. See D13.
 
-The question that opened this: **why is anything computing from `now`?**
+The audit also turned up three things worth recording:
 
-`now` is the moment *our API server processes a request*. It is not when the
-customer ordered, and it is not when the storefront made its estimate. Treating
-the two as interchangeable assumes ingestion is instantaneous — which holds
-right up until a queue backs up, a retry fires, or a payload is replayed.
-`sourceCreatedAt` carries the real order time and is currently used by nothing.
+- **`*MinDeliveryTime` was the wrong input**, not just wrongly weighted. The old
+  formula subtracted a checkout-to-doorstep figure from a doorstep time, which
+  lands at checkout.
+- **Half the time fields had no confirmed meaning** and were being read off
+  their names. Now recorded in §F.
+- **The remaining `now` reads are correct.** `heldAt` and `restaurantAcceptedAt`
+  record when something happened, which is what `now` is for. Webhook retry,
+  JWT expiry and the janitor are infrastructure.
 
-The distinction to draw when we come back to this:
-
-- **Event timestamps** — *when did this happen?* `heldAt`, status-log rows,
-  webhook attempt times. `now` is correct here; the event is happening now.
-- **Derived times** — *when should this happen?* Pickup times, countdowns,
-  urgency. These should be anchored to source data. `now` is a convenience that
-  quietly encodes "we received this the instant it was placed."
-
-### Inventory to work through
-
-| Where | What it does | Concern |
-|---|---|---|
-| `lib/pickup-time.ts` → ASAP branch | `now + travel` | Anchored to ingestion, not to `sourceCreatedAt` or the storefront's own estimate. The originating question. |
-| `pages/coordinator-order.tsx`, `rider-order.tsx`, `restaurant.tsx` | A typed `HH:MM` becomes today; if already past, tomorrow | Three copies of the same silent assumption; wrong for any `other_day` order. Fixed — `todo-bugs.md` **B1**. |
-| `pages/restaurant.tsx` → "Ready for pickup" | writes `pickupTimeRestaurant = now` | Conflates an event with a schedule. D3 addresses the cause; the write itself still needs revisiting. |
-| `lib/format.ts` → `minutesUntil`, urgency | browser clock | Legitimate for a live countdown, but client and server clocks can disagree, and nothing reconciles them. |
-| `lib/janitor.ts`, `lib/webhook.ts`, `heldAt`, status logs | event timestamps | Correct as-is. Listed so the audit doesn't churn on them. |
-
-Related: `deliveryTimeType` (`asap` / `later_today` / `other_day`) is itself a
-statement of customer expectation and should inform these computations rather
-than only labelling them.
-
-**Scope when resumed:** enumerate every computed time, name its anchor, and
-justify the anchor explicitly. The goal is not necessarily to change them all —
-it is that none of them is an assumption nobody chose.
-
----
+Two related items stay open and are tracked elsewhere: `todo-bugs.md` **B8**
+(the client countdown runs on the browser clock, with nothing reconciling it)
+and the "Ready for pickup" button still writing `pickupTimeRestaurant = now` in
+`pages/restaurant.tsx`, which D3 decided it should stop doing.
 
 ## Open questions
 

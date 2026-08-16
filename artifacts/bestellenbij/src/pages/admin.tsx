@@ -21,6 +21,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Plus, Trash2, CheckCircle2, AlertCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { formatDateTime } from "@/lib/format";
 
 export default function AdminPage() {
   const { t } = useTranslation();
@@ -368,76 +369,148 @@ function RiderRow({ rider: r, onUpdate, onInvalidate }: { rider: RiderWithWorklo
 }
 
 /**
- * Global travel-time override. Empty means "use the estimates that arrive with
- * each order"; a value overrides them for every restaurant.
+ * The two pickup estimates (D13).
+ *
+ * `default` is our baseline: every scheduled order works back from it, and an
+ * ASAP order falls back to it only when the payload carried no minimum pickup
+ * time. `inTheMoment` is today's conditions, entered in absolute terms and
+ * applying to ASAP orders only — it clears itself at 03:00 Amsterdam, so it
+ * cannot quietly govern tomorrow.
  */
 function PickupTimingCard({ settings }: { settings: ApiSettings }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const lang = i18n.resolvedLanguage ?? "nl";
   const qc = useQueryClient();
   const update = useUpdateSettings();
   const { toast } = useToast();
-  const stored = settings.pickupTravelOverrideMinutes;
-  const [draft, setDraft] = useState<string | null>(null);
-  const value = draft ?? (stored == null ? "" : String(stored));
-  const dirty = draft !== null && draft !== (stored == null ? "" : String(stored));
 
-  function save(next: number | null) {
+  const [defaultDraft, setDefaultDraft] = useState<string | null>(null);
+  const [momentDraft, setMomentDraft] = useState<string | null>(null);
+
+  const storedDefault = String(settings.pickupEstimateDefaultMinutes);
+  const storedMoment =
+    settings.pickupEstimateInTheMomentMinutes == null
+      ? ""
+      : String(settings.pickupEstimateInTheMomentMinutes);
+  const defaultValue = defaultDraft ?? storedDefault;
+  const momentValue = momentDraft ?? storedMoment;
+
+  function save(data: Parameters<typeof update.mutate>[0]["data"]) {
     update.mutate(
-      { data: { pickupTravelOverrideMinutes: next } },
+      { data },
       {
-        onSuccess: (data) => {
-          setDraft(null);
+        onSuccess: (fresh) => {
+          setDefaultDraft(null);
+          setMomentDraft(null);
           toast({ title: t("admin.settingsSaved") });
-          qc.setQueryData(getGetSettingsQueryKey(), data);
+          qc.setQueryData(getGetSettingsQueryKey(), fresh);
         },
+        onError: () => toast({ title: t("errors.generic"), variant: "destructive" }),
       },
     );
+  }
+
+  function parseMinutes(raw: string): number | null | undefined {
+    const trimmed = raw.trim();
+    if (trimmed === "") return null;
+    const minutes = Number.parseInt(trimmed, 10);
+    if (!Number.isInteger(minutes) || minutes < 0) return undefined;
+    return minutes;
   }
 
   return (
     <Card>
       <CardHeader><CardTitle className="text-base">{t("admin.pickupTiming")}</CardTitle></CardHeader>
-      <CardContent className="space-y-3">
-        <Label className="text-xs" htmlFor="pickup-travel-override">
-          {t("admin.pickupTravelOverride")}
-        </Label>
-        <div className="flex items-center gap-2">
-          <Input
-            id="pickup-travel-override"
-            type="number"
-            min={0}
-            step={1}
-            inputMode="numeric"
-            className="w-32 tabular-nums"
-            value={value}
-            onChange={(e) => setDraft(e.target.value)}
-            data-testid="input-pickup-travel-override"
-          />
-          <Button
-            disabled={update.isPending || !dirty}
-            onClick={() => {
-              const trimmed = value.trim();
-              if (trimmed === "") return save(null);
-              const minutes = Number.parseInt(trimmed, 10);
-              if (!Number.isInteger(minutes) || minutes < 0) return;
-              save(minutes);
-            }}
-            data-testid="button-save-pickup-travel-override"
-          >
-            {t("common.save")}
-          </Button>
-          {stored != null ? (
+      <CardContent className="space-y-5">
+        <div className="space-y-2">
+          <Label className="text-xs" htmlFor="pickup-estimate-default">
+            {t("admin.pickupEstimateDefault")}
+          </Label>
+          <div className="flex items-center gap-2">
+            <Input
+              id="pickup-estimate-default"
+              type="number"
+              min={0}
+              step={1}
+              inputMode="numeric"
+              className="w-32 tabular-nums"
+              value={defaultValue}
+              onChange={(e) => setDefaultDraft(e.target.value)}
+              data-testid="input-pickup-estimate-default"
+            />
             <Button
-              variant="ghost"
-              disabled={update.isPending}
-              onClick={() => save(null)}
-              data-testid="button-clear-pickup-travel-override"
+              disabled={update.isPending || defaultValue === storedDefault}
+              onClick={() => {
+                const minutes = parseMinutes(defaultValue);
+                // The baseline has no "unset" — clearing it would leave every
+                // scheduled order without a figure to work back from.
+                if (minutes == null) return;
+                save({ pickupEstimateDefaultMinutes: minutes });
+              }}
+              data-testid="button-save-pickup-estimate-default"
             >
-              {t("admin.pickupTravelOverrideClear")}
+              {t("common.save")}
             </Button>
+          </div>
+          <p className="text-xs text-muted-foreground">{t("admin.pickupEstimateDefaultHelp")}</p>
+        </div>
+
+        <div className="space-y-2 border-t border-border pt-4">
+          <Label className="text-xs" htmlFor="pickup-estimate-moment">
+            {t("admin.pickupEstimateInTheMoment")}
+          </Label>
+          <div className="flex items-center gap-2">
+            <Input
+              id="pickup-estimate-moment"
+              type="number"
+              min={0}
+              step={1}
+              inputMode="numeric"
+              placeholder={storedDefault}
+              className="w-32 tabular-nums"
+              value={momentValue}
+              onChange={(e) => setMomentDraft(e.target.value)}
+              data-testid="input-pickup-estimate-moment"
+            />
+            <Button
+              disabled={update.isPending || momentValue === storedMoment}
+              onClick={() => {
+                const minutes = parseMinutes(momentValue);
+                if (minutes === undefined) return;
+                save({ pickupEstimateInTheMomentMinutes: minutes });
+              }}
+              data-testid="button-save-pickup-estimate-moment"
+            >
+              {t("common.save")}
+            </Button>
+            {settings.pickupEstimateInTheMomentMinutes != null ? (
+              <Button
+                variant="ghost"
+                disabled={update.isPending}
+                onClick={() => save({ pickupEstimateInTheMomentMinutes: null })}
+                data-testid="button-clear-pickup-estimate-moment"
+              >
+                {t("admin.pickupEstimateInTheMomentClear")}
+              </Button>
+            ) : null}
+          </div>
+          <p className="text-xs text-muted-foreground">
+            {t("admin.pickupEstimateInTheMomentHelp")}
+          </p>
+          {settings.pickupEstimateInTheMomentMinutes != null ? (
+            <p
+              className="text-xs text-accent-foreground"
+              data-testid="text-pickup-estimate-moment-active"
+            >
+              {t("admin.pickupEstimateInTheMomentActive", {
+                minutes: settings.pickupEstimateInTheMomentMinutes,
+                time: settings.pickupEstimateInTheMomentSetAt
+                  ? formatDateTime(settings.pickupEstimateInTheMomentSetAt, lang)
+                  : "—",
+              })}
+            </p>
           ) : null}
         </div>
-        <p className="text-xs text-muted-foreground">{t("admin.pickupTravelOverrideHelp")}</p>
       </CardContent>
     </Card>
   );
