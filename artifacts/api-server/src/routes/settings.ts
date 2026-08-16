@@ -33,9 +33,9 @@ async function buildSettings() {
     outboundWebhookUrlSource: resolved.outboundWebhookUrl.source,
     outboundWebhookEnabled: resolved.outboundWebhookEnabled.value,
     allowRiderSelfClaim: resolved.allowRiderSelfClaim.value,
-    pickupEstimateDefaultMinutes: resolved.pickupEstimateDefaultMinutes.value,
-    pickupEstimateInTheMomentMinutes: resolved.pickupEstimateInTheMomentMinutes.value,
-    pickupEstimateInTheMomentSetAt: resolved.pickupEstimateInTheMomentSetAt.value,
+    pickupOffsetMinutes: resolved.pickupOffsetMinutes.value,
+    pickupMinimumTodayMinutes: resolved.pickupMinimumTodayMinutes.value,
+    pickupMinimumTodaySetAt: resolved.pickupMinimumTodaySetAt.value,
     vapidConfigured: Boolean(
       process.env["VAPID_PUBLIC_KEY"] && process.env["VAPID_PRIVATE_KEY"],
     ),
@@ -84,21 +84,21 @@ router.patch(
       await writeSetting(SETTINGS.allowRiderSelfClaim, parsed.data.allowRiderSelfClaim);
     }
 
-    if (parsed.data.pickupEstimateDefaultMinutes !== undefined) {
+    if (parsed.data.pickupOffsetMinutes !== undefined) {
       await writeSetting(
-        SETTINGS.pickupEstimateDefaultMinutes,
-        parsed.data.pickupEstimateDefaultMinutes,
+        SETTINGS.pickupOffsetMinutes,
+        parsed.data.pickupOffsetMinutes,
       );
     }
 
-    if (parsed.data.pickupEstimateInTheMomentMinutes !== undefined) {
-      const value = parsed.data.pickupEstimateInTheMomentMinutes;
-      await writeSetting(SETTINGS.pickupEstimateInTheMomentMinutes, value);
+    if (parsed.data.pickupMinimumTodayMinutes !== undefined) {
+      const value = parsed.data.pickupMinimumTodayMinutes;
+      await writeSetting(SETTINGS.pickupMinimumTodayMinutes, value);
       // Stamped alongside the value so the janitor can tell which operational
       // day it belongs to. Cleared with it, so a null value never leaves a
       // stray timestamp behind.
       await writeSetting(
-        SETTINGS.pickupEstimateInTheMomentSetAt,
+        SETTINGS.pickupMinimumTodaySetAt,
         value === null ? null : new Date().toISOString(),
       );
     }

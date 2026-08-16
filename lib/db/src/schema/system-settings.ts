@@ -23,20 +23,21 @@ export const SETTING_KEYS = {
   OUTBOUND_WEBHOOK_ENABLED: "outbound_webhook_enabled",
   ALLOW_RIDER_SELF_CLAIM: "allow_rider_self_claim",
   /**
-   * Our own baseline estimate, in minutes, for how long before delivery a rider
-   * should collect. Used for every scheduled order, and as the last fallback
-   * for an ASAP order whose payload carried no minimum pickup time.
+   * The standing gap, in minutes, between an order's pickup time and the
+   * delivery time the customer was shown. Not travel time — nothing measures
+   * the journey; this is a chosen offset.
    */
-  PICKUP_ESTIMATE_DEFAULT_MINUTES: "pickup_estimate_default_minutes",
+  PICKUP_OFFSET_MINUTES: "pickup_offset_minutes",
+   /**
+   * The minimum time, in minutes from checkout, that the delivery team needs
+   * before it can collect at all today. A constraint rather than a target: it
+   * can only push a pickup later, never earlier. ASAP orders only. Cleared
+   * each day at 03:00 Europe/Amsterdam by the janitor.
+   */
+  PICKUP_MINIMUM_TODAY_MINUTES: "pickup_minimum_today_minutes",
   /**
-   * Today's conditions, set by a coordinator in absolute terms ("we need 45
-   * minutes today"). ASAP orders only. Cleared each day at 03:00
-   * Europe/Amsterdam by the janitor, so a new day starts from the default.
+   * When today's minimum was last written. Not a user-facing setting — the
+   * janitor reads it to decide whether the value belongs to a previous day.
    */
-  PICKUP_ESTIMATE_IN_THE_MOMENT_MINUTES: "pickup_estimate_in_the_moment_minutes",
-  /**
-   * When the in-the-moment value was last written. Not a user-facing setting —
-   * the janitor reads it to decide whether the value belongs to a previous day.
-   */
-  PICKUP_ESTIMATE_IN_THE_MOMENT_SET_AT: "pickup_estimate_in_the_moment_set_at",
+  PICKUP_MINIMUM_TODAY_SET_AT: "pickup_minimum_today_set_at",
 } as const;

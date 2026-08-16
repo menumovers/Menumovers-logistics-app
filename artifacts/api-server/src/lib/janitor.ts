@@ -7,7 +7,7 @@ import { isStale } from "./daily-reset";
 const INTERVAL_MS = 5 * 60_000;
 
 /**
- * Clear the in-the-moment pickup estimate once a new operational day starts.
+ * Clear today's pickup minimum once a new operational day starts.
  *
  * Deliberately a *clear*, not an expiry computed on every read: the stored row
  * should say what is actually in effect, so an admin looking at settings never
@@ -18,36 +18,36 @@ const INTERVAL_MS = 5 * 60_000;
  *
  * See docs/workflow-decisions.md D13.
  */
-async function clearStaleInTheMomentEstimate(): Promise<void> {
+async function clearStalePickupMinimum(): Promise<void> {
   const [current, setAtRaw] = await Promise.all([
-    readSetting(SETTINGS.pickupEstimateInTheMomentMinutes),
-    readSetting(SETTINGS.pickupEstimateInTheMomentSetAt),
+    readSetting(SETTINGS.pickupMinimumTodayMinutes),
+    readSetting(SETTINGS.pickupMinimumTodaySetAt),
   ]);
   if (current === null) return;
   const setAt = setAtRaw ? new Date(setAtRaw) : null;
   const valid = setAt !== null && !Number.isNaN(setAt.getTime());
   if (valid && !isStale(setAt, new Date())) return;
 
-  await writeSetting(SETTINGS.pickupEstimateInTheMomentMinutes, null);
-  await writeSetting(SETTINGS.pickupEstimateInTheMomentSetAt, null);
+  await writeSetting(SETTINGS.pickupMinimumTodayMinutes, null);
+  await writeSetting(SETTINGS.pickupMinimumTodaySetAt, null);
   logger.info(
     { clearedValue: current, setAt: setAtRaw },
-    "Janitor: cleared yesterday's in-the-moment pickup estimate",
+    "Janitor: cleared yesterday's pickup minimum",
   );
 }
 
 /**
  * Periodic background cleanup. Prunes expired entries from `revoked_tokens`
- * and clears the in-the-moment pickup estimate when a new day has started.
+ * and clears the today's pickup minimum when a new day has started.
  * New periodic cleanups belong here so there is one home for cron-like work.
  *
  * Each task is isolated: one failing must not stop the others running.
  */
 async function runOnce(): Promise<void> {
   try {
-    await clearStaleInTheMomentEstimate();
+    await clearStalePickupMinimum();
   } catch (err) {
-    logger.error({ err }, "Janitor: in-the-moment estimate reset failed");
+    logger.error({ err }, "Janitor: pickup-minimum reset failed");
   }
   try {
     const result = await db

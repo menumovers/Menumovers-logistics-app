@@ -1,7 +1,7 @@
 import { eq, inArray } from "drizzle-orm";
 import { db, systemSettingsTable, SETTING_KEYS } from "@workspace/db";
 import { httpError } from "./errors";
-import { DEFAULT_PICKUP_ESTIMATE_MINUTES } from "./pickup-time";
+import { DEFAULT_PICKUP_OFFSET_MINUTES } from "./pickup-time";
 
 /**
  * Declarative registry for `system_settings`.
@@ -175,38 +175,33 @@ export const SETTINGS = {
    * upstream figures without waiting on the source. See workflow-decisions D4.
    */
   /**
-   * Our baseline estimate: how long before delivery a rider should collect.
-   * Every scheduled order uses it, and it is the last fallback for an ASAP
-   * order whose payload carried no minimum pickup time.
+   * The standing gap between pickup and the delivery time the customer was
+   * shown. Applies to every order. Not travel time — a chosen offset.
    */
-  pickupEstimateDefaultMinutes: defineRequiredInteger(
-    SETTING_KEYS.PICKUP_ESTIMATE_DEFAULT_MINUTES,
-    {
-      fallback: DEFAULT_PICKUP_ESTIMATE_MINUTES,
-      validate: assertNonNegativeInteger("pickupEstimateDefaultMinutes"),
-    },
-  ),
+  pickupOffsetMinutes: defineRequiredInteger(SETTING_KEYS.PICKUP_OFFSET_MINUTES, {
+    fallback: DEFAULT_PICKUP_OFFSET_MINUTES,
+    validate: assertNonNegativeInteger("pickupOffsetMinutes"),
+  }),
   /**
-   * Today's conditions, in absolute minutes — "we need 45 today", not "+15".
-   * ASAP orders only: how busy we are now says nothing about an order
-   * scheduled for next week. Cleared each day at 03:00 Europe/Amsterdam.
+   * The minimum the delivery team needs today, in minutes from checkout,
+   * before it can collect at all. A floor, not a target: it only ever pushes a
+   * pickup later. Lowering it releases orders it was holding rather than
+   * scheduling anything earlier. ASAP only; cleared at 03:00 Europe/Amsterdam.
    */
-  pickupEstimateInTheMomentMinutes: defineInteger(
-    SETTING_KEYS.PICKUP_ESTIMATE_IN_THE_MOMENT_MINUTES,
+  pickupMinimumTodayMinutes: defineInteger(
+    SETTING_KEYS.PICKUP_MINIMUM_TODAY_MINUTES,
     {
       fallback: null,
-      validate: assertNonNegativeInteger("pickupEstimateInTheMomentMinutes"),
+      validate: assertNonNegativeInteger("pickupMinimumTodayMinutes"),
     },
   ),
   /**
    * Internal companion to the above: when it was last written, so the janitor
-   * can tell whether it belongs to a previous day. Not exposed in the admin
-   * payload — it is bookkeeping, not a knob.
+   * can tell whether it belongs to a previous day. Not a knob.
    */
-  pickupEstimateInTheMomentSetAt: defineString(
-    SETTING_KEYS.PICKUP_ESTIMATE_IN_THE_MOMENT_SET_AT,
-    { fallback: null },
-  ),
+  pickupMinimumTodaySetAt: defineString(SETTING_KEYS.PICKUP_MINIMUM_TODAY_SET_AT, {
+    fallback: null,
+  }),
 } as const;
 
 export type SettingName = keyof typeof SETTINGS;

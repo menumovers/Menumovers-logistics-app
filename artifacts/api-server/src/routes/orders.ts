@@ -184,23 +184,21 @@ router.post(
       : null;
 
     // pickup_time_original is immutable after insert — computed here and never
-    // recomputed on replay. ASAP counts forward from sourceCreatedAt (not from
-    // now: an ingestion delay must not push the pickup time later); scheduled
-    // orders work backwards from what the customer chose, using our own
-    // estimate. See docs/workflow-decisions.md D13.
-    const [defaultEstimateMinutes, inTheMomentMinutes] = await Promise.all([
-      readSetting(SETTINGS.pickupEstimateDefaultMinutes),
-      readSetting(SETTINGS.pickupEstimateInTheMomentMinutes),
+    // recomputed on replay. Everything anchors to requestedDeliveryTime, which
+    // already carries the restaurant's opening hours and prep time because the
+    // source applied them before showing the customer a delivery time.
+    // See docs/workflow-decisions.md D13.
+    const [pickupOffsetMinutes, minimumTodayMinutes] = await Promise.all([
+      readSetting(SETTINGS.pickupOffsetMinutes),
+      readSetting(SETTINGS.pickupMinimumTodayMinutes),
     ]);
-    const { pickupTimeOriginal, estimateMinutes, estimateSource, basis } =
+    const { pickupTimeOriginal, offsetMinutes, basis, minimumApplied } =
       resolveOriginalPickupTime({
         deliveryTimeType: payload.deliveryTimeType,
         sourceCreatedAt: payload.sourceCreatedAt,
         requestedDeliveryTime: payload.requestedDeliveryTime,
-        restaurantMinPickupTime: payload.restaurantMinPickupTime ?? null,
-        deliveryTeamMinPickupTime: payload.deliveryTeamMinPickupTime ?? null,
-        defaultEstimateMinutes,
-        inTheMomentMinutes,
+        pickupOffsetMinutes,
+        minimumTodayMinutes,
       });
     const leadMinutes = leadTimeMinutes({
       sourceCreatedAt: payload.sourceCreatedAt,
@@ -338,8 +336,8 @@ router.post(
           externalOrderId: row.externalOrderId,
           deliveryTimeType: payload.deliveryTimeType,
           pickupBasis: basis,
-          estimateMinutes,
-          estimateSource,
+          offsetMinutes,
+          minimumApplied,
           leadMinutes,
           sourceCreatedAt: payload.sourceCreatedAt.toISOString(),
           pickupTimeOriginal: pickupTimeOriginal.toISOString(),

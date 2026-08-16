@@ -403,13 +403,21 @@ completed checkout. This is the anchor every other duration below
 counts from.
  */
   sourceCreatedAt: string;
-  /** The customer's checkout selection resolved to a timestamp, and the
-storefront's source of truth for fulfilment. For a scheduled order this
-is exactly the time they picked; for an ASAP order it is the storefront's
-calculated delivery estimate. The user-facing string the customer actually
-saw ("Zo snel mogelijk", "vandaag om 18:30") lives in the storefront's
-separate `deliveryTimeDisplay` field and is NOT sent here — so an ASAP
-time should be presented as an estimate, never as a promised time.
+  /** **The delivery time shown to the customer at checkout.** The name is
+misleading: nothing is "requested" on an ASAP order. For a scheduled
+order it is the slot the customer picked; for an ASAP order it is the
+storefront's own calculated estimate. Either way it is the
+storefront's source of truth for fulfilment, and it already has the
+restaurant's opening hours and prep time applied.
+
+That is why our pickup time anchors to it. Recomputing from
+`sourceCreatedAt` would redo a calculation the source has already
+done, without the opening hours we don't have.
+
+The user-facing string the customer actually saw ("Zo snel
+mogelijk", "vandaag om 18:30") lives in the storefront's separate
+`deliveryTimeDisplay` field and is NOT sent here — so an ASAP time
+should be presented as an estimate, never as a promised time.
  */
   requestedDeliveryTime: string;
   deliveryTimeType: DeliveryTimeType;
@@ -788,32 +796,39 @@ regardless of this flag.
  */
   outboundWebhookEnabled: boolean;
   allowRiderSelfClaim: boolean;
-  /** Our baseline estimate in minutes: how long before delivery a rider
-should collect. Used for every scheduled order, and as the last
-fallback for an ASAP order whose payload carried no minimum pickup
-time. Defaults to 20.
+  /** The standing gap, in minutes, between an order's pickup time and the
+delivery time the customer was shown at checkout. Applies to every
+order. Defaults to 20.
+
+**Not travel time.** Nothing measures how long the journey takes;
+this is a chosen offset that makes no claim about what fills it.
  */
-  pickupEstimateDefaultMinutes: number;
+  pickupOffsetMinutes: number;
   /**
-   * Today's conditions, set by a coordinator in **absolute** terms —
-"we need 45 minutes today", not an adjustment to apply. **ASAP
-orders only:** how busy we are right now says nothing about an order
-scheduled for next week.
+   * The minimum time, in minutes from checkout, the delivery team needs
+today before it can collect at all — set by a coordinator in
+absolute terms ("we need 45 minutes today").
+
+**A constraint, not a target.** It can only push a pickup later than
+the offset alone would; lowering it releases orders it was holding
+back rather than scheduling anything earlier. **ASAP orders only:**
+today's conditions say nothing about an order scheduled for next
+week.
 
 Cleared automatically once a new operational day begins at 03:00
-Europe/Amsterdam. Null means no adjustment is in effect.
+Europe/Amsterdam. Null means no minimum is in effect.
 
    * @nullable
    */
-  pickupEstimateInTheMomentMinutes?: number | null;
+  pickupMinimumTodayMinutes?: number | null;
   /**
-   * When the in-the-moment value was last written. Read-only — set
-automatically alongside the value so the daily reset knows which
-operational day it belongs to.
+   * When today's minimum was last written. Read-only — set automatically
+alongside the value so the daily reset knows which operational day it
+belongs to.
 
    * @nullable
    */
-  pickupEstimateInTheMomentSetAt?: string | null;
+  pickupMinimumTodaySetAt?: string | null;
   vapidConfigured: boolean;
   inboundSecretConfigured?: boolean;
 }
@@ -828,12 +843,12 @@ export interface UpdateSettingsRequest {
   outboundWebhookEnabled?: boolean;
   allowRiderSelfClaim?: boolean;
   /** @minimum 0 */
-  pickupEstimateDefaultMinutes?: number;
+  pickupOffsetMinutes?: number;
   /**
    * @minimum 0
    * @nullable
    */
-  pickupEstimateInTheMomentMinutes?: number | null;
+  pickupMinimumTodayMinutes?: number | null;
 }
 
 export interface VapidPublicKey {

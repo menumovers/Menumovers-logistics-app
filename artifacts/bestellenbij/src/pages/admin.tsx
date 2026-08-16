@@ -369,13 +369,14 @@ function RiderRow({ rider: r, onUpdate, onInvalidate }: { rider: RiderWithWorklo
 }
 
 /**
- * The two pickup estimates (D13).
+ * The two pickup settings (D13).
  *
- * `default` is our baseline: every scheduled order works back from it, and an
- * ASAP order falls back to it only when the payload carried no minimum pickup
- * time. `inTheMoment` is today's conditions, entered in absolute terms and
- * applying to ASAP orders only — it clears itself at 03:00 Amsterdam, so it
- * cannot quietly govern tomorrow.
+ * `pickupOffset` is the standing gap between pickup and the delivery time the
+ * customer was shown — it applies to every order. `minimumToday` is what the
+ * delivery team needs from checkout before it can collect at all right now: a
+ * floor, so it only ever pushes a pickup later, and lowering it releases orders
+ * rather than scheduling anything sooner. ASAP only, and it clears itself at
+ * 03:00 Amsterdam so it cannot quietly govern tomorrow.
  */
 function PickupTimingCard({ settings }: { settings: ApiSettings }) {
   const { t, i18n } = useTranslation();
@@ -387,11 +388,11 @@ function PickupTimingCard({ settings }: { settings: ApiSettings }) {
   const [defaultDraft, setDefaultDraft] = useState<string | null>(null);
   const [momentDraft, setMomentDraft] = useState<string | null>(null);
 
-  const storedDefault = String(settings.pickupEstimateDefaultMinutes);
+  const storedDefault = String(settings.pickupOffsetMinutes);
   const storedMoment =
-    settings.pickupEstimateInTheMomentMinutes == null
+    settings.pickupMinimumTodayMinutes == null
       ? ""
-      : String(settings.pickupEstimateInTheMomentMinutes);
+      : String(settings.pickupMinimumTodayMinutes);
   const defaultValue = defaultDraft ?? storedDefault;
   const momentValue = momentDraft ?? storedMoment;
 
@@ -423,12 +424,12 @@ function PickupTimingCard({ settings }: { settings: ApiSettings }) {
       <CardHeader><CardTitle className="text-base">{t("admin.pickupTiming")}</CardTitle></CardHeader>
       <CardContent className="space-y-5">
         <div className="space-y-2">
-          <Label className="text-xs" htmlFor="pickup-estimate-default">
-            {t("admin.pickupEstimateDefault")}
+          <Label className="text-xs" htmlFor="pickup-offset">
+            {t("admin.pickupOffset")}
           </Label>
           <div className="flex items-center gap-2">
             <Input
-              id="pickup-estimate-default"
+              id="pickup-offset"
               type="number"
               min={0}
               step={1}
@@ -436,32 +437,32 @@ function PickupTimingCard({ settings }: { settings: ApiSettings }) {
               className="w-32 tabular-nums"
               value={defaultValue}
               onChange={(e) => setDefaultDraft(e.target.value)}
-              data-testid="input-pickup-estimate-default"
+              data-testid="input-pickup-offset"
             />
             <Button
               disabled={update.isPending || defaultValue === storedDefault}
               onClick={() => {
                 const minutes = parseMinutes(defaultValue);
-                // The baseline has no "unset" — clearing it would leave every
-                // scheduled order without a figure to work back from.
+                // The offset has no "unset" — clearing it would leave every
+                // order without a gap to work back from.
                 if (minutes == null) return;
-                save({ pickupEstimateDefaultMinutes: minutes });
+                save({ pickupOffsetMinutes: minutes });
               }}
-              data-testid="button-save-pickup-estimate-default"
+              data-testid="button-save-pickup-offset"
             >
               {t("common.save")}
             </Button>
           </div>
-          <p className="text-xs text-muted-foreground">{t("admin.pickupEstimateDefaultHelp")}</p>
+          <p className="text-xs text-muted-foreground">{t("admin.pickupOffsetHelp")}</p>
         </div>
 
         <div className="space-y-2 border-t border-border pt-4">
-          <Label className="text-xs" htmlFor="pickup-estimate-moment">
-            {t("admin.pickupEstimateInTheMoment")}
+          <Label className="text-xs" htmlFor="pickup-minimum-today">
+            {t("admin.pickupMinimumToday")}
           </Label>
           <div className="flex items-center gap-2">
             <Input
-              id="pickup-estimate-moment"
+              id="pickup-minimum-today"
               type="number"
               min={0}
               step={1}
@@ -470,42 +471,42 @@ function PickupTimingCard({ settings }: { settings: ApiSettings }) {
               className="w-32 tabular-nums"
               value={momentValue}
               onChange={(e) => setMomentDraft(e.target.value)}
-              data-testid="input-pickup-estimate-moment"
+              data-testid="input-pickup-minimum-today"
             />
             <Button
               disabled={update.isPending || momentValue === storedMoment}
               onClick={() => {
                 const minutes = parseMinutes(momentValue);
                 if (minutes === undefined) return;
-                save({ pickupEstimateInTheMomentMinutes: minutes });
+                save({ pickupMinimumTodayMinutes: minutes });
               }}
-              data-testid="button-save-pickup-estimate-moment"
+              data-testid="button-save-pickup-minimum-today"
             >
               {t("common.save")}
             </Button>
-            {settings.pickupEstimateInTheMomentMinutes != null ? (
+            {settings.pickupMinimumTodayMinutes != null ? (
               <Button
                 variant="ghost"
                 disabled={update.isPending}
-                onClick={() => save({ pickupEstimateInTheMomentMinutes: null })}
-                data-testid="button-clear-pickup-estimate-moment"
+                onClick={() => save({ pickupMinimumTodayMinutes: null })}
+                data-testid="button-clear-pickup-minimum-today"
               >
-                {t("admin.pickupEstimateInTheMomentClear")}
+                {t("admin.pickupMinimumTodayClear")}
               </Button>
             ) : null}
           </div>
           <p className="text-xs text-muted-foreground">
-            {t("admin.pickupEstimateInTheMomentHelp")}
+            {t("admin.pickupMinimumTodayHelp")}
           </p>
-          {settings.pickupEstimateInTheMomentMinutes != null ? (
+          {settings.pickupMinimumTodayMinutes != null ? (
             <p
               className="text-xs text-accent-foreground"
-              data-testid="text-pickup-estimate-moment-active"
+              data-testid="text-pickup-minimum-today-active"
             >
-              {t("admin.pickupEstimateInTheMomentActive", {
-                minutes: settings.pickupEstimateInTheMomentMinutes,
-                time: settings.pickupEstimateInTheMomentSetAt
-                  ? formatDateTime(settings.pickupEstimateInTheMomentSetAt, lang)
+              {t("admin.pickupMinimumTodayActive", {
+                minutes: settings.pickupMinimumTodayMinutes,
+                time: settings.pickupMinimumTodaySetAt
+                  ? formatDateTime(settings.pickupMinimumTodaySetAt, lang)
                   : "—",
               })}
             </p>

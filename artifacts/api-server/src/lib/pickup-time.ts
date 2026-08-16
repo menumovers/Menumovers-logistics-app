@@ -3,145 +3,122 @@ import type { PickupTimeSource } from "@workspace/db";
 const MINUTE_MS = 60_000;
 
 /**
- * How long before pickup an order needs, in minutes, when the payload gives us
- * nothing usable and for every scheduled order. Ours, not the source's — see
- * the note on `scheduledEstimateMinutes` below.
+ * How long before the delivery time we want a rider at the restaurant.
+ *
+ * **Not travel time.** Nothing measures how long the journey takes; this is a
+ * chosen gap, which is why it is an "offset" — it says where pickup sits
+ * relative to delivery and makes no claim about what fills the space.
  */
-export const DEFAULT_PICKUP_ESTIMATE_MINUTES = 20;
+export const DEFAULT_PICKUP_OFFSET_MINUTES = 20;
 
 export type OriginalPickupTimeInputs = {
   /** `asap` | `later_today` | `other_day`. Anything else is treated as scheduled. */
   deliveryTimeType: string;
-  /** When checkout completed at the source. The ASAP anchor. */
+  /** When checkout completed at the source. */
   sourceCreatedAt: Date;
-  /** The customer's checkout selection, parsed to a timestamp. */
+  /**
+   * The delivery time shown to the customer at checkout — despite the name,
+   * nothing is "requested" on an ASAP order. Bestellenbij computes it with the
+   * restaurant's opening hours, prep times and its own estimates already
+   * applied, which is exactly why we anchor to it: recomputing from checkout
+   * would redo their work with less information than they had.
+   */
   requestedDeliveryTime: Date;
+  /** Admin setting: the standing gap between pickup and delivery. */
+  pickupOffsetMinutes: number;
   /**
-   * Minimum lead time either party needs, in minutes from checkout. Nullable;
-   * the larger of the two binds, because it is whichever party needs longer
-   * that decides when the order can actually be collected.
+   * Admin setting: the minimum time the delivery team needs, from checkout,
+   * before they can collect at all. Set by a coordinator for today's
+   * conditions and cleared at 03:00 Europe/Amsterdam.
+   *
+   * PROVISIONAL — currently applied as a floor (see below), which is known to
+   * be only half of what it should do. The owner requires it to work in both
+   * directions: when things are quiet a coordinator should be able to pull a
+   * pickup *earlier*, not merely stop delaying it. Finishing that needs a lower
+   * bound so "sooner" cannot land before the food exists, and we do not have
+   * opening hours. See docs/workflow-decisions.md D13, "OPEN".
+   *
+   * ASAP only.
    */
-  restaurantMinPickupTime: number | null;
-  deliveryTeamMinPickupTime: number | null;
-  /** Admin setting: our baseline estimate. Used for every scheduled order. */
-  defaultEstimateMinutes: number;
-  /**
-   * Admin setting: today's conditions, set by a coordinator in absolute terms
-   * ("we need 45 minutes today"), not as an adjustment. ASAP only — how busy we
-   * are right now says nothing about an order scheduled for next Tuesday.
-   * Cleared each day at 03:00 Europe/Amsterdam.
-   */
-  inTheMomentMinutes: number | null;
+  minimumTodayMinutes: number | null;
 };
 
 export type OriginalPickupTime = {
   pickupTimeOriginal: Date;
-  /** Minutes used, and where they came from. Surfaced for logging. */
-  estimateMinutes: number;
-  estimateSource: "in_the_moment" | "source_min_pickup" | "default";
-  /** Which branch produced the result. */
+  /** The offset applied, in minutes. Surfaced for logging. */
+  offsetMinutes: number;
+  /** Which branch produced the result, and whether the floor bound. */
   basis: "asap" | "scheduled";
+  /** True when today's minimum pushed the pickup later than the offset alone would. */
+  minimumApplied: boolean;
 };
 
 /**
- * The lead time an ASAP order needs, in minutes from checkout.
- *
- * `inTheMoment` replaces rather than adjusts: a coordinator thinks "we need 45
- * minutes today", not "+15 on whatever the restaurant said". Absolute also
- * handles both directions without a sign.
- *
- * Otherwise the source's own figure, taking the larger of the restaurant's and
- * the delivery team's — whichever party needs longer is the one that binds.
- * The default only catches the case where the payload supplied neither.
+ * Where pickup sits when nothing else intervenes: a fixed gap before the
+ * delivery time the customer was shown.
  */
-export function resolveAsapLeadMinutes(
-  inputs: Pick<
-    OriginalPickupTimeInputs,
-    | "restaurantMinPickupTime"
-    | "deliveryTeamMinPickupTime"
-    | "defaultEstimateMinutes"
-    | "inTheMomentMinutes"
-  >,
-): { minutes: number; source: OriginalPickupTime["estimateSource"] } {
-  if (inputs.inTheMomentMinutes !== null) {
-    return { minutes: inputs.inTheMomentMinutes, source: "in_the_moment" };
-  }
-  const supplied = [
-    inputs.restaurantMinPickupTime,
-    inputs.deliveryTeamMinPickupTime,
-  ].filter((n): n is number => typeof n === "number");
-  if (supplied.length > 0) {
-    return { minutes: Math.max(...supplied), source: "source_min_pickup" };
-  }
-  return { minutes: inputs.defaultEstimateMinutes, source: "default" };
-}
-
-/**
- * Minutes between the requested delivery time and when a rider should collect,
- * for a scheduled order.
- *
- * **This is ours, and it is an estimate.** The payload has no trustworthy
- * travel figure: `*MinDeliveryTime` is checkout-to-doorstep — the whole journey
- * including prep, and a rough coordinator-set number that often sits stale — so
- * deriving travel from it would produce a figure with a false pedigree.
- *
- * `inTheMoment` deliberately does not apply here. It describes conditions right
- * now, and a scheduled order is not happening now.
- */
-export function resolveScheduledEstimateMinutes(
-  inputs: Pick<OriginalPickupTimeInputs, "defaultEstimateMinutes">,
-): number {
-  return inputs.defaultEstimateMinutes;
+export function defaultPickupTime(
+  inputs: Pick<OriginalPickupTimeInputs, "requestedDeliveryTime" | "pickupOffsetMinutes">,
+): Date {
+  return new Date(
+    inputs.requestedDeliveryTime.getTime() - inputs.pickupOffsetMinutes * MINUTE_MS,
+  );
 }
 
 /**
  * Compute `pickup_time_original` at ingestion. IMMUTABLE afterwards — only ever
  * called on insert, never on replay.
  *
- * **Nothing here reads the clock.** An ASAP pickup time counts forward from
- * `sourceCreatedAt`, the moment checkout completed, not from when our API
- * happened to process the request — so an ingestion delay no longer pushes the
- * pickup time later. That was the original question behind this whole audit.
+ * **Nothing here reads the clock**, and everything anchors to
+ * `requestedDeliveryTime`. That timestamp already carries the restaurant's
+ * opening hours and prep time, because the source applied them when it told the
+ * customer when to expect delivery. Counting forward from checkout instead —
+ * which an earlier version of this did — reconstructs that calculation without
+ * the opening hours, and gets it wrong every time a restaurant is closed at the
+ * moment someone orders.
  *
- * `sourceRestaurantReadyTime` is deliberately *not* an input. The source
- * calculates it only for ASAP orders, so depending on it would mean two code
- * paths where one will do, and we can compute the same thing ourselves. It is
- * retained on the order as a cross-check: if it and our ASAP figure disagree,
- * that is worth seeing.
+ * For an ASAP order, today's minimum currently acts as a floor: if the delivery
+ * team cannot collect for 45 minutes, a pickup time 20 minutes before delivery
+ * is a fiction, so `MAX` keeps whichever is later. **This is provisional** — it
+ * cannot express the quiet case, where a coordinator wants to pull a pickup
+ * earlier. D13 "OPEN" has the unresolved part. It is deliberately not applied
+ * to scheduled orders — today's conditions say nothing about next Tuesday.
  *
- * Deliberately not clamped. An order that arrives too late to fulfil is a fact
- * about what happened upstream, not something for us to repair — Bestellenbij
- * owns feasibility. We surface the lead time and let a coordinator go and ask.
- * See docs/workflow-decisions.md D4 and D13.
+ * Deliberately not clamped otherwise. An order that arrives too late to fulfil
+ * is a fact about what happened upstream, not something for us to repair;
+ * Bestellenbij owns feasibility. We surface the lead time and let a coordinator
+ * go and ask. See docs/workflow-decisions.md D13.
  */
 export function resolveOriginalPickupTime(
   inputs: OriginalPickupTimeInputs,
 ): OriginalPickupTime {
-  if (inputs.deliveryTimeType === "asap") {
-    const { minutes, source } = resolveAsapLeadMinutes(inputs);
-    return {
-      pickupTimeOriginal: new Date(
-        inputs.sourceCreatedAt.getTime() + minutes * MINUTE_MS,
-      ),
-      estimateMinutes: minutes,
-      estimateSource: source,
-      basis: "asap",
-    };
+  const fromOffset = defaultPickupTime(inputs);
+  const isAsap = inputs.deliveryTimeType === "asap";
+
+  if (isAsap && inputs.minimumTodayMinutes !== null) {
+    const floor = new Date(
+      inputs.sourceCreatedAt.getTime() + inputs.minimumTodayMinutes * MINUTE_MS,
+    );
+    if (floor.getTime() > fromOffset.getTime()) {
+      return {
+        pickupTimeOriginal: floor,
+        offsetMinutes: inputs.pickupOffsetMinutes,
+        basis: "asap",
+        minimumApplied: true,
+      };
+    }
   }
 
-  const minutes = resolveScheduledEstimateMinutes(inputs);
   return {
-    pickupTimeOriginal: new Date(
-      inputs.requestedDeliveryTime.getTime() - minutes * MINUTE_MS,
-    ),
-    estimateMinutes: minutes,
-    estimateSource: "default",
-    basis: "scheduled",
+    pickupTimeOriginal: fromOffset,
+    offsetMinutes: inputs.pickupOffsetMinutes,
+    basis: isAsap ? "asap" : "scheduled",
+    minimumApplied: false,
   };
 }
 
 /**
- * How long the customer gave us: checkout to requested delivery.
+ * How long the customer gave us: checkout to the delivery time they were shown.
  *
  * Pure observation — no estimate, no assumption, entirely source data. A short
  * lead time means something happened upstream that a coordinator may want to

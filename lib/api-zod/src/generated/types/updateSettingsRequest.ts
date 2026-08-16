@@ -12,10 +12,10 @@ export interface UpdateSettingsRequest {
   outboundWebhookEnabled?: boolean;
   allowRiderSelfClaim?: boolean;
   /** @minimum 0 */
-  pickupEstimateDefaultMinutes?: number;
+  pickupOffsetMinutes?: number;
   /**
    * @minimum 0
    * @nullable
    */
-  pickupEstimateInTheMomentMinutes?: number | null;
+  pickupMinimumTodayMinutes?: number | null;
 }
