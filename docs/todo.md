@@ -76,6 +76,12 @@ Resolved with option (c) plus an explicit confirmation gate. `PATCH /api/trips/:
 
 We removed the casts during the Task #3 review rounds, but the rule is enforced by code review, not by lint. Add an ESLint rule (`@typescript-eslint/consistent-type-assertions` with `assertionStyle: "as"` and `objectLiteralTypeAssertions: "never"`, plus a custom rule for double-`as`) so a future PR can't sneak one in. Priority: low.
 
+### L9. `restaurants.minDeliveryTime` means three different things
+
+Dormant by design — nothing has read it since D13, and it is kept on purpose: it comes in empty from an import, and may be set and used by us later. The problem is not that it is unused, it is that its name, its labels and its comment describe three different quantities: the column is `min_delivery_time`, both UI labels (nl and en, two separate keys) say *prep time* / *bereidingstijd*, and the old comment said "order ingestion to expected pickup" while also claiming it fed `pickup_time_original` — true until D13, false since.
+
+Whoever activates it will read one of the three and be wrong. Settle the meaning first, then align the other two. Investigation: done — the column comment now carries the same warning. Priority: low, but do it *before* wiring anything to the field, not after.
+
 ### L8. `heldAt` is stored and shown nowhere — DONE (2026-08-15)
 
 Both hold surfaces now show it: the coordinator order detail's hold card and the dispatch board's held row, as "sinds 14:20" next to who placed the hold. Original entry below.
