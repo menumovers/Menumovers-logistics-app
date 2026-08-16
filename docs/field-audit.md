@@ -96,11 +96,13 @@ Recorded as **D11** in `workflow-decisions.md`, and as a non-negotiable in
 `replit.md` §5, so a future pass hunting dead columns meets the reason before
 it meets the columns.
 
-Two of the six source timing figures *are* consumed by code:
-`restaurantMinDeliveryTime` and `deliveryTeamMinDeliveryTime` feed the travel
-estimate in `lib/pickup-time.ts` (D4 takes the larger). The other four are the
-forensic set. D4's choice of no prep-time floor is unaffected — the prep
-figures are retained for reading, not for computing.
+**Which two are consumed changed on 2026-08-15 (D13).** As audited it was
+`restaurantMinDeliveryTime` and `deliveryTeamMinDeliveryTime`, feeding a travel
+estimate. That turned out to be the wrong pair — see §4 — and it is now
+`restaurantMinPickupTime` and `deliveryTeamMinPickupTime`, so those two have
+left this category. The `*MinDeliveryTime` pair joined it, and the `*MinPrepTime`
+pair stays here as legacy at the source: retained for reading, never for
+computing.
 
 `heldAt` is also worth **showing**, separately from being kept. The hold panel
 gives who and why but not when, and "held since 14:20" is what a coordinator
