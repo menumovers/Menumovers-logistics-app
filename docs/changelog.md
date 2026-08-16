@@ -32,12 +32,14 @@ at the single call site. Order search matches the components joined via
 matches the original line so an order stays findable by the address it arrived
 with.
 
-The cost: we now punctuate addresses ourselves and can get it wrong. Joining
-five fields means a missing one can print `Hoofdstraat , Amsterdam`. Note that
-`street`, `postalCode` and `city` are `NOT NULL` but can still hold an empty
-string, so a non-null column is not proof there is something to print. It can
-only look wrong, never lose anything — the source's line is still stored. Most
-of the 21 assertions are there to catch stray and doubled separators.
+The cost is not missing data: if the source has no house number its own line
+lacks one too, and `formatAddress` drops blank parts rather than leaving a stray
+comma. The real exposure is content the source's line carries that no component
+does — a company name, a floor, a `t.a.v.` The contract says the two are
+captured separately, not derived from each other, so they can differ in
+information and not just in formatting. If that happens the derived line drops
+detail. Worth checking against real rows; nothing is lost either way, since the
+original line is still stored. 21 assertions cover the formatter.
 
 Resolves the deferred "Legacy `deliveryAddress` text column" note in
 `todo-out-of-scope.md`. Rationale in `docs/workflow-decisions.md` D12.

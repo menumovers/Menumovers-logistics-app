@@ -449,23 +449,31 @@ copy**. There is nothing left to keep in step.
 
 ### What this costs
 
-We now punctuate addresses ourselves, and we can get it wrong.
+**Not missing data.** An earlier draft of this section claimed the risk was
+gaps — that a missing house number would leave us printing
+`Hoofdstraat , Amsterdam`. That is wrong twice over. If the source has no house
+number its own line lacks one too, so the gap is identical either way; and
+`formatAddress` drops blank parts before joining, so it emits
+`Hoofdstraat, 1011 AB Amsterdam` and never the stray comma. There is an
+assertion for precisely that case.
 
-Before, the source sent a finished line and we printed it. Now we join five
-fields, so a missing one can produce `Hoofdstraat , Amsterdam` — a stray comma
-where the house number should be. `houseNumber` and `addition` are nullable, and
-`street` / `postalCode` / `city` are `NOT NULL` but can still hold an empty
-string, so "the column has a value" is not the same as "there is something to
-print".
+**The actual risk is content the line carries that no component does.** The
+contract is explicit that the two are captured separately — *"Single-line
+display address. Structured components below are separate, not derived from
+this."* Separate means they can hold different information, not just the same
+information formatted differently. If the source's line ever contains a company
+name, a floor, a `t.a.v.`, or anything else that does not decompose into the
+six components, then a derived line silently drops it.
 
-That is the whole cost: it can look wrong. It cannot lose anything, because the
-source's line is still stored — if ours reads badly, the real one is one field
-away. Most of the 21 assertions exist to catch stray and doubled separators.
+That is information loss, not punctuation, and it is the one thing about D12
+worth checking against real rows. Nothing breaks if it turns out to be true —
+the source's line is still stored, so nothing is *lost* — but the displayed
+address would be missing something a rider needs, and the formatter would need
+to learn about it.
 
-**One thing to confirm against real data:** whether the source's line ever
-carries information the components don't. If it does, nothing breaks — the line
-is still stored — but it would mean the derived display drops detail, and the
-formatter should learn about it.
+**A smaller, harmless one:** we chose the ordering and punctuation, so our line
+may read slightly differently from the one people are used to seeing. That is
+cosmetic and no reason to keep two writable copies.
 
 ### Replay
 
