@@ -1,0 +1,140 @@
+# Handoff to Replit Agent
+
+The latest synch with github carries a day's worth of
+workflow changes. The code is written, typechecked, built, and verified against
+a throwaway PostgreSQL — but never against this environment. Your job is to
+get this environment ready for it and to confirm it actually works here.
+
+Read `docs/workflow-decisions.md` first. Everything below is a consequence of
+decisions recorded there, and the reasoning is worth having before you change
+anything. `docs/environment-checklist.md` Part 1 lists what was built; Part 5b
+lists what has already been proven to work and how.
+
+---
+
+## What changed, and why the environment cares
+
+**The database schema moved.** Four things:
+
+- `orders.delivery_address` became `orders.delivery_address_original`. This is a
+  rename, not a new column. The value it holds — the address exactly as the
+  source sent it — is now immutable audit data, and the address the app actually
+  uses is built from the structured components on every read.
+- `orders.restaurant_ready_at` and `restaurant_ready_by_user_id` are new. They
+  record the kitchen reporting food is done, which used to be written into a
+  pickup time and no longer is.
+- `trip_stops.completed_at` is gone. Nothing ever wrote it; trip progress is now
+  derived from order status.
+- Earlier in the branch: the hold family (`hold_state`, `hold_reason`,
+  `held_by_user_id`, `held_at`) replacing `is_parked` / `parked_reason`, and
+  restaurant acceptance (`restaurant_accepted_at`, `restaurant_accepted_by_user_id`,
+  `restaurants.acceptance_mode`).
+
+**One settings row was retired and three replace it.** The
+`system_settings` key `pickup_travel_override_minutes` is dead — it overrode a
+quantity the code no longer has. In its place: `pickup_offset_minutes`
+(defaults to 20 if absent), `pickup_within_minutes`, and
+`pickup_within_set_at`. Nothing breaks if the old row lingers; nothing reads it.
+
+**The OpenAPI contract was regenerated several times.** If the generated
+directories in `lib/api-zod` and `lib/api-client-react` look out of step with
+the spec, regenerating and rebuilding is the fix — `replit.md` §2 has the
+sequence and explains why the `tsc --build` half matters.
+
+**`noUnusedLocals` is now `true`** in `tsconfig.base.json`. It was silently off,
+which had let dead imports and one dead 24-line function accumulate. The repo
+passes as committed; if your environment has extra local code, this may surface
+genuine unused declarations there.
+
+---
+
+## The one moment that can lose data
+
+`delivery_address` → `delivery_address_original` is a rename, but drizzle-kit
+push` frequently offers renames as a drop-and-add**. If it does that on a table
+with rows, the old values are gone — and those values are the audit record the
+whole change exists to preserve.
+
+The changelog says this database has had schema applied before, with test rows
+truncated at the time. Whether it currently holds anything worth keeping is
+something you should establish before you push, not after. If it does, the
+rename needs to happen in a way that carries the data across; if the table is
+genuinely empty, this is a non-event.
+
+`trip_stops.completed_at` is the same shape of question with a simpler answer:
+nothing has ever written it, so its contents are null everywhere. Confirm that
+rather than assume it.
+
+There is a standing note in `docs/environment-checklist.md` Part 2 about a
+"no-ceremony" instruction from an earlier session. It has expired. Do not
+treat "nothing is in production" as still true without checking.
+
+---
+
+## What should be true when you're done
+
+Rather than a script to follow, here is the end state to reason toward:
+
+- The live schema matches `lib/db/src/schema/` with no drift, and no column that
+  held real data was emptied getting there.
+- The app builds. Both Vite builds need `PORT` and `BASE_PATH` set or they throw
+  rather than defaulting — this is a known wart, tracked as `todo.md` M1.
+- The API server starts and answers `/api/healthz`.
+- The environment still has the two pieces of seed state inbound ingestion
+  depends on: the `unmapped` placeholder restaurant, and at least one
+  `api_credentials` row. Both have provisioning scripts under `scripts/src/`.
+  Neither is created by the schema push.
+- `JWT_SECRET` and `DATABASE_URL` are present, as before.
+
+---
+
+## How to tell it actually works
+
+The pickup-time behaviour is the part most worth exercising, because it changed
+most and because a wrong pickup time is quiet rather than loud. Two orders
+through `POST /api/inbound/orders` will tell you:
+
+- An **ASAP** order should get a pickup time exactly `pickup_offset_minutes`
+  before its `requestedDeliveryTime` — *not* near the current clock, and not
+  offset by any of the `Min*Time` figures in the payload. Those are audit-only
+  now.
+- A **`later_today`** order should behave identically. Both branches anchor to
+  the delivery time the customer was shown at checkout.
+- Setting `pickup_within_minutes` to something small (say 10) should move the
+  next ASAP order's pickup *earlier* — measured forward from when the order
+  arrived. Setting it large should move it later. It should leave scheduled
+  orders alone entirely.
+
+Each ingested order logs a line `"Computed original pickup time"` carrying which
+rule applied and which anchor it used. If a pickup time looks wrong, that line
+answers why faster than reading the code.
+
+The other behaviour worth a look: pressing **"Ready for pickup"** on the
+restaurant screen should record a status and leave every pickup time untouched.
+It used to overwrite the restaurant's negotiated pickup time with the moment of
+the press. That is the specific defect the last change fixed.
+
+---
+
+## Things that are supposed to look odd
+
+- `restaurants.min_delivery_time` is still editable in the admin UI and read by
+  no code. That is deliberate — see `todo.md` L9 — and its labels currently
+  disagree with its name. Don't "fix" it by wiring it to something.
+- Six `*Min*Time` columns on `orders`, plus `source_restaurant_ready_time`, are
+  stored and read by nothing. Also deliberate: they exist so a coordinator can
+  work out why an order behaved as it did without logging into the upstream
+  system. `docs/workflow-decisions.md` D11 explains the rule. A dead-column
+  cleanup that removes them would be undoing a decision, not tidying.
+- The verification scripts referenced in the docs live outside the repository
+  and don't run automatically. There is no test runner yet (`todo.md` H3).
+
+---
+
+## If something doesn't add up
+
+The docs were written alongside the code and rewritten several times as the
+design changed; a few may still describe an earlier version of a decision. Where
+a doc and the code disagree, the code is what runs — but say so rather than
+silently picking one, because in at least two cases today the *code* was the
+thing that was wrong.
