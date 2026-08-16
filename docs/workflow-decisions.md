@@ -453,7 +453,6 @@ and practically noise — they are open because someone decided they should be.
 | Deferred | Decided | Note |
 |---|---|---|
 | **Applying schema, database work, the whole environment checklist** | 2026-08-14, restated 2026-08-15 | *"That is the end game. Do not worry about its checkboxes. Right now we're just working on code and architecture."* `environment-checklist.md` is a **parking lot**, not a to-do list |
-| Time-computation audit | 2026-08-14 | Parked by the owner mid-stream, to return to. Below |
 | Bundling automation | 2026-08-14 | Not automated; no logic to build yet |
 | Per-restaurant receipt enablement | 2026-08-14 | Belongs beside `restaurants.acceptanceMode` when wanted |
 | Outbound webhook signing | 2026-08-14 | Prerequisite for enabling the webhook, which is off (D7) |
@@ -462,7 +461,11 @@ and practically noise — they are open because someone decided they should be.
 
 ## Open: audit every computed time before trusting any of them
 
-**Raised 2026-08-14. Not resolved — deliberately parked, to be returned to.**
+**Raised 2026-08-14. Parked on a condition, and the condition is now met.**
+
+The parking was *"put a pin in it and finish the rest"* — not a deferral like
+the ones in §G. The rest is finished: D1–D11 are built. **This is due, and it
+is the only substantial open item in the work stream.**
 
 *Related:* `docs/field-audit.md` §4 lists the three fields that feed the time
 calculations and are shown to nobody — the same instinct as D11, turned on our
