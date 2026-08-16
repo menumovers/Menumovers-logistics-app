@@ -82,7 +82,9 @@ migration ceremony. Apply the schema and move on:
 pnpm --filter @workspace/db run push
 ```
 
-- [ ] Push applied
+- [x] Push applied — *ran clean against a fresh local database on 2026-08-15:
+      `delivery_address` → `delivery_address_original`, `restaurant_ready_at`
+      created, `trip_stops.completed_at` dropped.*
 - [ ] `pnpm --filter @workspace/db run db:live-drift` reports no delta
 
 ### ⚠ The no-ceremony rule expired on 2026-08-14
@@ -104,9 +106,20 @@ Recorded in `docs/constraint-overrides.md` O2.
 
 ## Part 3 — Verify against a live system
 
-None of this could be exercised in the build container: there is no
-`DATABASE_URL`, so every database path is verified by types and inspection
-only. These are the checks worth running once deployed.
+> ### Correction, 2026-08-15
+>
+> This section said for two days that nothing here could be exercised, "there
+> is no `DATABASE_URL`". **PostgreSQL 16 was installed in the container the
+> whole time.** Nobody checked. Every claim of the form *"verified by types and
+> inspection only"* made before this date was a claim about effort not spent,
+> not about what was possible.
+>
+> `./scripts/local-db.sh start` brings up a throwaway instance and prints a
+> `DATABASE_URL`. It needs no Docker and no hosted database.
+
+The boxes below are the checks worth running against a **deployed** system.
+Several were run against a local instance on 2026-08-15 and are marked `[x]`
+with what was observed — those verify the code, not the deployment.
 
 - [ ] **Admin → Settings loads and saves.** This exercises the whole registry
       read/write path. Save the webhook URL, the self-claim toggle and both
@@ -116,18 +129,19 @@ only. These are the checks worth running once deployed.
       `unset` when neither — the registry took over this resolution.
 - [ ] **Clearing `pickupWithin`.** Emptying the field should delete the row and
       its `set_at` companion, not store a zero.
-- [ ] **Send a scheduled test order** with `deliveryTimeType: "later_today"`
+- [x] **Send a scheduled test order** with `deliveryTimeType: "later_today"`
       and a `requestedDeliveryTime` several hours out. Pickup must land exactly
-      `pickupOffsetMinutes` before it — not near now, and not offset by any
-      figure from the payload.
-- [ ] **Send an ASAP order with a `sourceCreatedAt` well in the past** (say an
-      hour), with `pickupWithin` unset. Pickup must still be
-      `requestedDeliveryTime − offset` — an ingestion delay must not move it.
-- [ ] **Set `pickupWithin` to 10, then send one ASAP and one scheduled order.**
-      The ASAP pickup must be `sourceCreatedAt + 10` and *earlier* than the
-      offset rule would give. The scheduled one must ignore it entirely.
-- [ ] **Set `pickupWithin` to 60 and send an ASAP order.** Pickup must be
-      *later* than the offset rule — the same setting moving it the other way.
+      `pickupOffsetMinutes` before it. *Verified locally: delivery 20:00,
+      offset 20 → pickup 19:40. Payload `MinPickupTime` values ignored, as D13
+      requires.*
+- [x] **Send an ASAP order with a `sourceCreatedAt` well in the past**, with
+      `pickupWithin` unset. *Verified locally: checkout 17:00, shown 17:45,
+      offset 20 → pickup 17:25. Anchored to the delivery time, not the clock.*
+- [x] **Set `pickupWithin` to 10, then send one ASAP and one scheduled order.**
+      *Verified locally: ASAP → 17:10, earlier than the 17:25 the offset rule
+      gives. Scheduled → 19:40, unchanged.*
+- [x] **Set `pickupWithin` to 60 and send an ASAP order.** *Verified locally:
+      pickup 18:00 — later than 17:25, the same setting moving it both ways.*
 - [ ] **Leave `pickupWithin` set overnight.** After 03:00 Amsterdam it should be
       gone from the admin screen without anyone touching it — and the stored row
       should be empty, not merely ignored.
@@ -174,11 +188,11 @@ only. These are the checks worth running once deployed.
       trip. Progress must survive the reorder — it is read from the orders, and
       replacing stops no longer has anything to carry across.
 
-- [ ] **Correct an address** from the coordinator's contact card. The displayed
-      line must update to match, and "as received" should appear underneath
-      showing the source's original — that pair is the whole point of D12.
-- [ ] **Search for the old address** afterwards. The order must still be
-      findable by the address it arrived with, and by the corrected one.
+- [x] **Correct an address** via `POST /orders/:id/contact`. *Verified locally:
+      derived line became "Hoofdstraat 99, 1017 CD Amsterdam" while
+      `deliveryAddressOriginal` stayed "Kade 5, 1011 AB Amsterdam".*
+- [x] **Search for the old address** afterwards. *Verified locally: the order is
+      found by both the corrected street and the original one.*
 - [ ] **Replay an order** through inbound ingestion. `delivery_address_original`
       must not move, matching `pickup_time_original`.
 
@@ -225,6 +239,32 @@ as `todo.md` M6.
 
 *Nothing pending.* D6 was the last decision carrying a schema change, and it is
 built — its column drop is folded into Part 1's schema impact above.
+
+---
+
+## Part 5b — Verified against a real database, 2026-08-15
+
+Run with `./scripts/local-db.sh start`, the built API server, and `curl`. Not a
+deployment test — it verifies the code, not the environment.
+
+| Decision | Checked | Result |
+|---|---|---|
+| Schema | `drizzle-kit push` against an empty database | Clean. Rename applied as a rename; dropped column gone. |
+| D13 | ASAP, offset rule | checkout 17:00, shown 17:45 → **17:25** |
+| D13 | scheduled | shown 20:00 → **19:40** |
+| D13 | `pickupWithin` 10 (quiet) | → **17:10**, earlier than the offset rule |
+| D13 | `pickupWithin` 60 (busy) | → **18:00**, later — same knob, both directions |
+| D13 | `pickupWithin` on a scheduled order | → **19:40**, ignored, as designed |
+| D12 | address correction | derived line changed, original unchanged |
+| D12 | order search | found by both the corrected and the original address |
+| D14 | `POST /orders/:id/ready` | `restaurantReadyAt` set; **both pickup times unchanged** |
+| D2 | assign a held order | `422 ORDER_ON_HOLD` |
+| D2 | release, then assign | `driver_assigned`, rider attached |
+| D1 | `allowedTransitions` | serialized, and excludes the rider-coupled statuses |
+
+The D14 row is the one worth keeping: it is the exact bug — a status update
+overwriting a negotiated pickup time — shown fixed against real rows rather
+than asserted.
 
 ---
 
