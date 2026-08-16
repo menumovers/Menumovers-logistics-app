@@ -3771,17 +3771,17 @@ export const GetSettingsResponse = zod.object({
     .describe(
       "The standing gap, in minutes, between an order's pickup time and the\ndelivery time the customer was shown at checkout. Applies to every\norder. Defaults to 20.\n\n\*\*Not travel time.\*\* Nothing measures how long the journey takes;\nthis is a chosen offset that makes no claim about what fills it.\n",
     ),
-  pickupMinimumTodayMinutes: zod
+  pickupWithinMinutes: zod
     .number()
     .nullish()
     .describe(
-      'The minimum time, in minutes from checkout, the delivery team needs\ntoday before it can collect at all — set by a coordinator in\nabsolute terms (\"we need 45 minutes today\").\n\n\*\*A constraint, not a target.\*\* It can only push a pickup later than\nthe offset alone would; lowering it releases orders it was holding\nback rather than scheduling anything earlier. \*\*ASAP orders only:\*\*\ntoday\'s conditions say nothing about an order scheduled for next\nweek.\n\nCleared automatically once a new operational day begins at 03:00\nEurope\/Amsterdam. Null means no minimum is in effect.\n',
+      'How quickly the delivery team can collect right now, in minutes\ncounted \*\*forwards from the order arriving\*\* — \"it\'s quiet, we can\nbe there in ten\".\n\nA \*\*different quantity\*\* from `pickupOffsetMinutes`, which counts\nbackwards from the delivery time. They have different anchors and\nnever combine: when this is set it simply \*is\* the pickup time for\nan ASAP order. Both directions follow with no comparison — a small\nvalue moves pickup earlier (rider moving rather than idle), a large\none moves it later (swamped, cannot get there yet).\n\n\*\*ASAP orders only:\*\* \"we can be there in ten\" says nothing about an\norder placed today for next Tuesday.\n\nNot clamped. Everything we could clamp against is a guesstimate, and\na coordinator setting this can see whether restaurants are open.\n\nCleared automatically once a new operational day begins at 03:00\nEurope\/Amsterdam. Null means the offset rule applies.\n',
     ),
-  pickupMinimumTodaySetAt: zod.coerce
+  pickupWithinSetAt: zod.coerce
     .date()
     .nullish()
     .describe(
-      "When today's minimum was last written. Read-only — set automatically\nalongside the value so the daily reset knows which operational day it\nbelongs to.\n",
+      "When `pickupWithinMinutes` was last written. Read-only — set\nautomatically alongside the value so the daily reset knows which\noperational day it belongs to.\n",
     ),
   vapidConfigured: zod.boolean(),
   inboundSecretConfigured: zod.boolean().optional(),
@@ -3789,7 +3789,7 @@ export const GetSettingsResponse = zod.object({
 
 export const updateSettingsBodyPickupOffsetMinutesMin = 0;
 
-export const updateSettingsBodyPickupMinimumTodayMinutesMin = 0;
+export const updateSettingsBodyPickupWithinMinutesMin = 0;
 
 export const UpdateSettingsBody = zod.object({
   outboundWebhookUrl: zod.string().nullish(),
@@ -3799,9 +3799,9 @@ export const UpdateSettingsBody = zod.object({
     .number()
     .min(updateSettingsBodyPickupOffsetMinutesMin)
     .optional(),
-  pickupMinimumTodayMinutes: zod
+  pickupWithinMinutes: zod
     .number()
-    .min(updateSettingsBodyPickupMinimumTodayMinutesMin)
+    .min(updateSettingsBodyPickupWithinMinutesMin)
     .nullish(),
 });
 
@@ -3819,17 +3819,17 @@ export const UpdateSettingsResponse = zod.object({
     .describe(
       "The standing gap, in minutes, between an order's pickup time and the\ndelivery time the customer was shown at checkout. Applies to every\norder. Defaults to 20.\n\n\*\*Not travel time.\*\* Nothing measures how long the journey takes;\nthis is a chosen offset that makes no claim about what fills it.\n",
     ),
-  pickupMinimumTodayMinutes: zod
+  pickupWithinMinutes: zod
     .number()
     .nullish()
     .describe(
-      'The minimum time, in minutes from checkout, the delivery team needs\ntoday before it can collect at all — set by a coordinator in\nabsolute terms (\"we need 45 minutes today\").\n\n\*\*A constraint, not a target.\*\* It can only push a pickup later than\nthe offset alone would; lowering it releases orders it was holding\nback rather than scheduling anything earlier. \*\*ASAP orders only:\*\*\ntoday\'s conditions say nothing about an order scheduled for next\nweek.\n\nCleared automatically once a new operational day begins at 03:00\nEurope\/Amsterdam. Null means no minimum is in effect.\n',
+      'How quickly the delivery team can collect right now, in minutes\ncounted \*\*forwards from the order arriving\*\* — \"it\'s quiet, we can\nbe there in ten\".\n\nA \*\*different quantity\*\* from `pickupOffsetMinutes`, which counts\nbackwards from the delivery time. They have different anchors and\nnever combine: when this is set it simply \*is\* the pickup time for\nan ASAP order. Both directions follow with no comparison — a small\nvalue moves pickup earlier (rider moving rather than idle), a large\none moves it later (swamped, cannot get there yet).\n\n\*\*ASAP orders only:\*\* \"we can be there in ten\" says nothing about an\norder placed today for next Tuesday.\n\nNot clamped. Everything we could clamp against is a guesstimate, and\na coordinator setting this can see whether restaurants are open.\n\nCleared automatically once a new operational day begins at 03:00\nEurope\/Amsterdam. Null means the offset rule applies.\n',
     ),
-  pickupMinimumTodaySetAt: zod.coerce
+  pickupWithinSetAt: zod.coerce
     .date()
     .nullish()
     .describe(
-      "When today's minimum was last written. Read-only — set automatically\nalongside the value so the daily reset knows which operational day it\nbelongs to.\n",
+      "When `pickupWithinMinutes` was last written. Read-only — set\nautomatically alongside the value so the daily reset knows which\noperational day it belongs to.\n",
     ),
   vapidConfigured: zod.boolean(),
   inboundSecretConfigured: zod.boolean().optional(),

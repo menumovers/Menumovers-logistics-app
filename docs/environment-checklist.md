@@ -42,7 +42,7 @@ Branch `claude/app-workflow-schema-alignment-n4dnrz`.
 | 8 | Order receipt — printable kitchen document | D10 |
 | 9 | Trips — rider trip view, progress derived from order status | D6 |
 | 10 | Address — components canonical, the source's line kept immutable for audit | D12 |
-| 11 | Temporal mapping — pickup times anchored to source timestamps, clock no longer read | D13 |
+| 11 | Temporal mapping — two pickup anchors, clock no longer read | D13 |
 
 ### Schema impact
 
@@ -64,10 +64,9 @@ there is no data in it to lose — but see the warning below before running a
 drop against anything that has been live.
 
 Item 11 adds no DDL. It replaces the `pickup_travel_override_minutes`
-`system_settings` row with `pickup_estimate_default_minutes`,
-`pickup_estimate_in_the_moment_minutes` and
-`pickup_estimate_in_the_moment_set_at`. The old row can simply be deleted; if
-left, nothing reads it.
+`system_settings` row with `pickup_offset_minutes`, `pickup_within_minutes` and
+`pickup_within_set_at`. The old row can simply be deleted; if left, nothing
+reads it.
 
 Items 1–4 and 6 add no DDL — their settings are rows in the existing
 `system_settings` key/value table.
@@ -111,32 +110,33 @@ only. These are the checks worth running once deployed.
 
 - [ ] **Admin → Settings loads and saves.** This exercises the whole registry
       read/write path. Save the webhook URL, the self-claim toggle and both
-      pickup estimates; confirm each persists across a reload.
+      pickup settings; confirm each persists across a reload.
 - [ ] **Webhook source label still reads correctly.** It should show `settings`
       when set through the UI, `env` when only `WEBHOOK_URL` is present, and
       `unset` when neither — the registry took over this resolution.
-- [ ] **Clearing the in-the-moment estimate.** Emptying the field should delete
-      the row and its `set_at` companion, not store a zero.
+- [ ] **Clearing `pickupWithin`.** Emptying the field should delete the row and
+      its `set_at` companion, not store a zero.
 - [ ] **Send a scheduled test order** with `deliveryTimeType: "later_today"`
-      and a `requestedDeliveryTime` several hours out. The pickup time must land
-      exactly `pickupEstimateDefaultMinutes` before the requested time — not
-      near now, and not offset by any figure from the payload.
+      and a `requestedDeliveryTime` several hours out. Pickup must land exactly
+      `pickupOffsetMinutes` before it — not near now, and not offset by any
+      figure from the payload.
 - [ ] **Send an ASAP order with a `sourceCreatedAt` well in the past** (say an
-      hour). The pickup time must be `sourceCreatedAt + lead time`, i.e. also in
-      the past — *not* an hour from now. This is the defect D13 exists to fix:
-      an ingestion delay must not push the pickup time later.
-- [ ] **Set the in-the-moment value, then send one ASAP and one scheduled
-      order.** The ASAP pickup must use it; the scheduled one must ignore it
-      entirely.
-- [ ] **Leave the in-the-moment value set overnight.** After 03:00 Amsterdam it
-      should be gone from the admin screen without anyone touching it — and the
-      stored row should be empty, not merely ignored.
+      hour), with `pickupWithin` unset. Pickup must still be
+      `requestedDeliveryTime − offset` — an ingestion delay must not move it.
+- [ ] **Set `pickupWithin` to 10, then send one ASAP and one scheduled order.**
+      The ASAP pickup must be `sourceCreatedAt + 10` and *earlier* than the
+      offset rule would give. The scheduled one must ignore it entirely.
+- [ ] **Set `pickupWithin` to 60 and send an ASAP order.** Pickup must be
+      *later* than the offset rule — the same setting moving it the other way.
+- [ ] **Leave `pickupWithin` set overnight.** After 03:00 Amsterdam it should be
+      gone from the admin screen without anyone touching it — and the stored row
+      should be empty, not merely ignored.
 - [ ] **Check the lead-time log field.** A short-notice order should show a small
       `leadMinutes` and still be accepted.
 - [ ] **Check the ingestion log line.** Each new order logs
-      `"Computed original pickup time"` with `pickupBasis` (`asap` /
-      `scheduled`), `estimateMinutes`, `estimateSource` (`in_the_moment` /
-      `source_min_pickup` / `default`), `leadMinutes` and `sourceCreatedAt`. If a pickup time ever looks wrong, this
+      `"Computed original pickup time"` with `pickupBasis` (`within` /
+      `offset`), `pickupMinutes`, `pickupAnchor` (`order_arrival` /
+      `delivery_time`), `leadMinutes` and `sourceCreatedAt`. If a pickup time ever looks wrong, this
       is where to look first.
 - [ ] **Send an order with `deliveryMethod: "pickup"`.** It must not appear in
       any rider's open-orders list, and `/assign` on it must return
@@ -230,12 +230,16 @@ built — its column drop is folded into Part 1's schema impact above.
 
 ## Part 6 — Known gaps
 
-- **No automated tests, and the stand-in scripts rot.** 166 assertions across
-  nine scripts cover the pure calculations — pickup times (27), money arithmetic
+- **No automated tests, and the stand-in scripts rot.** 162 assertions across
+  nine scripts cover the pure calculations — pickup times (23), money arithmetic
   (21), date handling (13), delivery method (5), the state machine (23), the
   receipt adjustment (9), trip progress (25), address formatting (21), the daily
   reset including both DST transitions (22). All nine were re-run and re-counted
-  on 2026-08-15. They live as throwaway scripts outside the
+  on 2026-08-15.
+
+  Worth naming after today: **a passing count says the code matches the rule it
+  was written against, never that the rule is right.** Four pickup formulas had
+  green assertions before the fifth turned out to be the correct one. They live as throwaway scripts outside the
   repository, because there is no runner (`todo.md` H3).
 
   One of them proved the risk: it covered helpers that were later deleted with

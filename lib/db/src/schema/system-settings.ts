@@ -28,16 +28,20 @@ export const SETTING_KEYS = {
    * the journey; this is a chosen offset.
    */
   PICKUP_OFFSET_MINUTES: "pickup_offset_minutes",
-   /**
-   * The minimum time, in minutes from checkout, that the delivery team needs
-   * before it can collect at all today. A constraint rather than a target: it
-   * can only push a pickup later, never earlier. ASAP orders only. Cleared
-   * each day at 03:00 Europe/Amsterdam by the janitor.
-   */
-  PICKUP_MINIMUM_TODAY_MINUTES: "pickup_minimum_today_minutes",
   /**
-   * When today's minimum was last written. Not a user-facing setting — the
-   * janitor reads it to decide whether the value belongs to a previous day.
+   * How quickly the delivery team can collect right now, in minutes counted
+   * **forwards from the order arriving** — "it's quiet, we can be there in
+   * ten". A different quantity from PICKUP_OFFSET_MINUTES, which counts
+   * backwards from the delivery time; the two never combine.
+   *
+   * When set it simply is the pickup time for an ASAP order, so a small value
+   * moves pickup earlier and a large one later. ASAP only. Cleared each day at
+   * 03:00 Europe/Amsterdam by the janitor.
    */
-  PICKUP_MINIMUM_TODAY_SET_AT: "pickup_minimum_today_set_at",
+  PICKUP_WITHIN_MINUTES: "pickup_within_minutes",
+  /**
+   * When PICKUP_WITHIN_MINUTES was last written. Not a user-facing setting —
+   * the janitor reads it to decide whether the value belongs to a previous day.
+   */
+  PICKUP_WITHIN_SET_AT: "pickup_within_set_at",
 } as const;

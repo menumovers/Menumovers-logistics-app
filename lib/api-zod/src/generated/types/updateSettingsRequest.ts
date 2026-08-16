@@ -17,5 +17,5 @@ export interface UpdateSettingsRequest {
    * @minimum 0
    * @nullable
    */
-  pickupMinimumTodayMinutes?: number | null;
+  pickupWithinMinutes?: number | null;
 }

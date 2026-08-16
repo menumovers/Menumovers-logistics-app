@@ -7,7 +7,7 @@ import { isStale } from "./daily-reset";
 const INTERVAL_MS = 5 * 60_000;
 
 /**
- * Clear today's pickup minimum once a new operational day starts.
+ * Clear today's `pickupWithin` value once a new operational day starts.
  *
  * Deliberately a *clear*, not an expiry computed on every read: the stored row
  * should say what is actually in effect, so an admin looking at settings never
@@ -18,36 +18,36 @@ const INTERVAL_MS = 5 * 60_000;
  *
  * See docs/workflow-decisions.md D13.
  */
-async function clearStalePickupMinimum(): Promise<void> {
+async function clearStalePickupWithin(): Promise<void> {
   const [current, setAtRaw] = await Promise.all([
-    readSetting(SETTINGS.pickupMinimumTodayMinutes),
-    readSetting(SETTINGS.pickupMinimumTodaySetAt),
+    readSetting(SETTINGS.pickupWithinMinutes),
+    readSetting(SETTINGS.pickupWithinSetAt),
   ]);
   if (current === null) return;
   const setAt = setAtRaw ? new Date(setAtRaw) : null;
   const valid = setAt !== null && !Number.isNaN(setAt.getTime());
   if (valid && !isStale(setAt, new Date())) return;
 
-  await writeSetting(SETTINGS.pickupMinimumTodayMinutes, null);
-  await writeSetting(SETTINGS.pickupMinimumTodaySetAt, null);
+  await writeSetting(SETTINGS.pickupWithinMinutes, null);
+  await writeSetting(SETTINGS.pickupWithinSetAt, null);
   logger.info(
     { clearedValue: current, setAt: setAtRaw },
-    "Janitor: cleared yesterday's pickup minimum",
+    "Janitor: cleared yesterday's pickupWithin value",
   );
 }
 
 /**
  * Periodic background cleanup. Prunes expired entries from `revoked_tokens`
- * and clears the today's pickup minimum when a new day has started.
+ * and clears the today's pickupWithin value when a new day has started.
  * New periodic cleanups belong here so there is one home for cron-like work.
  *
  * Each task is isolated: one failing must not stop the others running.
  */
 async function runOnce(): Promise<void> {
   try {
-    await clearStalePickupMinimum();
+    await clearStalePickupWithin();
   } catch (err) {
-    logger.error({ err }, "Janitor: pickup-minimum reset failed");
+    logger.error({ err }, "Janitor: pickupWithin reset failed");
   }
   try {
     const result = await db

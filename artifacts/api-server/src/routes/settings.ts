@@ -34,8 +34,8 @@ async function buildSettings() {
     outboundWebhookEnabled: resolved.outboundWebhookEnabled.value,
     allowRiderSelfClaim: resolved.allowRiderSelfClaim.value,
     pickupOffsetMinutes: resolved.pickupOffsetMinutes.value,
-    pickupMinimumTodayMinutes: resolved.pickupMinimumTodayMinutes.value,
-    pickupMinimumTodaySetAt: resolved.pickupMinimumTodaySetAt.value,
+    pickupWithinMinutes: resolved.pickupWithinMinutes.value,
+    pickupWithinSetAt: resolved.pickupWithinSetAt.value,
     vapidConfigured: Boolean(
       process.env["VAPID_PUBLIC_KEY"] && process.env["VAPID_PRIVATE_KEY"],
     ),
@@ -91,14 +91,14 @@ router.patch(
       );
     }
 
-    if (parsed.data.pickupMinimumTodayMinutes !== undefined) {
-      const value = parsed.data.pickupMinimumTodayMinutes;
-      await writeSetting(SETTINGS.pickupMinimumTodayMinutes, value);
+    if (parsed.data.pickupWithinMinutes !== undefined) {
+      const value = parsed.data.pickupWithinMinutes;
+      await writeSetting(SETTINGS.pickupWithinMinutes, value);
       // Stamped alongside the value so the janitor can tell which operational
       // day it belongs to. Cleared with it, so a null value never leaves a
       // stray timestamp behind.
       await writeSetting(
-        SETTINGS.pickupMinimumTodaySetAt,
+        SETTINGS.pickupWithinSetAt,
         value === null ? null : new Date().toISOString(),
       );
     }

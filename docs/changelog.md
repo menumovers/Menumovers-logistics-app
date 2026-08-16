@@ -1,61 +1,58 @@
 # Changelog
 
-## 2026-08-15 — Nothing computes a pickup time from the clock any more
+## 2026-08-15 — Pickup times: two anchors, never combined
 
 Closes the question that opened this audit: *why is anything computing from
-`now`?* `now` is when our API processes a request — not when the customer
-ordered. Treating them as the same assumes ingestion is instantaneous, so any
-delay silently pushed an ASAP pickup time later by however long the delay was.
+`now`?* Nothing does. But the answer took four discarded designs to reach, and
+the reason is worth more than the formula.
 
-ASAP now counts forward from `sourceCreatedAt`, the moment checkout completed.
-Scheduled orders work back from `requestedDeliveryTime`. Both are source
-timestamps; the ingestion path no longer reads the clock at all.
+**The default rule anchors to the delivery time the customer was shown.**
+`requestedDeliveryTime` is badly named — nothing is "requested" on an ASAP order
+— but it already carries the restaurant's opening hours and prep time, because
+the source applied them before promising the customer anything. Anchoring there
+inherits all of it. Counting forward from checkout instead, which an earlier
+version did, reconstructs that calculation without the opening hours and fails
+whenever a kitchen is shut at the moment someone orders.
 
-**The old formula was wrong at the root, not just anchored badly.** It derived a
-travel time from `*MinDeliveryTime`. That field is checkout-to-doorstep — the
-whole journey, prep included — and a rough figure a coordinator sets and rarely
-revisits. Subtracting it from the delivery time lands at checkout, not at
-pickup. `MinDeliveryTime − MinPickupTime` would be arithmetically valid and
-epistemically junk: a number that looks derived while inheriting the reliability
-of the worse input.
+**`pickupWithinMinutes` is the second anchor, and it counts the other way.**
+When a coordinator says *"it's quiet, we can do it in ten"*, the ten runs from
+the order arriving — get moving, stop sitting idle. So a small value moves
+pickup earlier and a large one later, with no comparison logic at all. ASAP
+only; "we can be there in ten" says nothing about next Tuesday.
 
-There is no trustworthy travel figure in the payload, so we stopped pretending
-there was. Scheduled orders use **our own estimate, labelled as ours**.
+The two settings measure different things from different anchors and **never
+combine**. Whichever applies simply is the answer. Every attempt to reconcile
+them — a floor, a `MAX`, a fallback chain — was a category error.
 
-`*MinPickupTime` is finally read. It is a *minimum lead time* — "we need this
-much notice" — so for an ASAP order the earliest possible pickup is checkout
-plus that lead time, and the larger of the restaurant's and delivery team's
-figures binds. `sourceRestaurantReadyTime` and `*MinDeliveryTime` become
-audit-only; `*MinPrepTime` is legacy at the source and read by nothing.
+Neither is clamped. Everything available to clamp against is a guesstimate, and
+a coordinator setting a value can see whether restaurants are open. An order
+placed at 17:20 for 17:30 is still accepted: feasibility is Bestellenbij's, and
+a pickup time in the past is a true statement about what happened upstream. The
+lead time is logged so someone can go and ask.
 
-Two settings replace `pickupTravelOverrideMinutes`, which overrode a quantity
-that no longer exists:
+Terminology, because three words were doing damage. **"Travel time"** implies
+something measured; nothing measures the journey, so the setting is
+`pickupOffset`. **"Lead time"** meant two things and now names one: the
+observation `requestedDeliveryTime − sourceCreatedAt`. **"Minimum"** invited a
+floor, which is not what `pickupWithin` is — it replaces, it does not bound.
 
-- **`pickupEstimateDefaultMinutes`** (20) — the baseline every scheduled order
-  works back from.
-- **`pickupEstimateInTheMomentMinutes`** — today's conditions, entered in
-  absolute terms because that is how a coordinator thinks ("we need 45 minutes
-  today", not "+15"). **ASAP only**: how busy we are now says nothing about an
-  order scheduled for next Tuesday.
+All six `*Min*Time` duration fields and `sourceRestaurantReadyTime` are
+audit-only. `pickupTravelOverrideMinutes` is gone; it overrode a quantity that
+no longer exists.
 
-The in-the-moment value is **cleared** at 03:00 Europe/Amsterdam rather than
-expired on read, so the stored row always says what is actually in effect — the
-same stored-versus-true divergence D12 removed from the address. It runs on the
-existing five-minute janitor instead of a 03:00 cron, which makes it
-self-healing: if the server was down at 03:00, the first tick after it returns
-clears the value. `lib/daily-reset.ts` does the boundary through `Intl`, because
-Amsterdam observes DST and two resets are not always 24 hours apart.
+The daily reset **clears** the value rather than expiring it on read, so the
+stored row always says what is in effect — the same stored-versus-true
+divergence D12 removed from the address. It runs on the existing five-minute
+janitor rather than an 03:00 cron, which makes it self-healing after downtime.
+`lib/daily-reset.ts` resolves the boundary through `Intl`: Amsterdam observes
+DST, so consecutive resets are 23 or 25 hours apart.
 
-Lead time (`requestedDeliveryTime − sourceCreatedAt`) is now logged as an
-observation. An order placed at 17:20 for 17:30 is still accepted: feasibility
-is Bestellenbij's, and a pickup time in the past is a true statement about what
-happened upstream. We surface it and let a coordinator go and ask, rather than
-clamping it into looking possible.
-
-Half of the ten inbound time fields had no confirmed meaning before this and
-were being read off their names — which is how the old formula went wrong. The
-definitions are now recorded in `openapi.yaml`, the `orders` schema comment and
-`workflow-decisions.md` §F, with an explicit instruction not to re-infer them.
+**The process, which cost more than the code.** Four formulas were built and
+discarded, each internally consistent and each with passing assertions —
+proving only that an invented rule had been applied consistently. Every one came
+from filling a gap in understanding with something plausible, because code will
+not compile around a gap. The rule that came out of it is in `replit.md` §5:
+state the spec back and wait, and stop at gaps rather than filling them.
 
 Supersedes D4. Rationale in `docs/workflow-decisions.md` D13.
 

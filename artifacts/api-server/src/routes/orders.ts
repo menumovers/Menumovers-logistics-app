@@ -188,18 +188,17 @@ router.post(
     // already carries the restaurant's opening hours and prep time because the
     // source applied them before showing the customer a delivery time.
     // See docs/workflow-decisions.md D13.
-    const [pickupOffsetMinutes, minimumTodayMinutes] = await Promise.all([
+    const [pickupOffsetMinutes, pickupWithinMinutes] = await Promise.all([
       readSetting(SETTINGS.pickupOffsetMinutes),
-      readSetting(SETTINGS.pickupMinimumTodayMinutes),
+      readSetting(SETTINGS.pickupWithinMinutes),
     ]);
-    const { pickupTimeOriginal, offsetMinutes, basis, minimumApplied } =
-      resolveOriginalPickupTime({
-        deliveryTimeType: payload.deliveryTimeType,
-        sourceCreatedAt: payload.sourceCreatedAt,
-        requestedDeliveryTime: payload.requestedDeliveryTime,
-        pickupOffsetMinutes,
-        minimumTodayMinutes,
-      });
+    const { pickupTimeOriginal, basis, minutes, anchor } = resolveOriginalPickupTime({
+      deliveryTimeType: payload.deliveryTimeType,
+      sourceCreatedAt: payload.sourceCreatedAt,
+      requestedDeliveryTime: payload.requestedDeliveryTime,
+      pickupOffsetMinutes,
+      pickupWithinMinutes,
+    });
     const leadMinutes = leadTimeMinutes({
       sourceCreatedAt: payload.sourceCreatedAt,
       requestedDeliveryTime: payload.requestedDeliveryTime,
@@ -336,8 +335,8 @@ router.post(
           externalOrderId: row.externalOrderId,
           deliveryTimeType: payload.deliveryTimeType,
           pickupBasis: basis,
-          offsetMinutes,
-          minimumApplied,
+          pickupMinutes: minutes,
+          pickupAnchor: anchor,
           leadMinutes,
           sourceCreatedAt: payload.sourceCreatedAt.toISOString(),
           pickupTimeOriginal: pickupTimeOriginal.toISOString(),

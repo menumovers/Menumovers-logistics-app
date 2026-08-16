@@ -153,60 +153,84 @@ cheapest available alarm.
 
 ---
 
-## D13. The temporal mapping: anchor to what the customer was told
+## D13. The temporal mapping: two anchors, never combined
 
-**Decided 2026-08-15. Anchor built 2026-08-15; the minimum's semantics are
-still open — see the end.** Supersedes D4. Answers the parked question *"why is
-anything computing from `now`?"* — the answer was that it shouldn't be, and now
+**Decided 2026-08-15. Built 2026-08-15.** Supersedes D4. Answers the parked
+question *"why is anything computing from `now`?"* — it shouldn't be, and now
 nothing does.
 
-### The anchor — settled
+### The two rules
 
 ```
-pickup   = requestedDeliveryTime − pickupOffset
-observed = requestedDeliveryTime − sourceCreatedAt      ← lead time
+ASAP, pickupWithin set:   pickup = sourceCreatedAt      + pickupWithin
+otherwise:                pickup = requestedDeliveryTime − pickupOffset
+observed:                 leadTime = requestedDeliveryTime − sourceCreatedAt
 ```
 
-**Everything hangs off `requestedDeliveryTime`.** Despite the name, nothing is
-"requested" on an ASAP order — it is *the delivery time shown to the customer at
-checkout*. The field name stays, because it is the payload's, but every
-description now says what it means.
+**`pickupOffset` counts backwards from the delivery time. `pickupWithin` counts
+forwards from the order arriving.** Different quantities, different anchors, and
+they never combine — whichever applies simply *is* the answer.
 
-That timestamp already has **the restaurant's opening hours and prep time
-applied**, because the source used them to decide what to promise the customer.
-Anchoring there inherits all of it for free.
+That distinction is the whole decision, and getting it wrong is what produced
+four discarded designs in one afternoon.
 
-Counting forward from checkout instead — which two earlier versions of this did
-— reconstructs the source's calculation using less information than they had,
-and gets it wrong every time someone orders while the restaurant is shut.
-`sourceCreatedAt + MinPickupTime` has no idea the kitchen opens at 17:00. That
-flaw is what retired the previous design within the hour.
+### Why the delivery time is the default anchor
 
-**`*MinPickupTime` is consequently unused**, along with the other five duration
-fields. All six are audit-only. The payload contributes exactly one timestamp to
-the pickup calculation and one more to the observation.
+`requestedDeliveryTime` is badly named: nothing is "requested" on an ASAP order.
+It is **the delivery time shown to the customer at checkout**. The field name
+stays, because it is the payload's, but every description now says what it
+means.
+
+It already has **the restaurant's opening hours and prep time applied**, because
+the source used them to decide what to promise. Anchoring there inherits all of
+it for free.
+
+Counting forward from checkout instead reconstructs that calculation with less
+information than the source had, and gets it wrong every time someone orders
+while a kitchen is shut — `sourceCreatedAt + MinPickupTime` has no idea the
+restaurant opens at 17:00. That is what retired the previous version.
+
+**`*MinPickupTime` is consequently unused**, as are the other five duration
+fields. All six are audit-only. The payload contributes one timestamp to the
+calculation and one more to the observation.
+
+### Why `pickupWithin` counts forwards
+
+Because of what a coordinator is actually saying. *"It's quiet, we can do it in
+ten"* means we can be at the restaurant ten minutes after an order lands — get
+moving, stop sitting idle. The ten is counted from the order arriving, not from
+the delivery time.
+
+So a **small value moves pickup earlier** and a large one moves it later, with
+no comparison logic at all. Both directions fall out of the anchor.
+
+It is **ASAP only**: "we can be there in ten" says nothing about an order placed
+today for next Tuesday. And it is **not clamped** — everything we could clamp
+against is a guesstimate, and a coordinator setting it can see whether
+restaurants are open. Feasibility is Bestellenbij's; ours is to show what was
+decided.
 
 ### Terminology
 
-Two words were doing damage:
+Three words were doing damage:
 
 - **"travel time"** implies something measured. Nothing measures the journey.
-  The setting is `pickupOffset`: it says where pickup sits relative to delivery
-  and makes no claim about what fills the gap.
-- **"lead time"** means two different things — order-to-pickup, or
-  pickup-to-delivery. It now names exactly one thing: the observation
-  `requestedDeliveryTime − sourceCreatedAt`.
+  `pickupOffset` says where pickup sits relative to delivery and claims nothing
+  about what fills the gap.
+- **"lead time"** meant two things — order-to-pickup, or pickup-to-delivery. It
+  now names exactly one: the observation `requestedDeliveryTime −
+  sourceCreatedAt`.
+- **"minimum"** invited a floor, which is not what this is. `pickupWithin`
+  replaces; it does not bound.
 
-### Feasibility is not ours
+### The settings
 
-An order placed at 17:20 for 17:30 is not ours to reject or repair.
-Bestellenbij owns what the customer is offered; we take what arrives and make it
-usable. We record the lead time and let a coordinator go and ask, rather than
-clamping a pickup time into looking possible.
+| Setting | Anchor | Applies to | Notes |
+|---|---|---|---|
+| `pickupOffsetMinutes` | delivery time, backwards | every order | Default 20. Cannot be unset. |
+| `pickupWithinMinutes` | order arrival, forwards | **ASAP only** | Null means the offset rule applies. Cleared 03:00 Europe/Amsterdam. |
 
-That is D4's no-clamp rule, kept for a better reason than it gave.
-
-### The daily reset — settled
+### The daily reset
 
 **A clear, not an expiry computed on read.** The stored row should say what is
 actually in effect; a value sitting in settings while the effective value is
@@ -216,8 +240,16 @@ The cost of choosing a clear is a job that can be missed, so it runs on the
 existing five-minute janitor rather than an 03:00 cron. That makes it
 self-healing: if the server was down at 03:00, the first tick after it returns
 clears the value. `lib/daily-reset.ts` resolves the boundary through `Intl`,
-because Amsterdam observes DST and consecutive resets are 23 or 25 hours apart,
-not 24. Verified with 22 assertions covering both transitions.
+because Amsterdam observes DST and consecutive resets are 23 or 25 hours apart.
+
+### Feasibility is not ours
+
+An order placed at 17:20 for 17:30 is not ours to reject or repair.
+Bestellenbij owns what the customer is offered; we take what arrives and make it
+usable. We record the lead time and let a coordinator go and ask, rather than
+clamping a pickup time into looking possible.
+
+That is D4's no-clamp rule kept for a better reason than it gave.
 
 ### What was removed
 
@@ -225,39 +257,31 @@ not 24. Verified with 22 assertions covering both transitions.
 `restaurantDefaultMinDeliveryTime`, and the `now` input.
 `restaurants.minDeliveryTime` is no longer read by the pickup path.
 
----
+Verified with 23 assertions on the formula and 22 on the daily reset.
 
-### OPEN: what `pickupMinimumTodayMinutes` does
+### How this decision was reached, because the process cost more than the code
 
-**Built as a floor. That is known to be incomplete.**
+Four versions were built and discarded before this one:
 
-The setting is the coordinator's answer to *"how long do we need, from checkout,
-before we can collect?"* — set in absolute terms, ASAP orders only, cleared at
-03:00.
+1. **`now + travel`, travel from `*MinDeliveryTime`** (D4) — wrong field.
+   `MinDeliveryTime` is checkout-to-doorstep, so subtracting it from a delivery
+   time lands at checkout.
+2. **`sourceCreatedAt + MinPickupTime`** — ignored opening hours, which the
+   source had already accounted for.
+3. **`MAX(offset rule, checkout + minimum)`** — read a re-description of
+   `pickupOffset` as a second quantity, then invented a floor to reconcile them.
+   Only handled the busy direction.
+4. **`pickupWithin` as an override of `pickupOffset`** — collapsed two anchors
+   into one, so a smaller value moved pickup the wrong way.
 
-Current code applies it as `MAX(defaultPickup, sourceCreatedAt + minimum)`, so a
-larger value delays a pickup and a smaller one does nothing.
+Every one came from the same habit: filling a gap in understanding with
+something plausible, because code will not compile around a gap. Each was
+internally consistent and had passing assertions, which proved nothing about
+whether it was true.
 
-**The owner has been explicit that it must work in both directions**: when it is
-quiet, a coordinator should be able to say "we don't need to wait 30 minutes, we
-can go sooner" and have the pickup actually move earlier. A floor cannot express
-that, so the built behaviour is half the requirement.
-
-**What blocks finishing it** is the same hazard the anchor exists to avoid: if
-the value can pull a pickup earlier, something has to stop it landing before the
-food exists. An order placed at 16:40 with a 15-minute minimum gives 16:55, and
-if the kitchen opens at 17:00 the rider meets a locked door.
-
-So "sooner" needs a lower bound, and we do not have opening hours.
-`sourceRestaurantReadyTime` is the one candidate visible in the payload — the
-source's own calculation of when the restaurant should have the order ready,
-present for ASAP orders only, which matches this setting's scope. It is
-currently classified audit-only.
-
-**Not to be resolved by inference.** Three readings of this value have already
-been built and discarded — replace, floor, and offset-override — each from
-reasoning that looked sound and wasn't. The next change waits on the owner
-saying what bounds "sooner".
+The rule that came out of it is in `replit.md` §5: state the spec back in a few
+lines and wait, and stop at gaps rather than filling them. That rule caught the
+fifth version before it was written.
 
 ---
 
@@ -629,9 +653,9 @@ evidence, and never soften one back into a question.**
 | `happy_hour` is a discount on delivery cost in exchange for the customer accepting less control over timing | D5 |
 | `deliveryTimeType` sends exactly `asap`, `later_today`, `other_day` | D4 |
 | `sourceCreatedAt` is the order's creation timestamp at the source — when checkout completed. Every duration below is measured from it | Audit only (D13) |
-| `sourceRestaurantReadyTime` is when the source calculated the restaurant should have the order ready, from that restaurant's settings at order time. **ASAP orders only** | Audit only (D13) |
+| `sourceRestaurantReadyTime` is when the source calculated the restaurant should have the order ready, from that restaurant's settings at order time. **ASAP only, and a guesstimate — a soft border, never a bound to clamp against** | Audit only (D13) |
 | `*MinDeliveryTime` is **checkout → doorstep** — the whole journey including prep, used by the source to show the customer an estimate. It is *not* travel time | Audit only (D13) |
-| `*MinPickupTime` is **checkout → pickup at the restaurant**, as at the moment of ordering | Audit only (D13) |
+| `*MinPickupTime` is a **minimum lead time** — the least notice either party needs — not a scheduling offset | Audit only (D13) |
 | `*MinPrepTime` is **legacy at the source**. Ignore it | Audit only (D13) |
 | The `restaurant*` / `deliveryTeam*` split is the restaurant's own configured figure versus the delivery team's | Audit only (D13) |
 | **`requestedDeliveryTime` is the delivery time shown to the customer at checkout** — nothing is 'requested' on an ASAP order. It already carries the restaurant's opening hours and prep time, which is why our pickup time anchors to it | D13 |

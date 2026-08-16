@@ -371,12 +371,12 @@ function RiderRow({ rider: r, onUpdate, onInvalidate }: { rider: RiderWithWorklo
 /**
  * The two pickup settings (D13).
  *
- * `pickupOffset` is the standing gap between pickup and the delivery time the
- * customer was shown — it applies to every order. `minimumToday` is what the
- * delivery team needs from checkout before it can collect at all right now: a
- * floor, so it only ever pushes a pickup later, and lowering it releases orders
- * rather than scheduling anything sooner. ASAP only, and it clears itself at
- * 03:00 Amsterdam so it cannot quietly govern tomorrow.
+ * Two different quantities with two different anchors. `pickupOffset` counts
+ * **backwards from the delivery time** and applies to every order.
+ * `pickupWithin` counts **forwards from the order arriving** — "it's quiet, we
+ * can be there in ten" — and when set it simply is the ASAP pickup time. They
+ * never combine. ASAP only, and it clears itself at 03:00 Amsterdam so it
+ * cannot quietly govern tomorrow.
  */
 function PickupTimingCard({ settings }: { settings: ApiSettings }) {
   const { t, i18n } = useTranslation();
@@ -390,9 +390,9 @@ function PickupTimingCard({ settings }: { settings: ApiSettings }) {
 
   const storedDefault = String(settings.pickupOffsetMinutes);
   const storedMoment =
-    settings.pickupMinimumTodayMinutes == null
+    settings.pickupWithinMinutes == null
       ? ""
-      : String(settings.pickupMinimumTodayMinutes);
+      : String(settings.pickupWithinMinutes);
   const defaultValue = defaultDraft ?? storedDefault;
   const momentValue = momentDraft ?? storedMoment;
 
@@ -457,12 +457,12 @@ function PickupTimingCard({ settings }: { settings: ApiSettings }) {
         </div>
 
         <div className="space-y-2 border-t border-border pt-4">
-          <Label className="text-xs" htmlFor="pickup-minimum-today">
-            {t("admin.pickupMinimumToday")}
+          <Label className="text-xs" htmlFor="pickup-within">
+            {t("admin.pickupWithin")}
           </Label>
           <div className="flex items-center gap-2">
             <Input
-              id="pickup-minimum-today"
+              id="pickup-within"
               type="number"
               min={0}
               step={1}
@@ -471,42 +471,42 @@ function PickupTimingCard({ settings }: { settings: ApiSettings }) {
               className="w-32 tabular-nums"
               value={momentValue}
               onChange={(e) => setMomentDraft(e.target.value)}
-              data-testid="input-pickup-minimum-today"
+              data-testid="input-pickup-within"
             />
             <Button
               disabled={update.isPending || momentValue === storedMoment}
               onClick={() => {
                 const minutes = parseMinutes(momentValue);
                 if (minutes === undefined) return;
-                save({ pickupMinimumTodayMinutes: minutes });
+                save({ pickupWithinMinutes: minutes });
               }}
-              data-testid="button-save-pickup-minimum-today"
+              data-testid="button-save-pickup-within"
             >
               {t("common.save")}
             </Button>
-            {settings.pickupMinimumTodayMinutes != null ? (
+            {settings.pickupWithinMinutes != null ? (
               <Button
                 variant="ghost"
                 disabled={update.isPending}
-                onClick={() => save({ pickupMinimumTodayMinutes: null })}
-                data-testid="button-clear-pickup-minimum-today"
+                onClick={() => save({ pickupWithinMinutes: null })}
+                data-testid="button-clear-pickup-within"
               >
-                {t("admin.pickupMinimumTodayClear")}
+                {t("admin.pickupWithinClear")}
               </Button>
             ) : null}
           </div>
           <p className="text-xs text-muted-foreground">
-            {t("admin.pickupMinimumTodayHelp")}
+            {t("admin.pickupWithinHelp")}
           </p>
-          {settings.pickupMinimumTodayMinutes != null ? (
+          {settings.pickupWithinMinutes != null ? (
             <p
               className="text-xs text-accent-foreground"
-              data-testid="text-pickup-minimum-today-active"
+              data-testid="text-pickup-within-active"
             >
-              {t("admin.pickupMinimumTodayActive", {
-                minutes: settings.pickupMinimumTodayMinutes,
-                time: settings.pickupMinimumTodaySetAt
-                  ? formatDateTime(settings.pickupMinimumTodaySetAt, lang)
+              {t("admin.pickupWithinActive", {
+                minutes: settings.pickupWithinMinutes,
+                time: settings.pickupWithinSetAt
+                  ? formatDateTime(settings.pickupWithinSetAt, lang)
                   : "—",
               })}
             </p>

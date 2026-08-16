@@ -1882,28 +1882,35 @@ components:
 
             **Not travel time.** Nothing measures how long the journey takes;
             this is a chosen offset that makes no claim about what fills it.
-        pickupMinimumTodayMinutes:
+        pickupWithinMinutes:
           type: ["integer", "null"]
           description: |
-            The minimum time, in minutes from checkout, the delivery team needs
-            today before it can collect at all — set by a coordinator in
-            absolute terms ("we need 45 minutes today").
+            How quickly the delivery team can collect right now, in minutes
+            counted **forwards from the order arriving** — "it's quiet, we can
+            be there in ten".
 
-            **A constraint, not a target.** It can only push a pickup later than
-            the offset alone would; lowering it releases orders it was holding
-            back rather than scheduling anything earlier. **ASAP orders only:**
-            today's conditions say nothing about an order scheduled for next
-            week.
+            A **different quantity** from `pickupOffsetMinutes`, which counts
+            backwards from the delivery time. They have different anchors and
+            never combine: when this is set it simply *is* the pickup time for
+            an ASAP order. Both directions follow with no comparison — a small
+            value moves pickup earlier (rider moving rather than idle), a large
+            one moves it later (swamped, cannot get there yet).
+
+            **ASAP orders only:** "we can be there in ten" says nothing about an
+            order placed today for next Tuesday.
+
+            Not clamped. Everything we could clamp against is a guesstimate, and
+            a coordinator setting this can see whether restaurants are open.
 
             Cleared automatically once a new operational day begins at 03:00
-            Europe/Amsterdam. Null means no minimum is in effect.
-        pickupMinimumTodaySetAt:
+            Europe/Amsterdam. Null means the offset rule applies.
+        pickupWithinSetAt:
           type: ["string", "null"]
           format: date-time
           description: |
-            When today's minimum was last written. Read-only — set automatically
-            alongside the value so the daily reset knows which operational day it
-            belongs to.
+            When `pickupWithinMinutes` was last written. Read-only — set
+            automatically alongside the value so the daily reset knows which
+            operational day it belongs to.
         vapidConfigured:
           type: boolean
         inboundSecretConfigured:
@@ -1926,7 +1933,7 @@ components:
         pickupOffsetMinutes:
           type: integer
           minimum: 0
-        pickupMinimumTodayMinutes:
+        pickupWithinMinutes:
           type: ["integer", "null"]
           minimum: 0
     VapidPublicKey:

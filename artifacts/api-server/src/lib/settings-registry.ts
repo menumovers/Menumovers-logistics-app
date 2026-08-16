@@ -183,23 +183,22 @@ export const SETTINGS = {
     validate: assertNonNegativeInteger("pickupOffsetMinutes"),
   }),
   /**
-   * The minimum the delivery team needs today, in minutes from checkout,
-   * before it can collect at all. A floor, not a target: it only ever pushes a
-   * pickup later. Lowering it releases orders it was holding rather than
-   * scheduling anything earlier. ASAP only; cleared at 03:00 Europe/Amsterdam.
+   * How quickly we can collect right now, in minutes from the order arriving —
+   * "it's quiet, we can be there in ten". Counted forwards from arrival, unlike
+   * the offset above which counts backwards from delivery; they are different
+   * quantities and never combine. When set it *is* the ASAP pickup time, so a
+   * small value moves pickup earlier and a large one later. ASAP only; cleared
+   * at 03:00 Europe/Amsterdam.
    */
-  pickupMinimumTodayMinutes: defineInteger(
-    SETTING_KEYS.PICKUP_MINIMUM_TODAY_MINUTES,
-    {
-      fallback: null,
-      validate: assertNonNegativeInteger("pickupMinimumTodayMinutes"),
-    },
-  ),
+  pickupWithinMinutes: defineInteger(SETTING_KEYS.PICKUP_WITHIN_MINUTES, {
+    fallback: null,
+    validate: assertNonNegativeInteger("pickupWithinMinutes"),
+  }),
   /**
    * Internal companion to the above: when it was last written, so the janitor
    * can tell whether it belongs to a previous day. Not a knob.
    */
-  pickupMinimumTodaySetAt: defineString(SETTING_KEYS.PICKUP_MINIMUM_TODAY_SET_AT, {
+  pickupWithinSetAt: defineString(SETTING_KEYS.PICKUP_WITHIN_SET_AT, {
     fallback: null,
   }),
 } as const;
