@@ -32,14 +32,13 @@ at the single call site. Order search matches the components joined via
 matches the original line so an order stays findable by the address it arrived
 with.
 
-The cost is not missing data: if the source has no house number its own line
-lacks one too, and `formatAddress` drops blank parts rather than leaving a stray
-comma. The real exposure is content the source's line carries that no component
-does — a company name, a floor, a `t.a.v.` The contract says the two are
-captured separately, not derived from each other, so they can differ in
-information and not just in formatting. If that happens the derived line drops
-detail. Worth checking against real rows; nothing is lost either way, since the
-original line is still stored. 21 assertions cover the formatter.
+The cost is small. Missing data is not part of it — the two representations
+come from the same record, so a gap in the components is a gap in the line too,
+and `formatAddress` drops blank parts rather than leaving a stray comma. Nor is
+it unusual house numbers: `houseNumber` is text, nothing parses it, and `12-14`
+prints verbatim. What is real is that we now choose the ordering and
+punctuation, so the line may read slightly differently from the source's, and we
+own a small function that could have bugs. 21 assertions cover it.
 
 Resolves the deferred "Legacy `deliveryAddress` text column" note in
 `todo-out-of-scope.md`. Rationale in `docs/workflow-decisions.md` D12.

@@ -449,31 +449,21 @@ copy**. There is nothing left to keep in step.
 
 ### What this costs
 
-**Not missing data.** An earlier draft of this section claimed the risk was
-gaps — that a missing house number would leave us printing
-`Hoofdstraat , Amsterdam`. That is wrong twice over. If the source has no house
-number its own line lacks one too, so the gap is identical either way; and
-`formatAddress` drops blank parts before joining, so it emits
-`Hoofdstraat, 1011 AB Amsterdam` and never the stray comma. There is an
-assertion for precisely that case.
+Very little, and less than two earlier drafts of this section claimed.
 
-**The actual risk is content the line carries that no component does.** The
-contract is explicit that the two are captured separately — *"Single-line
-display address. Structured components below are separate, not derived from
-this."* Separate means they can hold different information, not just the same
-information formatted differently. If the source's line ever contains a company
-name, a floor, a `t.a.v.`, or anything else that does not decompose into the
-six components, then a derived line silently drops it.
+**Not missing data.** If the source has no house number, its own line lacks one
+too — the two representations come out of the same record, so a gap is a gap
+either way. `formatAddress` drops blank parts before joining, so an absent house
+number gives `Hoofdstraat, 1011 AB Amsterdam`, never a stray comma. Empty
+string, `null` and whitespace all behave identically.
 
-That is information loss, not punctuation, and it is the one thing about D12
-worth checking against real rows. Nothing breaks if it turns out to be true —
-the source's line is still stored, so nothing is *lost* — but the displayed
-address would be missing something a rider needs, and the formatter would need
-to learn about it.
+**Not unusual house numbers.** `houseNumber` is text and nothing parses it.
+`12-14` and `12hs` are stored and printed verbatim.
 
-**A smaller, harmless one:** we chose the ordering and punctuation, so our line
-may read slightly differently from the one people are used to seeing. That is
-cosmetic and no reason to keep two writable copies.
+**What is actually true:** we now choose the ordering and punctuation, so the
+line may read slightly differently from the one the source composed. Cosmetic,
+and no reason to keep two writable copies. Beyond that we own a small function
+that could have bugs, which is what the 21 assertions are for.
 
 ### Replay
 
