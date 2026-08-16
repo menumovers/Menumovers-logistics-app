@@ -43,6 +43,10 @@ raw captures from the source.
   kitchenNotes?: string | null;
   /** @nullable */
   deliveryInstructions?: string | null;
+  /** The order's creation timestamp at the source — when the customer
+completed checkout. This is the anchor every other duration below
+counts from.
+ */
   sourceCreatedAt: Date;
   /** The customer's checkout selection resolved to a timestamp, and the
 storefront's source of truth for fulfilment. For a scheduled order this
@@ -54,18 +58,54 @@ time should be presented as an estimate, never as a promised time.
  */
   requestedDeliveryTime: Date;
   deliveryTimeType: DeliveryTimeType;
-  /** @nullable */
+  /**
+   * When the source calculated the restaurant should have the order
+ready, using that restaurant's settings as they stood at the moment
+of the order. **ASAP orders only** — absent for `later_today` and
+`other_day`.
+
+It is the source's answer to a question we can also answer
+ourselves from `sourceCreatedAt + minPickupTime`. Retained for audit
+and as a cross-check, not as a formula input.
+
+   * @nullable
+   */
   sourceRestaurantReadyTime?: Date | null;
-  /** @nullable */
+  /**
+   * Checkout-to-doorstep, in minutes. What the source uses to calculate
+the delivery estimate it shows the customer. **This is the whole
+journey, prep included — it is not travel time.**
+
+   * @nullable
+   */
   restaurantMinDeliveryTime?: number | null;
-  /** @nullable */
+  /**
+   * Checkout-to-restaurant-pickup, in minutes, as at the moment of
+ordering. This is the one that maps to our pickup time.
+
+   * @nullable
+   */
   restaurantMinPickupTime?: number | null;
-  /** @nullable */
+  /**
+   * **Legacy at the source. Ignore it.** Stored because we store
+everything the source sends, but nothing should read it.
+
+   * @nullable
+   */
   restaurantMinPrepTime?: number | null;
-  /** @nullable */
+  /**
+   * Checkout-to-doorstep, in minutes, per the delivery team's settings.
+   * @nullable
+   */
   deliveryTeamMinDeliveryTime?: number | null;
-  /** @nullable */
+  /**
+   * Checkout-to-restaurant-pickup, in minutes, per the delivery team's settings.
+   * @nullable
+   */
   deliveryTeamMinPickupTime?: number | null;
-  /** @nullable */
+  /**
+   * **Legacy at the source. Ignore it.**
+   * @nullable
+   */
   deliveryTeamMinPrepTime?: number | null;
 }

@@ -152,20 +152,57 @@ export const IngestOrderBody = zod.object({
     ),
   kitchenNotes: zod.string().nullish(),
   deliveryInstructions: zod.string().nullish(),
-  sourceCreatedAt: zod.coerce.date(),
+  sourceCreatedAt: zod.coerce
+    .date()
+    .describe(
+      "The order's creation timestamp at the source — when the customer\ncompleted checkout. This is the anchor every other duration below\ncounts from.\n",
+    ),
   requestedDeliveryTime: zod.coerce
     .date()
     .describe(
       "The customer's checkout selection resolved to a timestamp, and the\nstorefront's source of truth for fulfilment. For a scheduled order this\nis exactly the time they picked; for an ASAP order it is the storefront's\ncalculated delivery estimate. The user-facing string the customer actually\nsaw (\"Zo snel mogelijk\", \"vandaag om 18:30\") lives in the storefront's\nseparate `deliveryTimeDisplay` field and is NOT sent here — so an ASAP\ntime should be presented as an estimate, never as a promised time.\n",
     ),
   deliveryTimeType: zod.enum(["asap", "later_today", "other_day"]),
-  sourceRestaurantReadyTime: zod.coerce.date().nullish(),
-  restaurantMinDeliveryTime: zod.number().nullish(),
-  restaurantMinPickupTime: zod.number().nullish(),
-  restaurantMinPrepTime: zod.number().nullish(),
-  deliveryTeamMinDeliveryTime: zod.number().nullish(),
-  deliveryTeamMinPickupTime: zod.number().nullish(),
-  deliveryTeamMinPrepTime: zod.number().nullish(),
+  sourceRestaurantReadyTime: zod.coerce
+    .date()
+    .nullish()
+    .describe(
+      "When the source calculated the restaurant should have the order\nready, using that restaurant's settings as they stood at the moment\nof the order. \*\*ASAP orders only\*\* — absent for `later_today` and\n`other_day`.\n\nIt is the source's answer to a question we can also answer\nourselves from `sourceCreatedAt + minPickupTime`. Retained for audit\nand as a cross-check, not as a formula input.\n",
+    ),
+  restaurantMinDeliveryTime: zod
+    .number()
+    .nullish()
+    .describe(
+      "Checkout-to-doorstep, in minutes. What the source uses to calculate\nthe delivery estimate it shows the customer. \*\*This is the whole\njourney, prep included — it is not travel time.\*\*\n",
+    ),
+  restaurantMinPickupTime: zod
+    .number()
+    .nullish()
+    .describe(
+      "Checkout-to-restaurant-pickup, in minutes, as at the moment of\nordering. This is the one that maps to our pickup time.\n",
+    ),
+  restaurantMinPrepTime: zod
+    .number()
+    .nullish()
+    .describe(
+      "\*\*Legacy at the source. Ignore it.\*\* Stored because we store\neverything the source sends, but nothing should read it.\n",
+    ),
+  deliveryTeamMinDeliveryTime: zod
+    .number()
+    .nullish()
+    .describe(
+      "Checkout-to-doorstep, in minutes, per the delivery team's settings.",
+    ),
+  deliveryTeamMinPickupTime: zod
+    .number()
+    .nullish()
+    .describe(
+      "Checkout-to-restaurant-pickup, in minutes, per the delivery team's settings.",
+    ),
+  deliveryTeamMinPrepTime: zod
+    .number()
+    .nullish()
+    .describe("\*\*Legacy at the source. Ignore it.\*\*"),
 });
 
 export const IngestOrderResponse = zod.object({

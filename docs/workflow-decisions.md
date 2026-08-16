@@ -511,6 +511,12 @@ evidence, and never soften one back into a question.**
 | The source holds the address as components. It sends them as-is *and* sends its own `buildFullAddress()` rendering of them as `customer.address` — one record, two forms. The line can never carry what the components lack | D12 |
 | `happy_hour` is a discount on delivery cost in exchange for the customer accepting less control over timing | D5 |
 | `deliveryTimeType` sends exactly `asap`, `later_today`, `other_day` | D4 |
+| `sourceCreatedAt` is the order's creation timestamp at the source — when checkout completed. Every duration below is measured from it | Not yet applied — see the open time audit |
+| `sourceRestaurantReadyTime` is when the source calculated the restaurant should have the order ready, from that restaurant's settings at order time. **ASAP orders only** | Not yet applied — see the open time audit |
+| `*MinDeliveryTime` is **checkout → doorstep** — the whole journey including prep, used by the source to show the customer an estimate. It is *not* travel time | Not yet applied — see the open time audit |
+| `*MinPickupTime` is **checkout → pickup at the restaurant**, as at the moment of ordering | Not yet applied — see the open time audit |
+| `*MinPrepTime` is **legacy at the source**. Ignore it | Not yet applied — see the open time audit |
+| The `restaurant*` / `deliveryTeam*` split is the restaurant's own configured figure versus the delivery team's | Not yet applied — see the open time audit |
 | `requestedDeliveryTime` is the customer's checkout selection as a timestamp; for ASAP it is the storefront's *estimate*, not a promise. The string the customer saw is a separate field not sent to us | D4, OpenAPI `InboundOrderPayload` |
 | `cashPayment` means **any payment not made online** — not necessarily cash | D-none; `components/payment-panel.tsx`, OpenAPI |
 | `changeAmount` is what the customer will **pay with**, not the change owed | OpenAPI, `payment-panel.tsx` |

@@ -86,8 +86,10 @@ export const ordersTable = pgTable(
      * The source's own single-line address, kept verbatim so a coordinator can
      * see what actually arrived. It is **not** the working address and nothing
      * operational reads it — the structured components below are what the app
-     * edits, queries and renders. The two are sent independently by the source;
-     * this one is never derived from those.
+     * edits, queries and renders. The source builds this line *from* those same
+     * components (`buildFullAddress()`), so it can never carry anything they
+     * lack; what it preserves is their state as received, before any
+     * coordinator correction.
      *
      * Same shape as `pickupTimeOriginal`: an original preserved beside a
      * mutable working value. See workflow-decisions D12.
@@ -131,10 +133,29 @@ export const ordersTable = pgTable(
     pickupTimeRider: timestamp("pickup_time_rider", { withTimezone: true }),
     pickupTimeRestaurant: timestamp("pickup_time_restaurant", { withTimezone: true }),
     pickupTimeOverride: timestamp("pickup_time_override", { withTimezone: true }),
-    // Time data from the source. Feeds pickupTimeOriginal via
-    // lib/pickup-time.ts → resolveOriginalPickupTime: sourceRestaurantReadyTime
-    // wins outright, ASAP counts forward from ingestion, and scheduled orders
-    // count backwards from requestedDeliveryTime. See workflow-decisions D4.
+    /**
+     * Time data from the source. Meanings confirmed by the owner 2026-08-15 and
+     * recorded in workflow-decisions.md §F — do not re-infer them from the
+     * field names, which is how several wrong readings got built.
+     *
+     *   sourceCreatedAt            when checkout completed at the source. The
+     *                              anchor every duration below counts from.
+     *   requestedDeliveryTime      the customer's checkout selection, parsed to
+     *                              a timestamp.
+     *   deliveryTimeType           asap | later_today | other_day.
+     *   sourceRestaurantReadyTime  when the source calculated the restaurant
+     *                              should have the order ready, from that
+     *                              restaurant's settings at order time.
+     *                              ASAP ORDERS ONLY.
+     *
+     * The six integers are MINUTES FROM CHECKOUT, in a restaurant and a
+     * deliveryTeam variant:
+     *
+     *   *MinDeliveryTime  checkout → doorstep. The whole journey, prep
+     *                     included. NOT travel time.
+     *   *MinPickupTime    checkout → pickup at the restaurant.
+     *   *MinPrepTime      LEGACY at the source. Ignore.
+     */
     sourceCreatedAt: timestamp("source_created_at", { withTimezone: true }).notNull(),
     requestedDeliveryTime: timestamp("requested_delivery_time", { withTimezone: true }).notNull(),
     deliveryTimeType: text("delivery_time_type").notNull(),
