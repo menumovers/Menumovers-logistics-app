@@ -66,6 +66,16 @@ So: ask **"what is this for?"** before asking **"can we drop it?"**, and get the
 
 Decision → `docs/workflow-decisions.md` D11. Worked example → `docs/field-audit.md`, whose first pass filed fourteen fields as "dead" on exactly this reasoning; nine were doing their job.
 
+**State the spec back before writing code, and stop at gaps rather than filling them.** Before turning a conversation into an implementation, write the actual rule back in three or four lines — the formula, and what each input is — and wait for a yes. If a gap appears mid-build, stop and ask; do not fill it provisionally and flag it in a commit message.
+
+Why this is a rule and not just good manners: **code demands totality, understanding does not.** A gap can sit open in a discussion, but code will not compile around one, so there is structural pressure to close it with whatever is most plausible — and filling it feels like progress while stopping feels like failing to deliver. Once filled, the guess is invisible: it is working, typechecking, tested code that reads as knowledge.
+
+Tests do not catch this. Assertions written against an invented rule prove it is *internally consistent*, not that it is *true*. A passing count is evidence about the code, never about the world, and must not be offered as if it were.
+
+The related habit to watch: **most of what the owner says is correcting the model you already have, not adding to it.** A re-description read as a new requirement becomes a second concept, then machinery to reconcile the two. When a reply could be either, default to "this replaces something I have" and check.
+
+This cost most of 2026-08-15. Four versions of one pickup formula were built and discarded, each from reasoning that looked sound. See `docs/workflow-decisions.md` D13.
+
 **Read `docs/workflow-decisions.md` §F and §G before answering "what's open?" or proposing a next step.** §F holds facts about systems outside this repo that the owner has already stated — things unverifiable from the code, where the honest-looking default is "unknown". Restating one as an open question is not diligence; it is asking twice. §G holds work deliberately sequenced out of the current stream — listing it as open is technically true and practically noise.
 
 Both sections exist because a decision log alone did not stop settled things resurfacing. It records decisions about the *product*; a fact about the world and a decision about *what we are working on* had nowhere to live, so they survived only in conversation — and conversation gets compacted.
