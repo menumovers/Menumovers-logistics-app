@@ -48,7 +48,18 @@
     "morePages": "More pages",
     "previousSlide": "Previous slide",
     "nextSlide": "Next slide",
-    "toggleSidebar": "Toggle sidebar"
+    "toggleSidebar": "Toggle sidebar",
+    "details": "Details"
+  },
+  "address": {
+    "street": "Street",
+    "houseNumber": "No.",
+    "addition": "Add.",
+    "postalCode": "Postcode",
+    "city": "City",
+    "incomplete": "Street, postcode and city are required",
+    "asReceived": "As received: {{address}}",
+    "unsaved": "Address changed — not saved yet"
   },
   "landing": {
     "heading": "Bestellenbij",
@@ -115,7 +126,9 @@
     "source_original": "Original",
     "in": "in {{minutes}} min",
     "ago": "{{minutes}} min ago",
-    "late": "{{minutes}} min late"
+    "late": "{{minutes}} min late",
+    "date": "Date",
+    "time": "Time"
   },
   "coordinator": {
     "title": "Dispatch",
@@ -159,7 +172,8 @@
     "workloadEmpty": "No riders available",
     "workloadActive": "Active",
     "workloadQueued": "Queued",
-    "workloadOffline": "Offline"
+    "workloadOffline": "Offline",
+    "failedReason": "Failure reason"
   },
   "rider": {
     "title": "My route",
@@ -188,7 +202,8 @@
     "claim": "Claim this delivery",
     "claimPending": "Claiming...",
     "claimDisabled": "Waiting for coordinator to assign",
-    "claimUnavailable": "Ask the coordinator to assign you"
+    "claimUnavailable": "Ask the coordinator to assign you",
+    "otherStep": "Report a different step"
   },
   "restaurant": {
     "title": "Restaurant view",
@@ -197,8 +212,10 @@
     "minDelivery": "Minimum prep time",
     "readyForPickup": "Ready for pickup",
     "readyForPickupSent": "Restaurant marked the food ready",
+    "readyAt": "Food ready since {{time}}",
     "hiddenItem": "Hidden by coordinator",
-    "extraItem": "Added by coordinator"
+    "extraItem": "Added by coordinator",
+    "kitchenNotes": "Note for the kitchen"
   },
   "admin": {
     "title": "Admin",
@@ -214,6 +231,8 @@
     "outboundWebhook": "Outbound webhook URL",
     "outboundWebhookPlaceholder": "https://example.com/webhook",
     "outboundWebhookHelp": "Status updates POST to this URL",
+    "outboundWebhookEnabled": "Send outbound status updates",
+    "outboundWebhookEnabledHelp": "Off by default. While off, nothing is sent, queued, or retried. Leaving the URL empty also counts as off.",
     "vapidConfigured": "Web push configured",
     "inboundConfigured": "Inbound webhook configured",
     "outboundSource": "Source",
@@ -223,7 +242,18 @@
     "settingsSaved": "Settings updated",
     "dispatchPolicy": "Dispatch policy",
     "allowRiderSelfClaim": "Riders may self-claim orders",
-    "allowRiderSelfClaimHelp": "When off, only a coordinator can assign a rider to an order"
+    "allowRiderSelfClaimHelp": "When off, only a coordinator can assign a rider to an order",
+    "pickupTiming": "Pickup timing",
+    "pickupOffset": "Pickup offset before delivery (minutes)",
+    "pickupOffsetHelp": "The standing gap between pickup and the delivery time the customer was shown at checkout. Applies to every order. Not travel time — nothing measures the journey; this is a chosen offset.",
+    "pickupWithin": "Today, collect within (minutes)",
+    "pickupWithinHelp": "How quickly we can collect right now, counted from the order arriving — “it's quiet, we can be there in ten”. Replaces the offset above for ASAP orders: lower means an earlier pickup, higher means later. Cleared automatically at 03:00.",
+    "pickupWithinClear": "Clear",
+    "pickupWithinActive": "Active: within {{minutes}} min, set {{time}}. Expires at 03:00.",
+    "acceptanceMode": "Confirmation style",
+    "acceptanceMode_accept": "Single confirm",
+    "acceptanceMode_choose_time": "Choose one of three times",
+    "acceptanceModeHelp": "How this restaurant confirms an order. Confirming never blocks dispatch either way — it just records that they've seen it."
   },
   "settings": {
     "title": "Settings",
@@ -280,6 +310,8 @@
     "stopAt": "At {{place}}",
     "stopFor": "For {{name}}",
     "progress": "{{done}}/{{total}} stops",
+    "skippedCount": "{{count}} skipped",
+    "allStopsDone": "All stops done",
     "next": "Next",
     "completed": "Completed",
     "upcoming": "Upcoming",
@@ -314,5 +346,82 @@
     "submit": "Postpone",
     "submitted": "Order postponed",
     "resume": "Resume"
+  },
+  "hold": {
+    "sectionTitle": "On hold ({{count}})",
+    "state_parked": "Parked",
+    "state_on_hold": "On hold",
+    "noReason": "No reason given",
+    "heldSince": "since {{time}}",
+    "assignRestaurant": "Correct restaurant",
+    "selectRestaurant": "Choose a restaurant",
+    "resolve": "Resolve",
+    "release": "Release",
+    "hold": "Put on hold",
+    "holdReasonPlaceholder": "Why is this order being held?",
+    "heldNotice": "This order is on hold and will not be offered to riders.",
+    "parkedNotice": "The inbound restaurant code didn't match. Assign the correct restaurant to release it."
+  },
+  "delivery": {
+    "method_happy_hour": "Happy hour",
+    "method_pickup": "Customer pickup",
+    "timeType_asap": "As soon as possible",
+    "timeType_later_today": "Later today",
+    "timeType_other_day": "Another day",
+    "requested": "Customer asked for",
+    "pickupSection": "Customer pickup ({{count}})",
+    "pickupSectionHelp": "The customer collects these themselves — they are never offered to riders.",
+    "timeType_asap_short": "ASAP",
+    "estimated": "est. {{time}}"
+  },
+  "acknowledge": {
+    "title": "Confirm this order",
+    "prompt": "Have you seen this order and the pickup time?",
+    "promptChoose": "Confirm the pickup time that works:",
+    "accept": "Confirm",
+    "asProposed": "As proposed",
+    "earlier": "{{minutes}} min earlier",
+    "later": "{{minutes}} min later",
+    "done": "Confirmed",
+    "doneAt": "Confirmed at {{time}}",
+    "confirmedBy": "by {{name}}",
+    "notYet": "Not yet confirmed",
+    "notYetShort": "Unconfirmed",
+    "toast": "Order confirmed"
+  },
+  "payment": {
+    "title": "Payment",
+    "prepaid": "Paid online — collect nothing",
+    "kind_cash": "Cash",
+    "kind_tikkie": "Tikkie",
+    "kind_qr": "QR",
+    "action_cash": "Collect cash",
+    "action_tikkie": "Send a Tikkie",
+    "action_qr": "Show the QR code",
+    "method": "Payment: {{method}}",
+    "type": "Type: {{type}}",
+    "paysWith": "Customer pays with {{amount}} —",
+    "bringChange": "bring {{amount}} change",
+    "changeInconsistent": "Customer is paying {{amount}}, less than the order total — check before you go",
+    "changeUnknown": "Change needed, but the amount didn't come through — check with dispatch"
+  },
+  "receipt": {
+    "title": "Receipt",
+    "print": "Print",
+    "orderNumber": "Order",
+    "customer": "Customer",
+    "ordered": "Ordered",
+    "items_one": "{{count}} item",
+    "items_other": "{{count}} items",
+    "deliveryFee": "Delivery",
+    "tipRider": "Tip — rider",
+    "tipRestaurant": "Tip — restaurant",
+    "supTotal": "Surcharges",
+    "statiegeld": "Deposit",
+    "administration": "Administration",
+    "adjustment": "Items changed after ordering",
+    "adjustmentNote": "Items were added or removed after the order was placed. The amount charged is unchanged — the difference is shown above.",
+    "charged": "Charged",
+    "invoiceNote": "This is a delivery receipt, not an invoice. The customer receives their invoice by email."
   }
 }

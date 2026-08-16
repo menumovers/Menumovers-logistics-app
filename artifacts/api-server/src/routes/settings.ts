@@ -1,10 +1,14 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
-import { eq } from "drizzle-orm";
-import { db, systemSettingsTable, SETTING_KEYS } from "@workspace/db";
 import { UpdateSettingsBody } from "@workspace/api-zod";
 import { requireAuth, requireRole } from "../lib/auth";
 import { httpError } from "../lib/errors";
 import { countActiveCredentials } from "../lib/inbound-credentials";
+import {
+  SETTINGS,
+  readSetting,
+  resolveAllSettings,
+  writeSetting,
+} from "../lib/settings-registry";
 
 const router: IRouter = Router();
 
@@ -15,50 +19,27 @@ const wrap =
   };
 
 /**
- * Outbound webhook URL precedence (admin-configured wins):
- *   1. system_settings.outbound_webhook_url
- *   2. process.env.WEBHOOK_URL (fallback for fresh installs)
- * Mirrors `getOutboundWebhookUrl` in lib/webhook.ts.
+ * Assemble the admin Settings payload. Every declared setting is resolved in
+ * one query; the remaining fields are derived environment status rather than
+ * operator-editable settings, so they stay hand-written here.
  */
-async function readWebhookUrl(): Promise<{
-  url: string | null;
-  source: "env" | "settings" | "unset";
-}> {
-  const [row] = await db
-    .select()
-    .from(systemSettingsTable)
-    .where(eq(systemSettingsTable.key, SETTING_KEYS.OUTBOUND_WEBHOOK_URL));
-  if (row?.value) return { url: row.value, source: "settings" };
-  const fromEnv = process.env["WEBHOOK_URL"];
-  if (fromEnv) return { url: fromEnv, source: "env" };
-  return { url: null, source: "unset" };
-}
-
-async function readAllowRiderSelfClaim(): Promise<boolean> {
-  const [row] = await db
-    .select()
-    .from(systemSettingsTable)
-    .where(eq(systemSettingsTable.key, SETTING_KEYS.ALLOW_RIDER_SELF_CLAIM));
-  // Default ON: matches the original product spec where riders can claim
-  // unassigned orders. Operators flip this OFF to require coordinator dispatch.
-  if (!row?.value) return true;
-  return row.value === "true";
-}
-
-function buildSettings(
-  url: string | null,
-  source: "env" | "settings" | "unset",
-  allowRiderSelfClaim: boolean,
-  inboundSecretConfigured: boolean,
-) {
+async function buildSettings() {
+  const [resolved, activeCredentials] = await Promise.all([
+    resolveAllSettings(),
+    countActiveCredentials(),
+  ]);
   return {
-    outboundWebhookUrl: url,
-    outboundWebhookUrlSource: source,
-    allowRiderSelfClaim,
+    outboundWebhookUrl: resolved.outboundWebhookUrl.value,
+    outboundWebhookUrlSource: resolved.outboundWebhookUrl.source,
+    outboundWebhookEnabled: resolved.outboundWebhookEnabled.value,
+    allowRiderSelfClaim: resolved.allowRiderSelfClaim.value,
+    pickupOffsetMinutes: resolved.pickupOffsetMinutes.value,
+    pickupWithinMinutes: resolved.pickupWithinMinutes.value,
+    pickupWithinSetAt: resolved.pickupWithinSetAt.value,
     vapidConfigured: Boolean(
       process.env["VAPID_PUBLIC_KEY"] && process.env["VAPID_PRIVATE_KEY"],
     ),
-    inboundSecretConfigured,
+    inboundSecretConfigured: activeCredentials > 0,
   };
 }
 
@@ -69,7 +50,7 @@ router.get(
   "/settings/flags",
   requireAuth,
   wrap(async (_req, res) => {
-    const allowRiderSelfClaim = await readAllowRiderSelfClaim();
+    const allowRiderSelfClaim = await readSetting(SETTINGS.allowRiderSelfClaim);
     res.json({ allowRiderSelfClaim });
   }),
 );
@@ -79,12 +60,7 @@ router.get(
   requireAuth,
   requireRole("admin"),
   wrap(async (_req, res) => {
-    const [{ url, source }, allowRiderSelfClaim, activeCredentials] = await Promise.all([
-      readWebhookUrl(),
-      readAllowRiderSelfClaim(),
-      countActiveCredentials(),
-    ]);
-    res.json(buildSettings(url, source, allowRiderSelfClaim, activeCredentials > 0));
+    res.json(await buildSettings());
   }),
 );
 
@@ -97,44 +73,37 @@ router.patch(
     if (!parsed.success) throw httpError(400, "VALIDATION_ERROR", parsed.error.message);
 
     if (parsed.data.outboundWebhookUrl !== undefined) {
-      const value = parsed.data.outboundWebhookUrl;
-      if (value === null || value === "") {
-        await db
-          .delete(systemSettingsTable)
-          .where(eq(systemSettingsTable.key, SETTING_KEYS.OUTBOUND_WEBHOOK_URL));
-      } else {
-        try {
-          new URL(value);
-        } catch {
-          throw httpError(400, "INVALID_URL", "outboundWebhookUrl is not a valid URL");
-        }
-        await db
-          .insert(systemSettingsTable)
-          .values({ key: SETTING_KEYS.OUTBOUND_WEBHOOK_URL, value })
-          .onConflictDoUpdate({
-            target: systemSettingsTable.key,
-            set: { value },
-          });
-      }
+      await writeSetting(SETTINGS.outboundWebhookUrl, parsed.data.outboundWebhookUrl);
+    }
+
+    if (parsed.data.outboundWebhookEnabled !== undefined) {
+      await writeSetting(SETTINGS.outboundWebhookEnabled, parsed.data.outboundWebhookEnabled);
     }
 
     if (parsed.data.allowRiderSelfClaim !== undefined) {
-      const value = parsed.data.allowRiderSelfClaim ? "true" : "false";
-      await db
-        .insert(systemSettingsTable)
-        .values({ key: SETTING_KEYS.ALLOW_RIDER_SELF_CLAIM, value })
-        .onConflictDoUpdate({
-          target: systemSettingsTable.key,
-          set: { value },
-        });
+      await writeSetting(SETTINGS.allowRiderSelfClaim, parsed.data.allowRiderSelfClaim);
     }
 
-    const [{ url, source }, allowRiderSelfClaim, activeCredentials] = await Promise.all([
-      readWebhookUrl(),
-      readAllowRiderSelfClaim(),
-      countActiveCredentials(),
-    ]);
-    res.json(buildSettings(url, source, allowRiderSelfClaim, activeCredentials > 0));
+    if (parsed.data.pickupOffsetMinutes !== undefined) {
+      await writeSetting(
+        SETTINGS.pickupOffsetMinutes,
+        parsed.data.pickupOffsetMinutes,
+      );
+    }
+
+    if (parsed.data.pickupWithinMinutes !== undefined) {
+      const value = parsed.data.pickupWithinMinutes;
+      await writeSetting(SETTINGS.pickupWithinMinutes, value);
+      // Stamped alongside the value so the janitor can tell which operational
+      // day it belongs to. Cleared with it, so a null value never leaves a
+      // stray timestamp behind.
+      await writeSetting(
+        SETTINGS.pickupWithinSetAt,
+        value === null ? null : new Date().toISOString(),
+      );
+    }
+
+    res.json(await buildSettings());
   }),
 );
 

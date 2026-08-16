@@ -5,6 +5,7 @@
  * Bestellenbij logistics platform API
  * OpenAPI spec version: 0.1.0
  */
+import type { RestaurantAcceptanceMode } from "./restaurantAcceptanceMode";
 
 export interface Restaurant {
   id: string;
@@ -15,5 +16,6 @@ export interface Restaurant {
   /** @nullable */
   phone?: string | null;
   minDeliveryTime: number;
+  acceptanceMode: RestaurantAcceptanceMode;
   createdAt: Date;
 }

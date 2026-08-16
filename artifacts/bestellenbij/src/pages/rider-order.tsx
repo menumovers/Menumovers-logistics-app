@@ -16,27 +16,30 @@ import {
 } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Spinner } from "@/components/ui/spinner";
 import { StatusBadge } from "@/components/status-badge";
 import { PickupCountdown, PickupSourceBadge } from "@/components/pickup-countdown";
-import { ArrowLeft, Phone, MapPin, Bell, BellOff, Store, ChevronRight, Clock, Layers } from "lucide-react";
+import { DeliveryMethodBadge, RequestedTimeLabel } from "@/components/delivery-expectation";
+import { PickupTimeInput } from "@/components/pickup-time-input";
+import { PaymentPanel } from "@/components/payment-panel";
+import { ArrowLeft, Phone, MapPin, Bell, BellOff, Store, ChevronRight, Clock, Layers, CheckCircle2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { effectivePickup, formatCurrency, formatTime } from "@/lib/format";
 
-const NEXT: Partial<Record<OrderStatusType, OrderStatusType>> = {
+/**
+ * The expected order of events, used purely to pick which button is the big
+ * one. This is presentation, not validity — the server decides what is
+ * acceptable and sends it as `allowedTransitions`. A rider who is further along
+ * than the app thinks can report any of the others from "Report a different
+ * step" below. See docs/workflow-decisions.md D1.
+ */
+const HAPPY_PATH: Partial<Record<OrderStatusType, OrderStatusType>> = {
   driver_assigned: "en_route_to_restaurant",
   en_route_to_restaurant: "picked_up",
   picked_up: "en_route_to_customer",
   en_route_to_customer: "delivered",
 };
-
-const CAN_POSTPONE: OrderStatusType[] = [
-  "en_route_to_restaurant",
-  "en_route_to_customer",
-];
 
 export default function RiderOrderPage() {
   const { id } = useParams();
@@ -53,18 +56,19 @@ export default function RiderOrderPage() {
 
   const [failureReason, setFailureReason] = useState("");
   const [postponeReason, setPostponeReason] = useState("");
-  const [pickupTime, setPickupTime] = useState("");
-
-  const effIso = order.data ? effectivePickup(order.data).iso : null;
-  useEffect(() => {
-    if (effIso) setPickupTime(formatTime(effIso, "en"));
-  }, [effIso]);
 
   if (order.isLoading || !order.data) {
     return <div className="grid place-items-center py-20"><Spinner className="size-6 text-primary" /></div>;
   }
   const o = order.data;
-  const next = NEXT[o.status];
+  const allowed = o.allowedTransitions;
+  const happyNext = HAPPY_PATH[o.status];
+  // The primary button only appears when the expected next step is genuinely
+  // acceptable; everything else acceptable goes in the secondary list.
+  const next = happyNext && allowed.includes(happyNext) ? happyNext : undefined;
+  const otherSteps = allowed.filter(
+    (s) => s !== next && s !== "failed" && s !== "postponed",
+  );
 
   function invalidate() {
     qc.invalidateQueries({ queryKey: getGetOrderQueryKey(orderId) });
@@ -101,7 +105,10 @@ export default function RiderOrderPage() {
               <div className="text-xs text-muted-foreground tabular-nums">#{o.externalOrderId}</div>
               <CardTitle className="text-xl">{o.restaurantName}</CardTitle>
             </div>
-            <StatusBadge status={o.status} />
+            <div className="flex flex-col items-end gap-1.5">
+              <StatusBadge status={o.status} />
+              <DeliveryMethodBadge order={o} />
+            </div>
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -109,6 +116,19 @@ export default function RiderOrderPage() {
             <PickupCountdown order={o} size="lg" />
             <PickupSourceBadge source={effectivePickup(o).source} />
           </div>
+          <RequestedTimeLabel order={o} lang={lang} withDate />
+          {/* The kitchen's own status. Worth a rider's attention on the way
+              there: it says the food is waiting, not when to collect — the
+              pickup time above is still the agreed time (D14). */}
+          {o.restaurantReadyAt ? (
+            <div
+              className="flex items-center gap-2 rounded-md border border-chart-5/40 bg-chart-5/10 px-3 py-2 text-sm font-medium text-chart-5"
+              data-testid="text-restaurant-ready"
+            >
+              <CheckCircle2 className="size-4 shrink-0" />
+              {t("restaurant.readyAt", { time: formatTime(o.restaurantReadyAt, lang) })}
+            </div>
+          ) : null}
           <div className="space-y-2 text-sm">
             <div className="flex items-start gap-2"><Store className="size-4 mt-0.5 text-muted-foreground" /><span className="font-medium">{o.restaurantName}</span></div>
             <div className="border-t border-border pt-2">
@@ -136,45 +156,12 @@ export default function RiderOrderPage() {
               <span>{t("common.actions")}</span><span className="tabular-nums">{formatCurrency(o.totalAmount, lang)}</span>
             </div>
           </div>
+          <div className="border-t border-border pt-3">
+            <div className="text-xs uppercase tracking-wide text-muted-foreground mb-2">{t("payment.title")}</div>
+            <PaymentPanel order={o} lang={lang} />
+          </div>
         </CardContent>
       </Card>
-
-      {o.status === "postponed" ? (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">{t("postpone.resume")}</CardTitle>
-          </CardHeader>
-          <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            <Button
-              size="lg"
-              disabled={transition.isPending}
-              onClick={() =>
-                transition.mutate(
-                  { id: o.id, data: { toStatus: "en_route_to_restaurant" } },
-                  { onSuccess: () => { toast({ title: t("orderStatus.en_route_to_restaurant") }); invalidate(); } },
-                )
-              }
-              data-testid="button-rider-resume-restaurant"
-            >
-              {t("orderStatus.en_route_to_restaurant")}
-            </Button>
-            <Button
-              size="lg"
-              variant="secondary"
-              disabled={transition.isPending}
-              onClick={() =>
-                transition.mutate(
-                  { id: o.id, data: { toStatus: "en_route_to_customer" } },
-                  { onSuccess: () => { toast({ title: t("orderStatus.en_route_to_customer") }); invalidate(); } },
-                )
-              }
-              data-testid="button-rider-resume-customer"
-            >
-              {t("orderStatus.en_route_to_customer")}
-            </Button>
-          </CardContent>
-        </Card>
-      ) : null}
 
       {next ? (
         <Button
@@ -193,7 +180,35 @@ export default function RiderOrderPage() {
         </Button>
       ) : null}
 
-      {CAN_POSTPONE.includes(o.status) ? (
+      {otherSteps.length > 0 ? (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm text-muted-foreground font-medium">
+              {t("rider.otherStep")}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {otherSteps.map((s) => (
+              <Button
+                key={s}
+                variant="outline"
+                disabled={transition.isPending}
+                onClick={() =>
+                  transition.mutate(
+                    { id: o.id, data: { toStatus: s } },
+                    { onSuccess: () => { toast({ title: t(`orderStatus.${s}`) }); invalidate(); } },
+                  )
+                }
+                data-testid={`button-rider-report-${s}`}
+              >
+                {t(`orderStatus.${s}`)}
+              </Button>
+            ))}
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {allowed.includes("postponed") ? (
         <Card>
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
@@ -263,28 +278,18 @@ export default function RiderOrderPage() {
 
       <Card>
         <CardHeader><CardTitle className="text-base">{t("rider.suggestPickup")}</CardTitle></CardHeader>
-        <CardContent className="flex gap-2 items-end">
-          <div className="flex-1">
-            <Label className="text-xs">{t("coordinator.newPickupTime")}</Label>
-            <Input type="time" value={pickupTime} onChange={(e) => setPickupTime(e.target.value)} data-testid="input-rider-pickup-time" />
-          </div>
-          <Button
-            disabled={updatePickup.isPending || !pickupTime}
-            onClick={() => {
-              const [h, m] = pickupTime.split(":").map((v) => Number.parseInt(v, 10));
-              if (Number.isNaN(h) || Number.isNaN(m)) return;
-              const date = new Date();
-              date.setHours(h, m, 0, 0);
-              if (date.getTime() < Date.now() - 60_000) date.setDate(date.getDate() + 1);
+        <CardContent>
+          <PickupTimeInput
+            currentIso={effectivePickup(o).iso}
+            pending={updatePickup.isPending}
+            submitLabel={t("common.save")}
+            onSubmit={(pickupTime) =>
               updatePickup.mutate(
-                { id: o.id, data: { source: "rider", pickupTime: date.toISOString() } },
+                { id: o.id, data: { source: "rider", pickupTime } },
                 { onSuccess: () => { toast({ title: t("rider.suggestPickup") }); invalidate(); } },
-              );
-            }}
-            data-testid="button-rider-suggest-pickup"
-          >
-            {t("common.save")}
-          </Button>
+              )
+            }
+          />
         </CardContent>
       </Card>
 

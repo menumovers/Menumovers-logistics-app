@@ -2,11 +2,11 @@
 
 ## 1. Identity
 
-Bestellenbij is an internal Progressive Web App (PWA) for food-delivery logistics within a Dutch delivery cooperative. It manages the complete order lifecycle — from inbound order ingestion to final delivery — providing role-based interfaces for coordinators, riders, and restaurant staff, with strict server-validated state transitions, trip bundling, outbound status webhooks, and Web Push notifications.
+Bestellenbij is an internal Progressive Web App (PWA) for food-delivery logistics within a Dutch delivery cooperative. It manages the complete order lifecycle — from inbound order ingestion to final delivery — providing role-based interfaces for coordinators, riders, and restaurant staff, with server-validated order handling, trip bundling, outbound status webhooks, and Web Push notifications.
 
 **In scope:**
 - Receiving inbound orders from the upstream distribution middleware (babeldish) via a per-source credential endpoint
-- Dispatching orders to riders and tracking them through a strict state machine
+- Dispatching orders to riders and tracking them through reported status updates, with holds as the one mechanism that blocks dispatch
 - Pickup confirmation from restaurant staff; item overrides (hide/add)
 - Multi-source pickup-time prioritization; trip (order-bundle) management
 - Outbound webhook delivery of status updates back to babeldish, with database-backed retry
@@ -58,7 +58,27 @@ Bestellenbij is an internal Progressive Web App (PWA) for food-delivery logistic
 
 ## 5. Non-Negotiables
 
-→ Pending Migration (content-migration pass): to be synthesized from `docs/architecture-sources-of-truth.md` "Do not" entries.
+→ Pending Migration (content-migration pass): the rest to be synthesized from `docs/architecture-sources-of-truth.md` "Do not" entries. The entry below was added ahead of that pass and should survive it.
+
+**Never conclude a field is unused from code search alone.** A `git grep` returning nothing tells you a column is *unread*, not that it is *pointless*. Several fields on `orders` are stored deliberately and read by no code at all — the source's own timing figures, `originalPayload`, `heldAt` — because they are read by *people*, after the fact, when someone needs to work out why an order behaved as it did. That reader is invisible to a call graph.
+
+So: ask **"what is this for?"** before asking **"can we drop it?"**, and get the answer from someone who knows rather than inferring it from call sites. This is not a rule that nothing may ever be removed; it is a rule about the order of the two questions.
+
+Decision → `docs/workflow-decisions.md` D11. Worked example → `docs/field-audit.md`, whose first pass filed fourteen fields as "dead" on exactly this reasoning; nine were doing their job.
+
+**State the spec back before writing code, and stop at gaps rather than filling them.** Before turning a conversation into an implementation, write the actual rule back in three or four lines — the formula, and what each input is — and wait for a yes. If a gap appears mid-build, stop and ask; do not fill it provisionally and flag it in a commit message.
+
+Why this is a rule and not just good manners: **code demands totality, understanding does not.** A gap can sit open in a discussion, but code will not compile around one, so there is structural pressure to close it with whatever is most plausible — and filling it feels like progress while stopping feels like failing to deliver. Once filled, the guess is invisible: it is working, typechecking, tested code that reads as knowledge.
+
+Tests do not catch this. Assertions written against an invented rule prove it is *internally consistent*, not that it is *true*. A passing count is evidence about the code, never about the world, and must not be offered as if it were.
+
+The related habit to watch: **most of what the owner says is correcting the model you already have, not adding to it.** A re-description read as a new requirement becomes a second concept, then machinery to reconcile the two. When a reply could be either, default to "this replaces something I have" and check.
+
+This cost most of 2026-08-15. Four versions of one pickup formula were built and discarded, each from reasoning that looked sound. See `docs/workflow-decisions.md` D13.
+
+**Read `docs/workflow-decisions.md` §F and §G before answering "what's open?" or proposing a next step.** §F holds facts about systems outside this repo that the owner has already stated — things unverifiable from the code, where the honest-looking default is "unknown". Restating one as an open question is not diligence; it is asking twice. §G holds work deliberately sequenced out of the current stream — listing it as open is technically true and practically noise.
+
+Both sections exist because a decision log alone did not stop settled things resurfacing. It records decisions about the *product*; a fact about the world and a decision about *what we are working on* had nowhere to live, so they survived only in conversation — and conversation gets compacted.
 
 ---
 
@@ -79,6 +99,9 @@ One line per domain — go check the registry before writing anything in a cover
 
 | Document | Contents | Bucket | Update trigger |
 |---|---|---|---|
+| `workflow-decisions.md` | Settled decisions about order-workflow behaviour, so they aren't re-litigated | Routine | A workflow decision is made, reversed, or resolved from the open list |
+| `constraint-overrides.md` | How docs are read (descriptive / soft / hard) + open ledger of superseded constraints | Routine | A documented constraint is superseded, confirmed, or written forward |
+| `environment-checklist.md` | What's built vs. what must still happen in a real environment — schema to apply, settings to set, checks to run | Routine | Work lands that needs a migration, a setting, or live verification |
 | `architecture-sources-of-truth.md` | Full SSOT pattern registry | Routine | New reusable pattern/helper created |
 | `changelog.md` | Dated record of architecturally-significant changes | Routine | New external service goes live, pattern added/retired, major decision made/reversed |
 | `architecture.md` | Short contributor summary | Core-contract | Real architectural shift |
@@ -86,7 +109,8 @@ One line per domain — go check the registry before writing anything in a cover
 | `external-services.md` | Per-service env vars, auth, endpoints, status | Routine | External service added/changed |
 | `todo-out-of-scope.md` | Deferred-work backlog | Routine (automated) | Existing protocol — unchanged |
 | `todo.md` | Lean, uncategorized quick-capture inbox | Idea-space | Periodic triage only |
-| `todo-bugs.md` | Confirmed low-priority defects | Idea-space (on-command) | Only when explicitly added/moved |
+| `todo-bugs.md` | Confirmed defects, with how each one actually fails | Idea-space (on-command) | Only when explicitly added/moved |
+| `field-audit.md` | **Completed report.** Every `orders` field scored on consumed / shown, and why each is kept | Reference (closed) | Not maintained — supersede with a new dated audit rather than editing |
 | `todo-roadmap.md` | Planned-but-not-built product/feature work | Idea-space (on-command) | Only when explicitly added/moved |
 | `documentation-blueprint.md` | Shared `replit.md` structure template for the Bestellenbij ecosystem | Core-contract | Blueprint revision by ecosystem team only |
 
@@ -99,6 +123,8 @@ Shared across **all** Bestellenbij-ecosystem projects, worded identically by des
 > **Communication style.** Work through reasoning and tradeoffs, not just conclusions — if something has nuance or competing considerations, surface them rather than collapsing to a single answer. Proactively flag tensions, inconsistencies, or ambiguities you notice, even if not directly asked. When something is underspecified, ambiguous, or could reasonably go more than one way, ask rather than guess — clarifying questions are welcome and expected, not a sign of failure to understand.
 >
 > **Centralized patterns first.** Prioritize existing, centralized utilities and patterns (see SSOT Quick-Reference / `architecture-sources-of-truth.md`). If a new pattern or utility is genuinely required, ask before implementing it, and register it once built.
+>
+> *(Open question — see `docs/constraint-overrides.md` O1: whether "new pattern" covers a shared component that falls straight out of an already-approved decision, or only genuinely novel architecture. Under review; the wording itself is ecosystem-shared and not this repo's alone to change.)*
 >
 > **Significant changes need sign-off.** For significant architectural changes or new external dependencies, explain clearly and get explicit approval before proceeding.
 >
@@ -118,6 +144,8 @@ Governs how Agent treats `replit.md` itself when self-updating (Replit Agent upd
 
 - **Core-contract sections** — Identity, Non-Negotiables, Working Agreement, this Maintenance section — change rarely and deliberately. Never edit these as a side effect of unrelated work. If a session feels one of these needs substantial rewriting, surface that explicitly and wait for confirmation before making the change.
 - **Routine sections** — Run & Operate / Stack / Map update when the underlying facts change (new command, new directory, new dependency). Documentation Index entries update when their target doc's purpose or status changes. SSOT Quick-Reference gets a new line whenever `architecture-sources-of-truth.md` gains a new entry.
+- **Descriptive vs prescriptive** — a doc describing what the system *does* is stale when it disagrees with the code; fix it and move on. A doc saying what we *should* do is either a **hard** constraint (correctness, safety, data integrity) or a **soft** one (an earlier conversation's conclusion, written down so it isn't re-litigated weekly). Most read like rules but are soft.
+- **A contradiction starts a conversation, it does not gate** — when an instruction conflicts with a documented constraint, say what the doc says and which kind it is, then proceed with the live instruction once it's clearly deliberate; the current conversation outranks a written-down old one. Log the supersession in `docs/constraint-overrides.md` so it's visible rather than inferred from a diff, annotate the superseded doc if a reader would otherwise be misled, and reconcile the ledger before the work stream closes. Hard constraints take the same path with more resistance up front: name the specific failure the constraint prevents before crossing it.
 - **Discoveries that don't fit** — if something comes up that doesn't have an obvious home in this structure, propose a new `docs/` entry (assign it a bucket per Part 2's categories) rather than appending it to the cockpit. If genuinely unclear where it belongs, flag it rather than guessing.
 - **Size discipline** — the ~150–180 line range is a diagnostic signal, not a hard cap. If `replit.md` creeps past it, that's a prompt to go through it line by line and ask whether each one still earns its place in the cockpit (per Purpose, above) — not to trim indiscriminately just to hit a number.
 - **Readability** — this file is also human-facing documentation. Keep prose readable, not just terse instruction fragments.

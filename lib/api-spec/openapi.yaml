@@ -97,7 +97,7 @@ paths:
         Idempotent on `externalOrderId`: re-sending the same payload updates the existing
         order record instead of creating a duplicate. If `restaurantNameCode` is absent or
         doesn't match any known restaurant, the order is still accepted — it's filed against
-        a placeholder restaurant and marked parked (`isParked: true`) instead of being rejected.
+        a placeholder restaurant and held (`holdState: parked`) instead of being rejected.
       parameters:
         - in: header
           name: x-inbound-secret
@@ -316,6 +316,54 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/OrderDetail"
+  /orders/{id}/items/hide/{itemIndex}:
+    delete:
+      operationId: unhideOrderItem
+      tags: [orders]
+      summary: Remove a hide override, restoring the item to the displayed list
+      description: |
+        Deletes the `hide` override for one item index. Returns no body, unlike
+        its `POST /orders/{id}/items/hide` counterpart which returns the updated
+        `OrderDetail` — callers must refetch the order.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: itemIndex
+          required: true
+          description: Zero-based index into the order's original item list.
+          schema:
+            type: integer
+            minimum: 0
+      responses:
+        "204":
+          description: Override removed
+  /orders/{id}/items/original:
+    get:
+      operationId: getOriginalOrderItems
+      tags: [orders]
+      summary: The immutable upstream item list, before any overrides
+      description: |
+        Admin and coordinator only. Every other order serializer returns the
+        override-applied list, which is what riders and restaurants must see;
+        this is the unmodified list as the source sent it, for comparing against
+        what is currently displayed.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Original items
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OriginalOrderItemsResponse"
   /orders/{id}/notification:
     post:
       operationId: setRiderNotification
@@ -357,6 +405,144 @@ paths:
           application/json:
             schema:
               $ref: "#/components/schemas/UpdateOrderContactRequest"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrderDetail"
+  /orders/{id}/ready:
+    post:
+      operationId: markOrderReady
+      tags: [orders]
+      summary: The kitchen reports the food is done
+      description: |
+        A **status**, not a pickup time. The four pickup-time fields are a
+        negotiation — successive forecasts of when collection should happen,
+        from the storefront, the restaurant, the rider and the coordinator.
+        "The food is ready" is not a bid in that negotiation, so this endpoint
+        deliberately does not touch `pickupTimeRestaurant`.
+
+        It used to: pressing the button overwrote whatever time the restaurant
+        had agreed with the moment of the press, so a status update silently won
+        an argument it was never part of. See `docs/workflow-decisions.md` D14.
+
+        Idempotent — the first report stands, so a double-tap does not rewrite
+        when the food was actually ready.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Updated order
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrderDetail"
+  /orders/{id}/acknowledge:
+    post:
+      operationId: acknowledgeOrder
+      tags: [orders]
+      summary: Restaurant acknowledges an order
+      description: |
+        Records that the restaurant has seen the order and its pickup time. This is a
+        read receipt, not a gate — nothing waits on it, and the delivery team works
+        the order before and without it. Restaurant staff may acknowledge orders for
+        their own restaurant; admins and coordinators may acknowledge any order.
+
+        When `pickupTime` is supplied (the `choose_time` acceptance mode), it is
+        written to `pickupTimeRestaurant` and logged as a pickup-time adjustment,
+        exactly as an explicit pickup-time update would be.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AcknowledgeOrderRequest"
+      responses:
+        "200":
+          description: Acknowledged
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrderDetail"
+  /orders/{id}/hold:
+    post:
+      operationId: holdOrder
+      tags: [orders]
+      summary: Place a deliberate hold on an order
+      description: |
+        Blocks new assignment. An order already being worked keeps accepting status
+        reports, so a hold never freezes a rider mid-delivery. Parked orders are
+        resolved via `/orders/{id}/restaurant` rather than held.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/HoldOrderRequest"
+      responses:
+        "200":
+          description: Held
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrderDetail"
+  /orders/{id}/release:
+    post:
+      operationId: releaseOrder
+      tags: [orders]
+      summary: Lift a deliberate hold
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Released
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrderDetail"
+  /orders/{id}/restaurant:
+    post:
+      operationId: setOrderRestaurant
+      tags: [orders]
+      summary: Re-point an order at a restaurant
+      description: |
+        The resolution path for a parked order: assigning the correct restaurant
+        lifts the `parked` hold in the same write. A deliberate hold is left in
+        place and must be released separately.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SetOrderRestaurantRequest"
       responses:
         "200":
           description: Updated
@@ -858,6 +1044,38 @@ components:
     DeliveryMethod:
       type: string
       enum: [delivery, pickup, happy_hour]
+    OrderHoldState:
+      type: string
+      enum: [parked, on_hold]
+    RestaurantAcceptanceMode:
+      type: string
+      enum: [accept, choose_time]
+      description: |
+        How this restaurant is asked to acknowledge an order. `accept` is a single
+        confirm action; `choose_time` confirms by picking one of three pickup times
+        (as proposed, ten minutes earlier, ten minutes later). Acknowledgement never
+        gates anything either way.
+    AcknowledgeOrderRequest:
+      type: object
+      properties:
+        pickupTime:
+          type: ["string", "null"]
+          format: date-time
+          description: |
+            Optional. Supplied when the restaurant confirms by choosing a time other
+            than the one proposed; written to `pickupTimeRestaurant` through the same
+            path as an explicit pickup-time update. Omit to acknowledge as-is.
+    HoldOrderRequest:
+      type: object
+      properties:
+        reason:
+          type: ["string", "null"]
+    SetOrderRestaurantRequest:
+      type: object
+      required: [restaurantId]
+      properties:
+        restaurantId:
+          type: string
     DeliveryTimeType:
       type: string
       enum: [asap, later_today, other_day]
@@ -962,7 +1180,7 @@ components:
           type: ["string", "null"]
     Restaurant:
       type: object
-      required: [id, name, nameCode, address, minDeliveryTime, createdAt]
+      required: [id, name, nameCode, address, minDeliveryTime, acceptanceMode, createdAt]
       properties:
         id:
           type: string
@@ -977,6 +1195,8 @@ components:
           type: ["string", "null"]
         minDeliveryTime:
           type: integer
+        acceptanceMode:
+          $ref: "#/components/schemas/RestaurantAcceptanceMode"
         createdAt:
           type: string
           format: date-time
@@ -995,6 +1215,8 @@ components:
           type: ["string", "null"]
         minDeliveryTime:
           type: integer
+        acceptanceMode:
+          $ref: "#/components/schemas/RestaurantAcceptanceMode"
     UpdateRestaurantRequest:
       type: object
       properties:
@@ -1009,6 +1231,8 @@ components:
           type: ["string", "null"]
         minDeliveryTime:
           type: integer
+        acceptanceMode:
+          $ref: "#/components/schemas/RestaurantAcceptanceMode"
     OrderItem:
       type: object
       required: [name, quantity, price]
@@ -1027,6 +1251,14 @@ components:
         externalId:
           type: ["string", "null"]
           description: POS/kitchen article id, when the source provides one.
+    OriginalOrderItemsResponse:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/OrderItem"
     InboundOrderPayload:
       type: object
       required:
@@ -1066,7 +1298,16 @@ components:
               type: ["string", "null"]
             address:
               type: string
-              description: Single-line display address. Structured components below are separate, not derived from this.
+              description: |
+                The source's own single line, built from the same components it
+                sends below (`buildFullAddress()` at the source). It is a
+                *rendering* of them, not an independent record — it cannot carry
+                anything they don't.
+
+                A previous version of this description said the two were
+                "separate, not derived from this". That was wrong, and it was
+                wrong in the direction that invents work: it implied the line
+                might hold detail the components lack.
             street:
               type: string
             houseNumber:
@@ -1108,13 +1349,26 @@ components:
           type: string
         cashPayment:
           type: ["object", "null"]
-          description: Present when paymentMethod indicates cash. All fields raw captures from the source.
+          description: |
+            Present when the order is NOT paid online — i.e. payment happens on
+            delivery. Despite the name this is not always cash: `type` says which
+            on-delivery method applies. Only `exact` and `custom` involve physical
+            money, so change is meaningless for `tikkie` and `qr`. All fields are
+            raw captures from the source.
           properties:
             type:
               type: ["string", "null"]
-              description: "exact | custom | tikkie | qr"
+              description: |
+                `exact` — physical cash, customer has it exactly.
+                `custom` — physical cash, customer pays with more, change needed.
+                `tikkie` — payment request, nothing physical changes hands.
+                `qr` — scan to pay, nothing physical changes hands.
             changeAmount:
               type: ["string", "null"]
+              description: |
+                The amount the customer will pay WITH — not the change owed. The change
+                a rider carries back is `changeAmount - totalAmount`. Only meaningful
+                for the physical-cash types (`exact`, `custom`).
             changeRequired:
               type: ["string", "null"]
             label:
@@ -1127,26 +1381,73 @@ components:
         sourceCreatedAt:
           type: string
           format: date-time
+          description: |
+            The order's creation timestamp at the source — when the customer
+            completed checkout. This is the anchor every other duration below
+            counts from.
         requestedDeliveryTime:
           type: string
           format: date-time
+          description: |
+            **The delivery time shown to the customer at checkout.** The name is
+            misleading: nothing is "requested" on an ASAP order. For a scheduled
+            order it is the slot the customer picked; for an ASAP order it is the
+            storefront's own calculated estimate. Either way it is the
+            storefront's source of truth for fulfilment, and it already has the
+            restaurant's opening hours and prep time applied.
+
+            That is why our pickup time anchors to it. Recomputing from
+            `sourceCreatedAt` would redo a calculation the source has already
+            done, without the opening hours we don't have.
+
+            The user-facing string the customer actually saw ("Zo snel
+            mogelijk", "vandaag om 18:30") lives in the storefront's separate
+            `deliveryTimeDisplay` field and is NOT sent here — so an ASAP time
+            should be presented as an estimate, never as a promised time.
         deliveryTimeType:
           $ref: "#/components/schemas/DeliveryTimeType"
         sourceRestaurantReadyTime:
           type: ["string", "null"]
           format: date-time
+          description: |
+            When the source calculated the restaurant should have the order
+            ready, using that restaurant's settings as they stood at the moment
+            of the order. **ASAP orders only** — absent for `later_today` and
+            `other_day`.
+
+            It is the source's answer to a question we can also answer
+            ourselves from `sourceCreatedAt + minPickupTime`. Retained for audit
+            and as a cross-check, not as a formula input.
+
+        # The six duration fields below are integer MINUTES, all measured from
+        # checkout (`sourceCreatedAt`) as it stood at the moment of ordering.
+        # Each comes in a `restaurant*` and a `deliveryTeam*` variant: the
+        # restaurant's own configured figure and the delivery team's.
         restaurantMinDeliveryTime:
           type: ["integer", "null"]
+          description: |
+            Checkout-to-doorstep, in minutes. What the source uses to calculate
+            the delivery estimate it shows the customer. **This is the whole
+            journey, prep included — it is not travel time.**
         restaurantMinPickupTime:
           type: ["integer", "null"]
+          description: |
+            Checkout-to-restaurant-pickup, in minutes, as at the moment of
+            ordering. This is the one that maps to our pickup time.
         restaurantMinPrepTime:
           type: ["integer", "null"]
+          description: |
+            **Legacy at the source. Ignore it.** Stored because we store
+            everything the source sends, but nothing should read it.
         deliveryTeamMinDeliveryTime:
           type: ["integer", "null"]
+          description: Checkout-to-doorstep, in minutes, per the delivery team's settings.
         deliveryTeamMinPickupTime:
           type: ["integer", "null"]
+          description: Checkout-to-restaurant-pickup, in minutes, per the delivery team's settings.
         deliveryTeamMinPrepTime:
           type: ["integer", "null"]
+          description: "**Legacy at the source. Ignore it.**"
     Order:
       type: object
       required:
@@ -1157,6 +1458,7 @@ components:
         - customerName
         - customerPhone
         - deliveryAddress
+        - deliveryAddressOriginal
         - street
         - postalCode
         - city
@@ -1176,6 +1478,7 @@ components:
         - requestedDeliveryTime
         - deliveryTimeType
         - effectivePickupTime
+        - allowedTransitions
         - createdAt
       properties:
         id:
@@ -1196,6 +1499,18 @@ components:
           type: ["string", "null"]
         deliveryAddress:
           type: string
+          description: |
+            The order's current address as one line, built from the components
+            below on every read and never stored. This is what screens render.
+            Corrections show up here because the components are the only
+            writable copy (D12).
+        deliveryAddressOriginal:
+          type: string
+          description: |
+            The single-line address exactly as the source sent it, immutable
+            after ingestion — the same pattern as `pickupTimeOriginal`. Kept so
+            a coordinator can see what actually arrived. Nothing operational
+            reads it; use `deliveryAddress` for anything the app does.
         street:
           type: string
         houseNumber:
@@ -1267,6 +1582,14 @@ components:
         requestedDeliveryTime:
           type: string
           format: date-time
+          description: |
+            The customer's checkout selection resolved to a timestamp, and the
+            storefront's source of truth for fulfilment. For a scheduled order this
+            is exactly the time they picked; for an ASAP order it is the storefront's
+            calculated delivery estimate. The user-facing string the customer actually
+            saw ("Zo snel mogelijk", "vandaag om 18:30") lives in the storefront's
+            separate `deliveryTimeDisplay` field and is NOT sent here — so an ASAP
+            time should be presented as an estimate, never as a promised time.
         deliveryTimeType:
           $ref: "#/components/schemas/DeliveryTimeType"
         sourceRestaurantReadyTime:
@@ -1293,13 +1616,56 @@ components:
           type: ["string", "null"]
         failureReason:
           type: ["string", "null"]
-        isParked:
-          type: boolean
+        allowedTransitions:
+          type: array
+          items:
+            $ref: "#/components/schemas/OrderStatus"
           description: |
-            True when the inbound restaurant identifier couldn't be resolved and this
-            order was filed against the placeholder restaurant instead of being rejected.
-        parkedReason:
+            Statuses reportable from the order's current one, derived server-side from
+            the state machine. Status is a report rather than a gate: skipping ahead
+            and correcting a mis-tap are both accepted. `pending` and `driver_assigned`
+            never appear — they are coupled to `riderId` and written by
+            `POST /orders/{id}/assign`. Clients should render these rather than keep
+            their own transition table.
+        itemsAdjustment:
           type: ["string", "null"]
+          description: |
+            Value of the delivered items minus the value of the ordered items, when a
+            coordinator has hidden or added anything. Null when untouched. `totalAmount`
+            is written once at ingestion and never recomputed, so this is the amount by
+            which the delivered list no longer matches what was charged — surfaced on the
+            receipt rather than silently producing a breakdown that doesn't add up.
+        restaurantAcceptedAt:
+          type: ["string", "null"]
+          format: date-time
+          description: |
+            When the restaurant acknowledged the order. Null means not yet acknowledged,
+            which blocks nothing — it is a read receipt, not a gate.
+        restaurantReadyAt:
+          type: ["string", "null"]
+          format: date-time
+          description: |
+            When the kitchen reported the food was done. A status on the
+            restaurant's own journey (seen/accepted → ready → picked up), which
+            is informational — it is not a pickup time and nothing waits on it.
+        restaurantAcceptedByName:
+          type: ["string", "null"]
+        holdState:
+          oneOf:
+            - $ref: "#/components/schemas/OrderHoldState"
+            - type: "null"
+          description: |
+            The hold family — the only mechanism that gates an order. Null means not
+            held. A hold blocks new assignment only; an order already being worked
+            keeps accepting status reports.
+        holdReason:
+          type: ["string", "null"]
+        heldAt:
+          type: ["string", "null"]
+          format: date-time
+        heldByUserName:
+          type: ["string", "null"]
+          description: Null for automatic holds (`parked`).
         tripId:
           type: ["string", "null"]
         tripNumber:
@@ -1425,6 +1791,11 @@ components:
           type: ["string", "null"]
     UpdateOrderContactRequest:
       type: object
+      description: |
+        The address is corrected component by component. There is no
+        `deliveryAddress` field: that value is derived from the components on
+        read, and `deliveryAddressOriginal` is immutable, so the components are
+        the only writable record of where the order goes (D12).
       properties:
         customerName:
           type: string
@@ -1432,8 +1803,22 @@ components:
           type: string
         customerEmail:
           type: ["string", "null"]
-        deliveryAddress:
+        street:
           type: string
+          minLength: 1
+        houseNumber:
+          type: ["string", "null"]
+        addition:
+          type: ["string", "null"]
+        postalCode:
+          type: string
+          minLength: 1
+        city:
+          type: string
+          minLength: 1
+        country:
+          type: string
+          minLength: 1
         deliveryInstructions:
           type: ["string", "null"]
     RiderWithWorkload:
@@ -1510,15 +1895,60 @@ components:
     Settings:
       type: object
       required:
-        [outboundWebhookUrl, outboundWebhookUrlSource, allowRiderSelfClaim, vapidConfigured]
+        [outboundWebhookUrl, outboundWebhookUrlSource, outboundWebhookEnabled, allowRiderSelfClaim, pickupOffsetMinutes, vapidConfigured]
       properties:
         outboundWebhookUrl:
           type: ["string", "null"]
         outboundWebhookUrlSource:
           type: string
           enum: [env, settings, unset]
+        outboundWebhookEnabled:
+          type: boolean
+          description: |
+            Master switch for outbound delivery. Off by default — the receiving
+            end is not built yet. When off, no event is dispatched or queued and
+            the retry loop does no work. An unset URL counts as disabled
+            regardless of this flag.
         allowRiderSelfClaim:
           type: boolean
+        pickupOffsetMinutes:
+          type: integer
+          description: |
+            The standing gap, in minutes, between an order's pickup time and the
+            delivery time the customer was shown at checkout. Applies to every
+            order. Defaults to 20.
+
+            **Not travel time.** Nothing measures how long the journey takes;
+            this is a chosen offset that makes no claim about what fills it.
+        pickupWithinMinutes:
+          type: ["integer", "null"]
+          description: |
+            How quickly the delivery team can collect right now, in minutes
+            counted **forwards from the order arriving** — "it's quiet, we can
+            be there in ten".
+
+            A **different quantity** from `pickupOffsetMinutes`, which counts
+            backwards from the delivery time. They have different anchors and
+            never combine: when this is set it simply *is* the pickup time for
+            an ASAP order. Both directions follow with no comparison — a small
+            value moves pickup earlier (rider moving rather than idle), a large
+            one moves it later (swamped, cannot get there yet).
+
+            **ASAP orders only:** "we can be there in ten" says nothing about an
+            order placed today for next Tuesday.
+
+            Not clamped. Everything we could clamp against is a guesstimate, and
+            a coordinator setting this can see whether restaurants are open.
+
+            Cleared automatically once a new operational day begins at 03:00
+            Europe/Amsterdam. Null means the offset rule applies.
+        pickupWithinSetAt:
+          type: ["string", "null"]
+          format: date-time
+          description: |
+            When `pickupWithinMinutes` was last written. Read-only — set
+            automatically alongside the value so the daily reset knows which
+            operational day it belongs to.
         vapidConfigured:
           type: boolean
         inboundSecretConfigured:
@@ -1534,8 +1964,16 @@ components:
       properties:
         outboundWebhookUrl:
           type: ["string", "null"]
+        outboundWebhookEnabled:
+          type: boolean
         allowRiderSelfClaim:
           type: boolean
+        pickupOffsetMinutes:
+          type: integer
+          minimum: 0
+        pickupWithinMinutes:
+          type: ["integer", "null"]
+          minimum: 0
     VapidPublicKey:
       type: object
       required: [publicKey, configured]
@@ -1572,9 +2010,19 @@ components:
       properties:
         endpoint:
           type: string
+    TripStopState:
+      type: string
+      enum: [upcoming, done, skipped]
+      description: |
+        Derived from the stop's order status — never stored. A pickup stop is
+        `done` once the order reads `picked_up` or later; a dropoff stop is
+        `done` once it reads `delivered`. A `failed` order marks both of its
+        stops `skipped`: settled, but not completed. The status column is
+        last-write-wins, so after a failure we cannot tell whether the pickup
+        happened first, and the status log is the place to find out.
     TripStop:
       type: object
-      required: [id, orderId, kind, sequence]
+      required: [id, orderId, kind, sequence, state]
       properties:
         id:
           type: string
@@ -1584,23 +2032,29 @@ components:
           $ref: "#/components/schemas/TripStopKind"
         sequence:
           type: integer
-        completedAt:
-          type: ["string", "null"]
-          format: date-time
+        state:
+          $ref: "#/components/schemas/TripStopState"
     TripStopWithOrder:
       allOf:
         - $ref: "#/components/schemas/TripStop"
         - type: object
-          required: [externalOrderId, customerName, restaurantId, restaurantName, deliveryAddress, orderStatus, effectivePickupTime]
+          required: [externalOrderId, customerName, customerPhone, restaurantId, restaurantName, restaurantAddress, deliveryAddress, orderStatus, effectivePickupTime]
           properties:
             externalOrderId:
               type: string
             customerName:
               type: string
+            customerPhone:
+              type: string
             restaurantId:
               type: string
             restaurantName:
               type: string
+            restaurantAddress:
+              type: string
+              description: |
+                The pickup address. Carried on the stop so a rider running a
+                trip has somewhere to go without opening each order.
             deliveryAddress:
               type: string
             orderStatus:
@@ -1616,6 +2070,8 @@ components:
         - status
         - orderCount
         - stopCount
+        - doneStopCount
+        - skippedStopCount
         - createdAt
         - updatedAt
       properties:
@@ -1635,8 +2091,14 @@ components:
           type: integer
         stopCount:
           type: integer
-        completedStopCount:
+        doneStopCount:
           type: integer
+          description: Stops whose order reports them completed. Derived, not stored.
+        skippedStopCount:
+          type: integer
+          description: |
+            Stops belonging to a failed order. Not outstanding, not completed —
+            `stopCount - doneStopCount - skippedStopCount` is what is left to do.
         createdAt:
           type: string
           format: date-time

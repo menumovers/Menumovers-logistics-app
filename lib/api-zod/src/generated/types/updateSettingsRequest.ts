@@ -9,5 +9,13 @@
 export interface UpdateSettingsRequest {
   /** @nullable */
   outboundWebhookUrl?: string | null;
+  outboundWebhookEnabled?: boolean;
   allowRiderSelfClaim?: boolean;
+  /** @minimum 0 */
+  pickupOffsetMinutes?: number;
+  /**
+   * @minimum 0
+   * @nullable
+   */
+  pickupWithinMinutes?: number | null;
 }

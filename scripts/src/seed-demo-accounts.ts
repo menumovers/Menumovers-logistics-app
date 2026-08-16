@@ -48,24 +48,23 @@ async function main(): Promise<void> {
     .select()
     .from(ridersTable)
     .where(eq(ridersTable.nameCode, "rijder1"));
-  const riderRow =
-    existingRider ??
-    (await (async () => {
-      // Create a placeholder user first so we can link it; we'll update after
-      const placeholderUserId = await upsertUser({
-        email: "rider1@bestellenbij.nl",
-        passwordHash: hash,
-        name: "Rijder1",
-        role: "rider",
-        accountStatus: "active",
-      });
-      const [r] = await db
-        .insert(ridersTable)
-        .values({ userId: placeholderUserId, nameCode: "rijder1", availabilityStatus: "offline" })
-        .returning();
-      console.log(`Created  rider record              (id: ${r!.id})`);
-      return r!;
-    })());
+  // Run for its side effect only — the created row isn't needed here, and the
+  // linking step below keys off `existingRider`. Was an IIFE assigned to an
+  // unused binding.
+  if (!existingRider) {
+    const placeholderUserId = await upsertUser({
+      email: "rider1@bestellenbij.nl",
+      passwordHash: hash,
+      name: "Rijder1",
+      role: "rider",
+      accountStatus: "active",
+    });
+    const [r] = await db
+      .insert(ridersTable)
+      .values({ userId: placeholderUserId, nameCode: "rijder1", availabilityStatus: "offline" })
+      .returning();
+    console.log(`Created  rider record              (id: ${r!.id})`);
+  }
 
   // Ensure the rider user exists and is linked (idempotent path)
   if (existingRider) {

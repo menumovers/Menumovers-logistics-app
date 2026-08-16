@@ -1,5 +1,172 @@
 # Changelog
 
+## 2026-08-15 — Pickup times: two anchors, never combined
+
+Closes the question that opened this audit: *why is anything computing from
+`now`?* Nothing does. But the answer took four discarded designs to reach, and
+the reason is worth more than the formula.
+
+**The default rule anchors to the delivery time the customer was shown.**
+`requestedDeliveryTime` is badly named — nothing is "requested" on an ASAP order
+— but it already carries the restaurant's opening hours and prep time, because
+the source applied them before promising the customer anything. Anchoring there
+inherits all of it. Counting forward from checkout instead, which an earlier
+version did, reconstructs that calculation without the opening hours and fails
+whenever a kitchen is shut at the moment someone orders.
+
+**`pickupWithinMinutes` is the second anchor, and it counts the other way.**
+When a coordinator says *"it's quiet, we can do it in ten"*, the ten runs from
+the order arriving — get moving, stop sitting idle. So a small value moves
+pickup earlier and a large one later, with no comparison logic at all. ASAP
+only; "we can be there in ten" says nothing about next Tuesday.
+
+The two settings measure different things from different anchors and **never
+combine**. Whichever applies simply is the answer. Every attempt to reconcile
+them — a floor, a `MAX`, a fallback chain — was a category error.
+
+Neither is clamped. Everything available to clamp against is a guesstimate, and
+a coordinator setting a value can see whether restaurants are open. An order
+placed at 17:20 for 17:30 is still accepted: feasibility is Bestellenbij's, and
+a pickup time in the past is a true statement about what happened upstream. The
+lead time is logged so someone can go and ask.
+
+Terminology, because three words were doing damage. **"Travel time"** implies
+something measured; nothing measures the journey, so the setting is
+`pickupOffset`. **"Lead time"** meant two things and now names one: the
+observation `requestedDeliveryTime − sourceCreatedAt`. **"Minimum"** invited a
+floor, which is not what `pickupWithin` is — it replaces, it does not bound.
+
+All six `*Min*Time` duration fields and `sourceRestaurantReadyTime` are
+audit-only. `pickupTravelOverrideMinutes` is gone; it overrode a quantity that
+no longer exists.
+
+The daily reset **clears** the value rather than expiring it on read, so the
+stored row always says what is in effect — the same stored-versus-true
+divergence D12 removed from the address. It runs on the existing five-minute
+janitor rather than an 03:00 cron, which makes it self-healing after downtime.
+`lib/daily-reset.ts` resolves the boundary through `Intl`: Amsterdam observes
+DST, so consecutive resets are 23 or 25 hours apart.
+
+**The process, which cost more than the code.** Four formulas were built and
+discarded, each internally consistent and each with passing assertions —
+proving only that an invented rule had been applied consistently. Every one came
+from filling a gap in understanding with something plausible, because code will
+not compile around a gap. The rule that came out of it is in `replit.md` §5:
+state the spec back and wait, and stop at gaps rather than filling them.
+
+Supersedes D4. Rationale in `docs/workflow-decisions.md` D13.
+
+## 2026-08-15 — The address components become canonical; the source's line becomes a receipt
+
+The source keeps the address as components, sends them to us as-is, and also
+sends its own `buildFullAddress()` rendering of them as one line. Both come
+from a single record. We stored both as writable and treated the line as
+canonical, while `POST /orders/:id/contact` wrote only the line — so the first
+coordinator
+correction made the two disagree permanently, with nothing recording which was
+current (`todo-bugs.md` B5).
+
+Nothing had chosen that arrangement. The components were added in Phase 2 with
+a commit message saying they *"replace reliance on a single deliveryAddress
+string"*, and the second half of that change never happened. The string won by
+being there first.
+
+The components are now canonical for everything operational — what a
+coordinator edits, what order search queries, what the displayed line is built
+from. `orders.delivery_address` is renamed `delivery_address_original` and made
+immutable, holding the source's own line for audit only. Same pattern as
+`pickupTimeOriginal`, and the same reasoning as D11: keep the original so a
+question can be answered later, without letting it pretend to be the record.
+
+**What removes the drift is that there is now one writable copy**, not better
+synchronisation between two.
+
+`lib/address.ts` builds the display line on every read; it is never stored.
+Screens are unchanged — they still render `deliveryAddress` — but the value now
+reflects corrections. `UpdateOrderContactRequest` drops `deliveryAddress` in
+favour of the components, which the generated types turned into a compile error
+at the single call site. Order search matches the components joined via
+`concat_ws`, so "Hoofdstraat 12" still matches across two columns, and still
+matches the original line so an order stays findable by the address it arrived
+with.
+
+The cost is almost nothing. Since the source builds its line from the same
+components, we are doing what it already does with our own formatter — there is
+no information to drop. Gaps are symmetric, and `formatAddress` omits blank
+parts rather than leaving a stray comma. What is real: we chose our own ordering
+and punctuation, so the line may read slightly differently from the source's,
+and we own a small function that could have bugs. 21 assertions cover it.
+
+Resolves the deferred "Legacy `deliveryAddress` text column" note in
+`todo-out-of-scope.md`. Rationale in `docs/workflow-decisions.md` D12.
+
+## 2026-08-15 — Trip progress derives from order status
+
+`trip_stops.completed_at` was read in four places to compute the coordinator's
+trip progress bar, and **nothing in the codebase had ever written it**. Every
+trip displayed 0% permanently (`todo-bugs.md` B4). Riders, meanwhile, had no
+trip view at all — no route, no page, only a banner on the order screen.
+
+Rather than add the missing write, the column is dropped and progress is read
+off the record the rider already maintains. `lib/trip-progress.ts` is the only
+place that decides what "done" means: a pickup stop is done once its order
+reads `picked_up` or later, a dropoff once it reads `delivered`.
+
+A failed order marks both of its stops **`skipped`** — a third state, not a
+flavour of done. `orders.status` is last-write-wins, so after a failure there is
+no way to tell whether the pickup happened first; `skipped` says what is known
+(settled, not completed) instead of guessing. Outstanding work is therefore
+`stopCount - doneStopCount - skippedStopCount`, and a failure never counts as
+progress.
+
+The API changed shape with it: `TripStop.completedAt` → `TripStop.state`
+(`upcoming` / `done` / `skipped`), `TripListItem.completedStopCount` →
+`doneStopCount` + `skippedStopCount`. `TripStopWithOrder` also gained
+`restaurantAddress` and `customerPhone`, so a rider running a trip has somewhere
+to go and someone to call without opening each order.
+
+New rider view at `/rider/trips/:id`, reachable from a trips section on the
+rider dashboard. It deliberately has **no controls of its own** — each stop
+links through to the order screen, where status is already advanced. A tick box
+here would have recreated the second record this change removes.
+
+One consequence worth naming: `PUT /trips/:id/stops` used to carry `completedAt`
+across by `(orderId, kind)` so a reorder wouldn't lose progress. Stops are now
+replaced wholesale, because they record what to do and in what order, never
+whether it happened. Rationale in `docs/workflow-decisions.md` D6.
+
+## 2026-08-14 — Order status is a report, not a gate
+
+Reverses a founding decision. The order state machine enforced a strictly
+linear transition table and returned `422 INVALID_TRANSITION` on any deviation,
+which `replit.md` §1 described as "strict server-validated state transitions".
+
+That was actively blocking riders: one who forgot to tap "en route to
+restaurant", arrived, and tapped "picked up" was refused while standing outside
+the restaurant, with no way to express the skip — the rider UI only ever
+rendered the single next step.
+
+Status is now an observation reported by whoever is present. Skipping ahead and
+correcting a mis-tap are both accepted, and the audit trail records the jump
+that actually happened rather than inventing the steps in between. Three
+invariants survive, because each is about data consistency rather than workflow
+order: `pending` and `driver_assigned` stay coupled to `riderId` and are written
+only by `/assign`; `delivered` and `failed` remain terminal, with the
+intentional `delivered → failed` exception; and a transition must move the
+order, which the route's atomic guard depends on.
+
+The transition table is gone — the rules are short enough to express directly,
+and `nextStatusesFor()` derives the reportable set from them. That set is
+serialized onto every order as `allowedTransitions`, which removed the two
+hand-maintained client copies that had drifted from the server and from each
+other (`todo-bugs.md` B6). The rider keeps a one-tap primary button for the
+expected next step — presentation, not validity — and can report any other
+accepted status from a secondary list.
+
+Documentation updated in step: `replit.md` §1, `architecture-full-technical.md`,
+and the SSOT registry, which now carries an explicit "do not keep a transition
+table in a client". Rationale in `docs/workflow-decisions.md` D1.
+
 ## 2026-08-14 — Inbound restaurant lookup switched from external-ID table to nameCode
 
 Replaced the `restaurant_external_ids` indirection table with a direct `restaurants.nameCode` lookup. The inbound payload field is now `restaurantNameCode` (optional string) instead of `externalRestaurantId` (required string). If the field is absent or doesn't match any restaurant, the order is parked exactly as before. The `restaurant_external_ids` table was confirmed empty and dropped from the live database; its Drizzle schema file was removed. Matches the approach used by MenuMovers on Babeldish.

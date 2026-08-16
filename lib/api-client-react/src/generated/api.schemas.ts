@@ -88,6 +88,49 @@ export const DeliveryMethod = {
   happy_hour: "happy_hour",
 } as const;
 
+export type OrderHoldState =
+  (typeof OrderHoldState)[keyof typeof OrderHoldState];
+
+export const OrderHoldState = {
+  parked: "parked",
+  on_hold: "on_hold",
+} as const;
+
+/**
+ * How this restaurant is asked to acknowledge an order. `accept` is a single
+confirm action; `choose_time` confirms by picking one of three pickup times
+(as proposed, ten minutes earlier, ten minutes later). Acknowledgement never
+gates anything either way.
+
+ */
+export type RestaurantAcceptanceMode =
+  (typeof RestaurantAcceptanceMode)[keyof typeof RestaurantAcceptanceMode];
+
+export const RestaurantAcceptanceMode = {
+  accept: "accept",
+  choose_time: "choose_time",
+} as const;
+
+export interface AcknowledgeOrderRequest {
+  /**
+   * Optional. Supplied when the restaurant confirms by choosing a time other
+than the one proposed; written to `pickupTimeRestaurant` through the same
+path as an explicit pickup-time update. Omit to acknowledge as-is.
+
+   * @nullable
+   */
+  pickupTime?: string | null;
+}
+
+export interface HoldOrderRequest {
+  /** @nullable */
+  reason?: string | null;
+}
+
+export interface SetOrderRestaurantRequest {
+  restaurantId: string;
+}
+
 export type DeliveryTimeType =
   (typeof DeliveryTimeType)[keyof typeof DeliveryTimeType];
 
@@ -206,6 +249,7 @@ export interface Restaurant {
   /** @nullable */
   phone?: string | null;
   minDeliveryTime: number;
+  acceptanceMode: RestaurantAcceptanceMode;
   createdAt: string;
 }
 
@@ -217,6 +261,7 @@ export interface CreateRestaurantRequest {
   /** @nullable */
   phone?: string | null;
   minDeliveryTime: number;
+  acceptanceMode?: RestaurantAcceptanceMode;
 }
 
 export interface UpdateRestaurantRequest {
@@ -227,6 +272,7 @@ export interface UpdateRestaurantRequest {
   /** @nullable */
   phone?: string | null;
   minDeliveryTime?: number;
+  acceptanceMode?: RestaurantAcceptanceMode;
 }
 
 export interface OrderItem {
@@ -247,12 +293,25 @@ export interface OrderItem {
   externalId?: string | null;
 }
 
+export interface OriginalOrderItemsResponse {
+  items: OrderItem[];
+}
+
 export type InboundOrderPayloadCustomer = {
   name: string;
   phone: string;
   /** @nullable */
   email?: string | null;
-  /** Single-line display address. Structured components below are separate, not derived from this. */
+  /** The source's own single line, built from the same components it
+sends below (`buildFullAddress()` at the source). It is a
+*rendering* of them, not an independent record — it cannot carry
+anything they don't.
+
+A previous version of this description said the two were
+"separate, not derived from this". That was wrong, and it was
+wrong in the direction that invents work: it implied the line
+might hold detail the components lack.
+ */
   address: string;
   street: string;
   /** @nullable */
@@ -272,16 +331,31 @@ export type InboundOrderPayloadCustomer = {
 };
 
 /**
- * Present when paymentMethod indicates cash. All fields raw captures from the source.
+ * Present when the order is NOT paid online — i.e. payment happens on
+delivery. Despite the name this is not always cash: `type` says which
+on-delivery method applies. Only `exact` and `custom` involve physical
+money, so change is meaningless for `tikkie` and `qr`. All fields are
+raw captures from the source.
+
  * @nullable
  */
 export type InboundOrderPayloadCashPayment = {
   /**
-   * exact | custom | tikkie | qr
+   * `exact` — physical cash, customer has it exactly.
+`custom` — physical cash, customer pays with more, change needed.
+`tikkie` — payment request, nothing physical changes hands.
+`qr` — scan to pay, nothing physical changes hands.
+
    * @nullable
    */
   type?: string | null;
-  /** @nullable */
+  /**
+   * The amount the customer will pay WITH — not the change owed. The change
+a rider carries back is `changeAmount - totalAmount`. Only meaningful
+for the physical-cash types (`exact`, `custom`).
+
+   * @nullable
+   */
   changeAmount?: string | null;
   /** @nullable */
   changeRequired?: string | null;
@@ -311,7 +385,12 @@ see the endpoint description.
   deliveryMethod: DeliveryMethod;
   paymentMethod: string;
   /**
-   * Present when paymentMethod indicates cash. All fields raw captures from the source.
+   * Present when the order is NOT paid online — i.e. payment happens on
+delivery. Despite the name this is not always cash: `type` says which
+on-delivery method applies. Only `exact` and `custom` involve physical
+money, so change is meaningless for `tikkie` and `qr`. All fields are
+raw captures from the source.
+
    * @nullable
    */
   cashPayment?: InboundOrderPayloadCashPayment;
@@ -319,22 +398,78 @@ see the endpoint description.
   kitchenNotes?: string | null;
   /** @nullable */
   deliveryInstructions?: string | null;
+  /** The order's creation timestamp at the source — when the customer
+completed checkout. This is the anchor every other duration below
+counts from.
+ */
   sourceCreatedAt: string;
+  /** **The delivery time shown to the customer at checkout.** The name is
+misleading: nothing is "requested" on an ASAP order. For a scheduled
+order it is the slot the customer picked; for an ASAP order it is the
+storefront's own calculated estimate. Either way it is the
+storefront's source of truth for fulfilment, and it already has the
+restaurant's opening hours and prep time applied.
+
+That is why our pickup time anchors to it. Recomputing from
+`sourceCreatedAt` would redo a calculation the source has already
+done, without the opening hours we don't have.
+
+The user-facing string the customer actually saw ("Zo snel
+mogelijk", "vandaag om 18:30") lives in the storefront's separate
+`deliveryTimeDisplay` field and is NOT sent here — so an ASAP time
+should be presented as an estimate, never as a promised time.
+ */
   requestedDeliveryTime: string;
   deliveryTimeType: DeliveryTimeType;
-  /** @nullable */
+  /**
+   * When the source calculated the restaurant should have the order
+ready, using that restaurant's settings as they stood at the moment
+of the order. **ASAP orders only** — absent for `later_today` and
+`other_day`.
+
+It is the source's answer to a question we can also answer
+ourselves from `sourceCreatedAt + minPickupTime`. Retained for audit
+and as a cross-check, not as a formula input.
+
+   * @nullable
+   */
   sourceRestaurantReadyTime?: string | null;
-  /** @nullable */
+  /**
+   * Checkout-to-doorstep, in minutes. What the source uses to calculate
+the delivery estimate it shows the customer. **This is the whole
+journey, prep included — it is not travel time.**
+
+   * @nullable
+   */
   restaurantMinDeliveryTime?: number | null;
-  /** @nullable */
+  /**
+   * Checkout-to-restaurant-pickup, in minutes, as at the moment of
+ordering. This is the one that maps to our pickup time.
+
+   * @nullable
+   */
   restaurantMinPickupTime?: number | null;
-  /** @nullable */
+  /**
+   * **Legacy at the source. Ignore it.** Stored because we store
+everything the source sends, but nothing should read it.
+
+   * @nullable
+   */
   restaurantMinPrepTime?: number | null;
-  /** @nullable */
+  /**
+   * Checkout-to-doorstep, in minutes, per the delivery team's settings.
+   * @nullable
+   */
   deliveryTeamMinDeliveryTime?: number | null;
-  /** @nullable */
+  /**
+   * Checkout-to-restaurant-pickup, in minutes, per the delivery team's settings.
+   * @nullable
+   */
   deliveryTeamMinPickupTime?: number | null;
-  /** @nullable */
+  /**
+   * **Legacy at the source. Ignore it.**
+   * @nullable
+   */
   deliveryTeamMinPrepTime?: number | null;
 }
 
@@ -363,7 +498,18 @@ export interface Order {
   customerPhone: string;
   /** @nullable */
   customerEmail?: string | null;
+  /** The order's current address as one line, built from the components
+below on every read and never stored. This is what screens render.
+Corrections show up here because the components are the only
+writable copy (D12).
+ */
   deliveryAddress: string;
+  /** The single-line address exactly as the source sent it, immutable
+after ingestion — the same pattern as `pickupTimeOriginal`. Kept so
+a coordinator can see what actually arrived. Nothing operational
+reads it; use `deliveryAddress` for anything the app does.
+ */
+  deliveryAddressOriginal: string;
   street: string;
   /** @nullable */
   houseNumber?: string | null;
@@ -400,6 +546,14 @@ export interface Order {
   /** @nullable */
   pickupTimeOverride?: string | null;
   sourceCreatedAt: string;
+  /** The customer's checkout selection resolved to a timestamp, and the
+storefront's source of truth for fulfilment. For a scheduled order this
+is exactly the time they picked; for an ASAP order it is the storefront's
+calculated delivery estimate. The user-facing string the customer actually
+saw ("Zo snel mogelijk", "vandaag om 18:30") lives in the storefront's
+separate `deliveryTimeDisplay` field and is NOT sent here — so an ASAP
+time should be presented as an estimate, never as a promised time.
+ */
   requestedDeliveryTime: string;
   deliveryTimeType: DeliveryTimeType;
   /** @nullable */
@@ -422,12 +576,55 @@ export interface Order {
   pendingRiderNotification?: string | null;
   /** @nullable */
   failureReason?: string | null;
-  /** True when the inbound restaurant identifier couldn't be resolved and this
-order was filed against the placeholder restaurant instead of being rejected.
+  /** Statuses reportable from the order's current one, derived server-side from
+the state machine. Status is a report rather than a gate: skipping ahead
+and correcting a mis-tap are both accepted. `pending` and `driver_assigned`
+never appear — they are coupled to `riderId` and written by
+`POST /orders/{id}/assign`. Clients should render these rather than keep
+their own transition table.
  */
-  isParked?: boolean;
+  allowedTransitions: OrderStatus[];
+  /**
+   * Value of the delivered items minus the value of the ordered items, when a
+coordinator has hidden or added anything. Null when untouched. `totalAmount`
+is written once at ingestion and never recomputed, so this is the amount by
+which the delivered list no longer matches what was charged — surfaced on the
+receipt rather than silently producing a breakdown that doesn't add up.
+
+   * @nullable
+   */
+  itemsAdjustment?: string | null;
+  /**
+   * When the restaurant acknowledged the order. Null means not yet acknowledged,
+which blocks nothing — it is a read receipt, not a gate.
+
+   * @nullable
+   */
+  restaurantAcceptedAt?: string | null;
+  /**
+   * When the kitchen reported the food was done. A status on the
+restaurant's own journey (seen/accepted → ready → picked up), which
+is informational — it is not a pickup time and nothing waits on it.
+
+   * @nullable
+   */
+  restaurantReadyAt?: string | null;
   /** @nullable */
-  parkedReason?: string | null;
+  restaurantAcceptedByName?: string | null;
+  /** The hold family — the only mechanism that gates an order. Null means not
+held. A hold blocks new assignment only; an order already being worked
+keeps accepting status reports.
+ */
+  holdState?: OrderHoldState | null;
+  /** @nullable */
+  holdReason?: string | null;
+  /** @nullable */
+  heldAt?: string | null;
+  /**
+   * Null for automatic holds (`parked`).
+   * @nullable
+   */
+  heldByUserName?: string | null;
   /** @nullable */
   tripId?: string | null;
   /**
@@ -519,12 +716,30 @@ export interface SetRiderNotificationRequest {
   message?: string | null;
 }
 
+/**
+ * The address is corrected component by component. There is no
+`deliveryAddress` field: that value is derived from the components on
+read, and `deliveryAddressOriginal` is immutable, so the components are
+the only writable record of where the order goes (D12).
+
+ */
 export interface UpdateOrderContactRequest {
   customerName?: string;
   customerPhone?: string;
   /** @nullable */
   customerEmail?: string | null;
-  deliveryAddress?: string;
+  /** @minLength 1 */
+  street?: string;
+  /** @nullable */
+  houseNumber?: string | null;
+  /** @nullable */
+  addition?: string | null;
+  /** @minLength 1 */
+  postalCode?: string;
+  /** @minLength 1 */
+  city?: string;
+  /** @minLength 1 */
+  country?: string;
   /** @nullable */
   deliveryInstructions?: string | null;
 }
@@ -582,7 +797,53 @@ export interface Settings {
   /** @nullable */
   outboundWebhookUrl: string | null;
   outboundWebhookUrlSource: SettingsOutboundWebhookUrlSource;
+  /** Master switch for outbound delivery. Off by default — the receiving
+end is not built yet. When off, no event is dispatched or queued and
+the retry loop does no work. An unset URL counts as disabled
+regardless of this flag.
+ */
+  outboundWebhookEnabled: boolean;
   allowRiderSelfClaim: boolean;
+  /** The standing gap, in minutes, between an order's pickup time and the
+delivery time the customer was shown at checkout. Applies to every
+order. Defaults to 20.
+
+**Not travel time.** Nothing measures how long the journey takes;
+this is a chosen offset that makes no claim about what fills it.
+ */
+  pickupOffsetMinutes: number;
+  /**
+   * How quickly the delivery team can collect right now, in minutes
+counted **forwards from the order arriving** — "it's quiet, we can
+be there in ten".
+
+A **different quantity** from `pickupOffsetMinutes`, which counts
+backwards from the delivery time. They have different anchors and
+never combine: when this is set it simply *is* the pickup time for
+an ASAP order. Both directions follow with no comparison — a small
+value moves pickup earlier (rider moving rather than idle), a large
+one moves it later (swamped, cannot get there yet).
+
+**ASAP orders only:** "we can be there in ten" says nothing about an
+order placed today for next Tuesday.
+
+Not clamped. Everything we could clamp against is a guesstimate, and
+a coordinator setting this can see whether restaurants are open.
+
+Cleared automatically once a new operational day begins at 03:00
+Europe/Amsterdam. Null means the offset rule applies.
+
+   * @nullable
+   */
+  pickupWithinMinutes?: number | null;
+  /**
+   * When `pickupWithinMinutes` was last written. Read-only — set
+automatically alongside the value so the daily reset knows which
+operational day it belongs to.
+
+   * @nullable
+   */
+  pickupWithinSetAt?: string | null;
   vapidConfigured: boolean;
   inboundSecretConfigured?: boolean;
 }
@@ -594,7 +855,15 @@ export interface SettingsFlags {
 export interface UpdateSettingsRequest {
   /** @nullable */
   outboundWebhookUrl?: string | null;
+  outboundWebhookEnabled?: boolean;
   allowRiderSelfClaim?: boolean;
+  /** @minimum 0 */
+  pickupOffsetMinutes?: number;
+  /**
+   * @minimum 0
+   * @nullable
+   */
+  pickupWithinMinutes?: number | null;
 }
 
 export interface VapidPublicKey {
@@ -623,20 +892,41 @@ export interface UnsubscribePushRequest {
   endpoint: string;
 }
 
+/**
+ * Derived from the stop's order status — never stored. A pickup stop is
+`done` once the order reads `picked_up` or later; a dropoff stop is
+`done` once it reads `delivered`. A `failed` order marks both of its
+stops `skipped`: settled, but not completed. The status column is
+last-write-wins, so after a failure we cannot tell whether the pickup
+happened first, and the status log is the place to find out.
+
+ */
+export type TripStopState = (typeof TripStopState)[keyof typeof TripStopState];
+
+export const TripStopState = {
+  upcoming: "upcoming",
+  done: "done",
+  skipped: "skipped",
+} as const;
+
 export interface TripStop {
   id: string;
   orderId: string;
   kind: TripStopKind;
   sequence: number;
-  /** @nullable */
-  completedAt?: string | null;
+  state: TripStopState;
 }
 
 export type TripStopWithOrder = TripStop & {
   externalOrderId: string;
   customerName: string;
+  customerPhone: string;
   restaurantId: string;
   restaurantName: string;
+  /** The pickup address. Carried on the stop so a rider running a
+trip has somewhere to go without opening each order.
+ */
+  restaurantAddress: string;
   deliveryAddress: string;
   orderStatus: OrderStatus;
   effectivePickupTime: string;
@@ -654,7 +944,12 @@ export interface TripListItem {
   status: TripStatus;
   orderCount: number;
   stopCount: number;
-  completedStopCount?: number;
+  /** Stops whose order reports them completed. Derived, not stored. */
+  doneStopCount: number;
+  /** Stops belonging to a failed order. Not outstanding, not completed —
+`stopCount - doneStopCount - skippedStopCount` is what is left to do.
+ */
+  skippedStopCount: number;
   createdAt: string;
   updatedAt: string;
 }

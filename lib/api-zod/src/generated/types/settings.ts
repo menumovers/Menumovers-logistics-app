@@ -11,7 +11,53 @@ export interface Settings {
   /** @nullable */
   outboundWebhookUrl: string | null;
   outboundWebhookUrlSource: SettingsOutboundWebhookUrlSource;
+  /** Master switch for outbound delivery. Off by default — the receiving
+end is not built yet. When off, no event is dispatched or queued and
+the retry loop does no work. An unset URL counts as disabled
+regardless of this flag.
+ */
+  outboundWebhookEnabled: boolean;
   allowRiderSelfClaim: boolean;
+  /** The standing gap, in minutes, between an order's pickup time and the
+delivery time the customer was shown at checkout. Applies to every
+order. Defaults to 20.
+
+**Not travel time.** Nothing measures how long the journey takes;
+this is a chosen offset that makes no claim about what fills it.
+ */
+  pickupOffsetMinutes: number;
+  /**
+   * How quickly the delivery team can collect right now, in minutes
+counted **forwards from the order arriving** — "it's quiet, we can
+be there in ten".
+
+A **different quantity** from `pickupOffsetMinutes`, which counts
+backwards from the delivery time. They have different anchors and
+never combine: when this is set it simply *is* the pickup time for
+an ASAP order. Both directions follow with no comparison — a small
+value moves pickup earlier (rider moving rather than idle), a large
+one moves it later (swamped, cannot get there yet).
+
+**ASAP orders only:** "we can be there in ten" says nothing about an
+order placed today for next Tuesday.
+
+Not clamped. Everything we could clamp against is a guesstimate, and
+a coordinator setting this can see whether restaurants are open.
+
+Cleared automatically once a new operational day begins at 03:00
+Europe/Amsterdam. Null means the offset rule applies.
+
+   * @nullable
+   */
+  pickupWithinMinutes?: number | null;
+  /**
+   * When `pickupWithinMinutes` was last written. Read-only — set
+automatically alongside the value so the daily reset knows which
+operational day it belongs to.
+
+   * @nullable
+   */
+  pickupWithinSetAt?: Date | null;
   vapidConfigured: boolean;
   inboundSecretConfigured?: boolean;
 }

@@ -180,7 +180,8 @@ These were listed as out of scope but represent decisions made — not things to
 - **Source**: Bestellenbij data-comparison plan (Phase 2)
 - **In docs/todo-roadmap.md**: No
 - **Kind**: Deferred decision
-- **Notes**: `orders.deliveryAddress` (the original flat text field) was kept as-is alongside the new structured address columns (`street`, `postalCode`, `city`, `country`, `latitude`, `longitude`) added in Phase 2. Not decided whether to keep it as a computed display string for anything still reading it directly, or drop it once all readers are updated onto the structured fields — needs a call-site audit before either choice is safe. No functional urgency; it's just sitting there unused by the new columns.
+- **Notes**: **RESOLVED 2026-08-15 by `workflow-decisions.md` D12.** Neither option as originally framed. The column is kept but renamed `delivery_address_original` and made immutable — it is the source's own line, held for audit only. The structured components became canonical for everything operational, and the display string every screen renders is now *derived* from them on read. So the flat value is retained without being a second writable truth, which is what closed `todo-bugs.md` B5.
+  Original note: `orders.deliveryAddress` (the original flat text field) was kept as-is alongside the new structured address columns added in Phase 2. Not decided whether to keep it as a computed display string for anything still reading it directly, or drop it once all readers are updated onto the structured fields.
 
 ---
 

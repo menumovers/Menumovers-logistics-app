@@ -8,6 +8,7 @@
 import type { DeliveryMethod } from "./deliveryMethod";
 import type { DeliveryTimeType } from "./deliveryTimeType";
 import type { OrderCashPayment } from "./orderCashPayment";
+import type { OrderHoldState } from "./orderHoldState";
 import type { OrderItem } from "./orderItem";
 import type { OrderStatus } from "./orderStatus";
 import type { PickupTimeSource } from "./pickupTimeSource";
@@ -23,7 +24,18 @@ export interface Order {
   customerPhone: string;
   /** @nullable */
   customerEmail?: string | null;
+  /** The order's current address as one line, built from the components
+below on every read and never stored. This is what screens render.
+Corrections show up here because the components are the only
+writable copy (D12).
+ */
   deliveryAddress: string;
+  /** The single-line address exactly as the source sent it, immutable
+after ingestion — the same pattern as `pickupTimeOriginal`. Kept so
+a coordinator can see what actually arrived. Nothing operational
+reads it; use `deliveryAddress` for anything the app does.
+ */
+  deliveryAddressOriginal: string;
   street: string;
   /** @nullable */
   houseNumber?: string | null;
@@ -60,6 +72,14 @@ export interface Order {
   /** @nullable */
   pickupTimeOverride?: Date | null;
   sourceCreatedAt: Date;
+  /** The customer's checkout selection resolved to a timestamp, and the
+storefront's source of truth for fulfilment. For a scheduled order this
+is exactly the time they picked; for an ASAP order it is the storefront's
+calculated delivery estimate. The user-facing string the customer actually
+saw ("Zo snel mogelijk", "vandaag om 18:30") lives in the storefront's
+separate `deliveryTimeDisplay` field and is NOT sent here — so an ASAP
+time should be presented as an estimate, never as a promised time.
+ */
   requestedDeliveryTime: Date;
   deliveryTimeType: DeliveryTimeType;
   /** @nullable */
@@ -82,12 +102,55 @@ export interface Order {
   pendingRiderNotification?: string | null;
   /** @nullable */
   failureReason?: string | null;
-  /** True when the inbound restaurant identifier couldn't be resolved and this
-order was filed against the placeholder restaurant instead of being rejected.
+  /** Statuses reportable from the order's current one, derived server-side from
+the state machine. Status is a report rather than a gate: skipping ahead
+and correcting a mis-tap are both accepted. `pending` and `driver_assigned`
+never appear — they are coupled to `riderId` and written by
+`POST /orders/{id}/assign`. Clients should render these rather than keep
+their own transition table.
  */
-  isParked?: boolean;
+  allowedTransitions: OrderStatus[];
+  /**
+   * Value of the delivered items minus the value of the ordered items, when a
+coordinator has hidden or added anything. Null when untouched. `totalAmount`
+is written once at ingestion and never recomputed, so this is the amount by
+which the delivered list no longer matches what was charged — surfaced on the
+receipt rather than silently producing a breakdown that doesn't add up.
+
+   * @nullable
+   */
+  itemsAdjustment?: string | null;
+  /**
+   * When the restaurant acknowledged the order. Null means not yet acknowledged,
+which blocks nothing — it is a read receipt, not a gate.
+
+   * @nullable
+   */
+  restaurantAcceptedAt?: Date | null;
+  /**
+   * When the kitchen reported the food was done. A status on the
+restaurant's own journey (seen/accepted → ready → picked up), which
+is informational — it is not a pickup time and nothing waits on it.
+
+   * @nullable
+   */
+  restaurantReadyAt?: Date | null;
   /** @nullable */
-  parkedReason?: string | null;
+  restaurantAcceptedByName?: string | null;
+  /** The hold family — the only mechanism that gates an order. Null means not
+held. A hold blocks new assignment only; an order already being worked
+keeps accepting status reports.
+ */
+  holdState?: OrderHoldState | null;
+  /** @nullable */
+  holdReason?: string | null;
+  /** @nullable */
+  heldAt?: Date | null;
+  /**
+   * Null for automatic holds (`parked`).
+   * @nullable
+   */
+  heldByUserName?: string | null;
   /** @nullable */
   tripId?: string | null;
   /**

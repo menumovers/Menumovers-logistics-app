@@ -30,7 +30,12 @@ see the endpoint description.
   deliveryMethod: DeliveryMethod;
   paymentMethod: string;
   /**
-   * Present when paymentMethod indicates cash. All fields raw captures from the source.
+   * Present when the order is NOT paid online — i.e. payment happens on
+delivery. Despite the name this is not always cash: `type` says which
+on-delivery method applies. Only `exact` and `custom` involve physical
+money, so change is meaningless for `tikkie` and `qr`. All fields are
+raw captures from the source.
+
    * @nullable
    */
   cashPayment?: InboundOrderPayloadCashPayment;
@@ -38,21 +43,77 @@ see the endpoint description.
   kitchenNotes?: string | null;
   /** @nullable */
   deliveryInstructions?: string | null;
+  /** The order's creation timestamp at the source — when the customer
+completed checkout. This is the anchor every other duration below
+counts from.
+ */
   sourceCreatedAt: Date;
+  /** **The delivery time shown to the customer at checkout.** The name is
+misleading: nothing is "requested" on an ASAP order. For a scheduled
+order it is the slot the customer picked; for an ASAP order it is the
+storefront's own calculated estimate. Either way it is the
+storefront's source of truth for fulfilment, and it already has the
+restaurant's opening hours and prep time applied.
+
+That is why our pickup time anchors to it. Recomputing from
+`sourceCreatedAt` would redo a calculation the source has already
+done, without the opening hours we don't have.
+
+The user-facing string the customer actually saw ("Zo snel
+mogelijk", "vandaag om 18:30") lives in the storefront's separate
+`deliveryTimeDisplay` field and is NOT sent here — so an ASAP time
+should be presented as an estimate, never as a promised time.
+ */
   requestedDeliveryTime: Date;
   deliveryTimeType: DeliveryTimeType;
-  /** @nullable */
+  /**
+   * When the source calculated the restaurant should have the order
+ready, using that restaurant's settings as they stood at the moment
+of the order. **ASAP orders only** — absent for `later_today` and
+`other_day`.
+
+It is the source's answer to a question we can also answer
+ourselves from `sourceCreatedAt + minPickupTime`. Retained for audit
+and as a cross-check, not as a formula input.
+
+   * @nullable
+   */
   sourceRestaurantReadyTime?: Date | null;
-  /** @nullable */
+  /**
+   * Checkout-to-doorstep, in minutes. What the source uses to calculate
+the delivery estimate it shows the customer. **This is the whole
+journey, prep included — it is not travel time.**
+
+   * @nullable
+   */
   restaurantMinDeliveryTime?: number | null;
-  /** @nullable */
+  /**
+   * Checkout-to-restaurant-pickup, in minutes, as at the moment of
+ordering. This is the one that maps to our pickup time.
+
+   * @nullable
+   */
   restaurantMinPickupTime?: number | null;
-  /** @nullable */
+  /**
+   * **Legacy at the source. Ignore it.** Stored because we store
+everything the source sends, but nothing should read it.
+
+   * @nullable
+   */
   restaurantMinPrepTime?: number | null;
-  /** @nullable */
+  /**
+   * Checkout-to-doorstep, in minutes, per the delivery team's settings.
+   * @nullable
+   */
   deliveryTeamMinDeliveryTime?: number | null;
-  /** @nullable */
+  /**
+   * Checkout-to-restaurant-pickup, in minutes, per the delivery team's settings.
+   * @nullable
+   */
   deliveryTeamMinPickupTime?: number | null;
-  /** @nullable */
+  /**
+   * **Legacy at the source. Ignore it.**
+   * @nullable
+   */
   deliveryTeamMinPrepTime?: number | null;
 }

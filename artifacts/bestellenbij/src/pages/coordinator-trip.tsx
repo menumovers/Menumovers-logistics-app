@@ -38,9 +38,10 @@ import {
 } from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
 import { StatusBadge } from "@/components/status-badge";
-import { ArrowLeft, Bike, Check, Home, Store, Layers, Trash2 } from "lucide-react";
+import { ArrowLeft, Bike, Check, Home, Store, Layers, Trash2, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { formatTime } from "@/lib/format";
+import { tripProgress } from "@/lib/trip-progress";
 
 const UNASSIGNED = "__unassigned__";
 
@@ -73,6 +74,7 @@ export default function CoordinatorTripPage() {
     );
   }
   const data: TripDetail = trip.data;
+  const progress = tripProgress(data);
 
   function invalidate() {
     qc.invalidateQueries({ queryKey: getGetTripQueryKey(tripId) });
@@ -160,8 +162,11 @@ export default function CoordinatorTripPage() {
           </h1>
           <div className="text-sm text-muted-foreground mt-1">
             {t(tripStatusKey(data.status))} · {data.orderCount}{" "}
-            {t("trip.orders")} · {data.completedStopCount ?? 0}/{data.stopCount}{" "}
+            {t("trip.orders")} · {progress.done}/{progress.total}{" "}
             {t("trip.stops")}
+            {progress.skipped > 0
+              ? ` · ${t("trip.skippedCount", { count: progress.skipped })}`
+              : ""}
           </div>
         </div>
         <Button
@@ -297,13 +302,16 @@ function StopRow({
   t: (k: string, opts?: Record<string, unknown>) => string;
 }) {
   const isPickup = stop.kind === "pickup";
-  const done = stop.completedAt != null;
+  const done = stop.state === "done";
+  const skipped = stop.state === "skipped";
+  const settled = done || skipped;
   return (
     <li
       className={`flex items-center gap-2 rounded-md border border-border px-2 py-2 ${
-        done ? "opacity-60" : ""
+        settled ? "opacity-60" : ""
       }`}
       data-testid={`trip-stop-${stop.id}`}
+      data-stop-state={stop.state}
     >
       <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-[11px] font-bold text-primary-foreground tabular-nums">
         {index + 1}
@@ -312,20 +320,24 @@ function StopRow({
         className={`flex h-6 w-6 shrink-0 items-center justify-center rounded ${
           done
             ? "bg-chart-5/15 text-chart-5"
-            : isPickup
-              ? "bg-accent/15 text-accent-foreground"
-              : "bg-chart-5/10 text-chart-5"
+            : skipped
+              ? "bg-destructive/10 text-destructive"
+              : isPickup
+                ? "bg-accent/15 text-accent-foreground"
+                : "bg-chart-5/10 text-chart-5"
         }`}
       >
         {done ? (
           <Check className="h-3 w-3" strokeWidth={3} />
+        ) : skipped ? (
+          <X className="h-3.5 w-3.5" strokeWidth={3} />
         ) : isPickup ? (
           <Store className="h-3.5 w-3.5" />
         ) : (
           <Home className="h-3.5 w-3.5" />
         )}
       </span>
-      <div className={`min-w-0 flex-1 ${done ? "line-through" : ""}`}>
+      <div className={`min-w-0 flex-1 ${settled ? "line-through" : ""}`}>
         <div className="text-sm font-medium truncate">
           {isPickup ? t("trip.pickup") : t("trip.dropoff")} ·{" "}
           {isPickup ? stop.restaurantName : stop.customerName}

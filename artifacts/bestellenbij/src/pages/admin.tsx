@@ -7,9 +7,10 @@ import {
   useListRiders, useCreateRider, useUpdateRider,
   useGetSettings, useUpdateSettings,
   getListUsersQueryKey, getListRestaurantsQueryKey, getListRidersQueryKey, getGetSettingsQueryKey,
-  UserRole, RiderAvailability,
+  UserRole, RiderAvailability, RestaurantAcceptanceMode,
   type Restaurant, type RiderWithWorkload, type User as ApiUser, type UserRole as UserRoleType,
-  type RiderAvailability as RiderAvailabilityType,
+  type RiderAvailability as RiderAvailabilityType, type Settings as ApiSettings,
+  type RestaurantAcceptanceMode as RestaurantAcceptanceModeType,
 } from "@workspace/api-client-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -20,6 +21,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Plus, Trash2, CheckCircle2, AlertCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { formatDateTime } from "@/lib/format";
 
 export default function AdminPage() {
   const { t } = useTranslation();
@@ -218,7 +220,8 @@ function RestaurantRow({ restaurant, onUpdate, onInvalidate, onDelete }: { resta
   const [addr, setAddr] = useState(restaurant.address);
   const [phone, setPhone] = useState(restaurant.phone ?? "");
   const [mdt, setMdt] = useState(restaurant.minDeliveryTime);
-  const dirty = name !== restaurant.name || nameCode !== restaurant.nameCode || addr !== restaurant.address || phone !== (restaurant.phone ?? "") || mdt !== restaurant.minDeliveryTime;
+  const [mode, setMode] = useState<RestaurantAcceptanceModeType>(restaurant.acceptanceMode);
+  const dirty = name !== restaurant.name || nameCode !== restaurant.nameCode || addr !== restaurant.address || phone !== (restaurant.phone ?? "") || mdt !== restaurant.minDeliveryTime || mode !== restaurant.acceptanceMode;
   return (
     <Card data-testid={`row-restaurant-${restaurant.id}`}>
       <CardContent className="py-3 grid grid-cols-1 md:grid-cols-6 gap-2 items-end">
@@ -227,11 +230,25 @@ function RestaurantRow({ restaurant, onUpdate, onInvalidate, onDelete }: { resta
         <div className="md:col-span-2"><Label className="text-xs">{t("common.address")}</Label><Input value={addr} onChange={(e) => setAddr(e.target.value)} /></div>
         <div><Label className="text-xs">{t("common.phone")}</Label><Input value={phone} onChange={(e) => setPhone(e.target.value)} /></div>
         <div><Label className="text-xs">{t("admin.minDeliveryTime")}</Label><Input type="number" min={1} value={mdt} onChange={(e) => setMdt(Number(e.target.value))} /></div>
+        <div className="md:col-span-2">
+          <Label className="text-xs">{t("admin.acceptanceMode")}</Label>
+          <Select value={mode} onValueChange={(v) => setMode(v as RestaurantAcceptanceModeType)}>
+            <SelectTrigger data-testid={`select-acceptance-mode-${restaurant.id}`}><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {Object.values(RestaurantAcceptanceMode).map((m) => (
+                <SelectItem key={m} value={m}>{t(`admin.acceptanceMode_${m}`)}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="md:col-span-6 text-xs text-muted-foreground -mt-1">
+          {t("admin.acceptanceModeHelp")}
+        </div>
         <div className="md:col-span-6 flex justify-end gap-2">
           <Button
             variant="outline"
             disabled={!dirty}
-            onClick={() => onUpdate({ id: restaurant.id, data: { name, nameCode, address: addr, phone: phone || null, minDeliveryTime: mdt } }, { onSuccess: onInvalidate, onError: () => toast({ title: t("errors.generic"), variant: "destructive" }) })}
+            onClick={() => onUpdate({ id: restaurant.id, data: { name, nameCode, address: addr, phone: phone || null, minDeliveryTime: mdt, acceptanceMode: mode } }, { onSuccess: onInvalidate, onError: () => toast({ title: t("errors.generic"), variant: "destructive" }) })}
             data-testid={`button-update-restaurant-${restaurant.id}`}
           >
             {t("common.save")}
@@ -351,6 +368,155 @@ function RiderRow({ rider: r, onUpdate, onInvalidate }: { rider: RiderWithWorklo
   );
 }
 
+/**
+ * The two pickup settings (D13).
+ *
+ * Two different quantities with two different anchors. `pickupOffset` counts
+ * **backwards from the delivery time** and applies to every order.
+ * `pickupWithin` counts **forwards from the order arriving** — "it's quiet, we
+ * can be there in ten" — and when set it simply is the ASAP pickup time. They
+ * never combine. ASAP only, and it clears itself at 03:00 Amsterdam so it
+ * cannot quietly govern tomorrow.
+ */
+function PickupTimingCard({ settings }: { settings: ApiSettings }) {
+  const { t, i18n } = useTranslation();
+  const lang = i18n.resolvedLanguage ?? "nl";
+  const qc = useQueryClient();
+  const update = useUpdateSettings();
+  const { toast } = useToast();
+
+  const [defaultDraft, setDefaultDraft] = useState<string | null>(null);
+  const [momentDraft, setMomentDraft] = useState<string | null>(null);
+
+  const storedDefault = String(settings.pickupOffsetMinutes);
+  const storedMoment =
+    settings.pickupWithinMinutes == null
+      ? ""
+      : String(settings.pickupWithinMinutes);
+  const defaultValue = defaultDraft ?? storedDefault;
+  const momentValue = momentDraft ?? storedMoment;
+
+  function save(data: Parameters<typeof update.mutate>[0]["data"]) {
+    update.mutate(
+      { data },
+      {
+        onSuccess: (fresh) => {
+          setDefaultDraft(null);
+          setMomentDraft(null);
+          toast({ title: t("admin.settingsSaved") });
+          qc.setQueryData(getGetSettingsQueryKey(), fresh);
+        },
+        onError: () => toast({ title: t("errors.generic"), variant: "destructive" }),
+      },
+    );
+  }
+
+  function parseMinutes(raw: string): number | null | undefined {
+    const trimmed = raw.trim();
+    if (trimmed === "") return null;
+    const minutes = Number.parseInt(trimmed, 10);
+    if (!Number.isInteger(minutes) || minutes < 0) return undefined;
+    return minutes;
+  }
+
+  return (
+    <Card>
+      <CardHeader><CardTitle className="text-base">{t("admin.pickupTiming")}</CardTitle></CardHeader>
+      <CardContent className="space-y-5">
+        <div className="space-y-2">
+          <Label className="text-xs" htmlFor="pickup-offset">
+            {t("admin.pickupOffset")}
+          </Label>
+          <div className="flex items-center gap-2">
+            <Input
+              id="pickup-offset"
+              type="number"
+              min={0}
+              step={1}
+              inputMode="numeric"
+              className="w-32 tabular-nums"
+              value={defaultValue}
+              onChange={(e) => setDefaultDraft(e.target.value)}
+              data-testid="input-pickup-offset"
+            />
+            <Button
+              disabled={update.isPending || defaultValue === storedDefault}
+              onClick={() => {
+                const minutes = parseMinutes(defaultValue);
+                // The offset has no "unset" — clearing it would leave every
+                // order without a gap to work back from.
+                if (minutes == null) return;
+                save({ pickupOffsetMinutes: minutes });
+              }}
+              data-testid="button-save-pickup-offset"
+            >
+              {t("common.save")}
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground">{t("admin.pickupOffsetHelp")}</p>
+        </div>
+
+        <div className="space-y-2 border-t border-border pt-4">
+          <Label className="text-xs" htmlFor="pickup-within">
+            {t("admin.pickupWithin")}
+          </Label>
+          <div className="flex items-center gap-2">
+            <Input
+              id="pickup-within"
+              type="number"
+              min={0}
+              step={1}
+              inputMode="numeric"
+              placeholder={storedDefault}
+              className="w-32 tabular-nums"
+              value={momentValue}
+              onChange={(e) => setMomentDraft(e.target.value)}
+              data-testid="input-pickup-within"
+            />
+            <Button
+              disabled={update.isPending || momentValue === storedMoment}
+              onClick={() => {
+                const minutes = parseMinutes(momentValue);
+                if (minutes === undefined) return;
+                save({ pickupWithinMinutes: minutes });
+              }}
+              data-testid="button-save-pickup-within"
+            >
+              {t("common.save")}
+            </Button>
+            {settings.pickupWithinMinutes != null ? (
+              <Button
+                variant="ghost"
+                disabled={update.isPending}
+                onClick={() => save({ pickupWithinMinutes: null })}
+                data-testid="button-clear-pickup-within"
+              >
+                {t("admin.pickupWithinClear")}
+              </Button>
+            ) : null}
+          </div>
+          <p className="text-xs text-muted-foreground">
+            {t("admin.pickupWithinHelp")}
+          </p>
+          {settings.pickupWithinMinutes != null ? (
+            <p
+              className="text-xs text-accent-foreground"
+              data-testid="text-pickup-within-active"
+            >
+              {t("admin.pickupWithinActive", {
+                minutes: settings.pickupWithinMinutes,
+                time: settings.pickupWithinSetAt
+                  ? formatDateTime(settings.pickupWithinSetAt, lang)
+                  : "—",
+              })}
+            </p>
+          ) : null}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 function SettingsPanel() {
   const { t } = useTranslation();
   const qc = useQueryClient();
@@ -377,6 +543,35 @@ function SettingsPanel() {
             <p className="text-xs text-muted-foreground">
               {t("admin.outboundSource")}: {t(`admin.outboundSource_${settings.data.outboundWebhookUrlSource}`)}
             </p>
+          ) : null}
+          {settings.data ? (
+            <div className="flex items-center justify-between gap-4 border-t border-border pt-3">
+              <div className="space-y-0.5">
+                <Label htmlFor="outbound-webhook-enabled" className="text-sm">
+                  {t("admin.outboundWebhookEnabled")}
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  {t("admin.outboundWebhookEnabledHelp")}
+                </p>
+              </div>
+              <Switch
+                id="outbound-webhook-enabled"
+                checked={settings.data.outboundWebhookEnabled}
+                disabled={update.isPending}
+                onCheckedChange={(checked) =>
+                  update.mutate(
+                    { data: { outboundWebhookEnabled: checked } },
+                    {
+                      onSuccess: (data) => {
+                        toast({ title: t("admin.settingsSaved") });
+                        qc.setQueryData(getGetSettingsQueryKey(), data);
+                      },
+                    },
+                  )
+                }
+                data-testid="switch-outbound-webhook-enabled"
+              />
+            </div>
           ) : null}
           <Button
             disabled={update.isPending || !touched}
@@ -434,6 +629,7 @@ function SettingsPanel() {
           </CardContent>
         </Card>
       ) : null}
+      {settings.data ? <PickupTimingCard settings={settings.data} /> : null}
       {settings.data ? (
         <Card>
           <CardContent className="py-4 space-y-2 text-sm">

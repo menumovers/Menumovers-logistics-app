@@ -6,6 +6,8 @@ import {
   useListRestaurants,
   useListRiders,
   useListTrips,
+  useReleaseOrder,
+  useSetOrderRestaurant,
   getListOrdersQueryKey,
   getListRestaurantsQueryKey,
   getListRidersQueryKey,
@@ -13,7 +15,9 @@ import {
   OrderStatus,
   type OrderListItem,
   type TripListItem,
+  type Restaurant,
 } from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -27,8 +31,10 @@ import {
 import { Spinner } from "@/components/ui/spinner";
 import { StatusBadge } from "@/components/status-badge";
 import { PickupCountdown, PickupSourceBadge } from "@/components/pickup-countdown";
-import { effectivePickup, formatCurrency } from "@/lib/format";
-import { Bike, MapPin, Phone, Bell, ChevronRight, Layers, Plus } from "lucide-react";
+import { DeliveryMethodBadge, RequestedTimeLabel } from "@/components/delivery-expectation";
+import { effectivePickup, formatCurrency, formatTime } from "@/lib/format";
+import { tripProgress } from "@/lib/trip-progress";
+import { Bike, MapPin, Phone, Bell, ChevronRight, Layers, Plus, PauseCircle, PlayCircle, ShoppingBag, CircleDashed } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
 
@@ -60,7 +66,16 @@ export default function CoordinatorPage() {
     query: { queryKey: getListTripsQueryKey(), refetchInterval: 30_000 },
   });
 
-  const list = orders.data ?? [];
+  const all = orders.data ?? [];
+  // Held orders get their own section rather than sitting in the main grid
+  // looking dispatchable — a parked one is attributed to a placeholder
+  // restaurant until someone resolves it.
+  const held = all.filter((o) => o.holdState != null);
+  const unheld = all.filter((o) => o.holdState == null);
+  // The customer collects these themselves. They never reach a rider, so they
+  // don't belong in the dispatch grid — but they still need watching.
+  const customerPickup = unheld.filter((o) => o.deliveryMethod === "pickup");
+  const list = unheld.filter((o) => o.deliveryMethod !== "pickup");
   const activeTrips = (trips.data ?? []).filter(
     (tr) => tr.status !== "completed" && tr.status !== "dissolved",
   );
@@ -83,6 +98,14 @@ export default function CoordinatorPage() {
           </Button>
         </div>
       </header>
+
+      {held.length > 0 ? (
+        <HeldSection held={held} restaurants={restaurants.data ?? []} />
+      ) : null}
+
+      {customerPickup.length > 0 ? (
+        <CustomerPickupSection orders={customerPickup} lang={lang} />
+      ) : null}
 
       {activeTrips.length > 0 ? <TripsSection trips={activeTrips} /> : null}
 
@@ -153,6 +176,189 @@ export default function CoordinatorPage() {
   );
 }
 
+/**
+ * Customer-pickup orders. Excluded from rider scope at the SQL level, so they
+ * can never be claimed or assigned — this section exists purely so admins and
+ * coordinators can keep an eye on them. See docs/workflow-decisions.md D5.
+ */
+function CustomerPickupSection({
+  orders,
+  lang,
+}: {
+  orders: OrderListItem[];
+  lang: string;
+}) {
+  const { t } = useTranslation();
+  return (
+    <Card data-testid="card-customer-pickup-section">
+      <CardHeader className="pb-3">
+        <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-2">
+          <ShoppingBag className="size-4" /> {t("delivery.pickupSection", { count: orders.length })}
+        </CardTitle>
+        <p className="text-xs text-muted-foreground">{t("delivery.pickupSectionHelp")}</p>
+      </CardHeader>
+      <CardContent>
+        <ul className="space-y-2">
+          {orders.map((o) => (
+            <li key={o.id}>
+              <Link
+                href={`/coordinator/orders/${o.id}`}
+                className="flex items-center gap-3 rounded-md border border-border px-3 py-2 hover:border-primary/50"
+                data-testid={`customer-pickup-row-${o.id}`}
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2 text-sm">
+                    <span className="text-muted-foreground tabular-nums">#{o.externalOrderId}</span>
+                    <span className="font-medium truncate">{o.customerName}</span>
+                    <StatusBadge status={o.status} />
+                  </div>
+                  <div className="mt-0.5 flex items-center gap-2 text-xs text-muted-foreground">
+                    <span className="truncate">{o.restaurantName}</span>
+                    <span>·</span>
+                    <RequestedTimeLabel order={o} lang={lang} />
+                  </div>
+                </div>
+                <ChevronRight className="size-4 text-muted-foreground shrink-0" />
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </CardContent>
+    </Card>
+  );
+}
+
+/**
+ * Held orders — the only thing that genuinely blocks dispatch. Riders never see
+ * these. A `parked` order is resolved by naming its real restaurant, which
+ * lifts the hold; a deliberate hold is simply released.
+ */
+function HeldSection({
+  held,
+  restaurants,
+}: {
+  held: OrderListItem[];
+  restaurants: Restaurant[];
+}) {
+  const { t } = useTranslation();
+  return (
+    <Card className="border-accent/50 bg-accent/[0.04]" data-testid="card-held-section">
+      <CardHeader className="pb-3">
+        <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-2">
+          <PauseCircle className="size-4" /> {t("hold.sectionTitle", { count: held.length })}
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <ul className="space-y-2">
+          {held.map((o) => (
+            <HeldRow key={o.id} order={o} restaurants={restaurants} />
+          ))}
+        </ul>
+      </CardContent>
+    </Card>
+  );
+}
+
+function HeldRow({
+  order,
+  restaurants,
+}: {
+  order: OrderListItem;
+  restaurants: Restaurant[];
+}) {
+  const { t, i18n } = useTranslation();
+  const lang = i18n.resolvedLanguage ?? "nl";
+  const qc = useQueryClient();
+  const release = useReleaseOrder();
+  const setRestaurant = useSetOrderRestaurant();
+  const [restaurantId, setRestaurantId] = useState("");
+  const isParked = order.holdState === "parked";
+  // The placeholder is never a valid destination — it's what "unresolved" means.
+  const candidates = restaurants.filter((r) => r.nameCode !== "unmapped");
+
+  function invalidate() {
+    qc.invalidateQueries({ queryKey: getListOrdersQueryKey() });
+  }
+
+  return (
+    <li
+      className="rounded-md border border-border bg-card px-3 py-2.5 space-y-2"
+      data-testid={`held-row-${order.id}`}
+    >
+      <div className="flex items-start justify-between gap-3 flex-wrap">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 text-sm">
+            <span
+              className={`inline-block rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
+                isParked
+                  ? "bg-destructive/15 text-destructive"
+                  : "bg-accent/20 text-accent-foreground"
+              }`}
+            >
+              {t(`hold.state_${order.holdState}`)}
+            </span>
+            <span className="text-muted-foreground tabular-nums">#{order.externalOrderId}</span>
+            <span className="font-medium truncate">{order.customerName}</span>
+          </div>
+          <div className="mt-0.5 text-xs text-muted-foreground">
+            {order.holdReason ?? t("hold.noReason")}
+            {order.heldByUserName ? <> · {order.heldByUserName}</> : null}
+            {order.heldAt ? (
+              <> · {t("hold.heldSince", { time: formatTime(order.heldAt, lang) })}</>
+            ) : null}
+          </div>
+        </div>
+        <Link
+          href={`/coordinator/orders/${order.id}`}
+          className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1 shrink-0"
+        >
+          {t("common.details")} <ChevronRight className="size-3" />
+        </Link>
+      </div>
+
+      {isParked ? (
+        <div className="flex flex-wrap items-end gap-2">
+          <div className="min-w-[200px] flex-1">
+            <Label className="text-xs text-muted-foreground">{t("hold.assignRestaurant")}</Label>
+            <Select value={restaurantId} onValueChange={setRestaurantId}>
+              <SelectTrigger data-testid={`select-hold-restaurant-${order.id}`}>
+                <SelectValue placeholder={t("hold.selectRestaurant")} />
+              </SelectTrigger>
+              <SelectContent>
+                {candidates.map((r) => (
+                  <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <Button
+            disabled={!restaurantId || setRestaurant.isPending}
+            onClick={() =>
+              setRestaurant.mutate(
+                { id: order.id, data: { restaurantId } },
+                { onSuccess: invalidate },
+              )
+            }
+            data-testid={`button-resolve-parked-${order.id}`}
+          >
+            {t("hold.resolve")}
+          </Button>
+        </div>
+      ) : (
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={release.isPending}
+          onClick={() => release.mutate({ id: order.id }, { onSuccess: invalidate })}
+          data-testid={`button-release-${order.id}`}
+        >
+          <PlayCircle className="size-3.5 mr-1" /> {t("hold.release")}
+        </Button>
+      )}
+    </li>
+  );
+}
+
 function TripsSection({ trips }: { trips: TripListItem[] }) {
   const { t } = useTranslation();
   return (
@@ -165,9 +371,7 @@ function TripsSection({ trips }: { trips: TripListItem[] }) {
       <CardContent>
         <ul className="space-y-2">
           {trips.map((tr) => {
-            const total = tr.stopCount;
-            const done = tr.completedStopCount ?? 0;
-            const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+            const { total, done, skipped, pct } = tripProgress(tr);
             return (
               <li key={tr.id}>
                 <Link
@@ -193,6 +397,11 @@ function TripsSection({ trips }: { trips: TripListItem[] }) {
                       <span>{tr.riderName ?? t("trip.unassigned")}</span>
                       <span>·</span>
                       <span>{t("trip.progress", { done, total })}</span>
+                      {skipped > 0 ? (
+                        <span data-testid={`trip-skipped-${tr.id}`}>
+                          · {t("trip.skippedCount", { count: skipped })}
+                        </span>
+                      ) : null}
                     </div>
                   </div>
                   <div className="hidden md:flex w-32 items-center gap-2">
@@ -293,13 +502,28 @@ function OrderCard({ order, lang }: { order: OrderListItem; lang: string }) {
                 <div className="font-semibold truncate" data-testid={`text-customer-${order.id}`}>{order.customerName}</div>
                 <div className="text-xs text-muted-foreground truncate">{order.restaurantName}</div>
               </div>
-              <StatusBadge status={order.status} />
+              <div className="flex flex-col items-end gap-1.5">
+                <StatusBadge status={order.status} />
+                <DeliveryMethodBadge order={order} />
+              </div>
             </div>
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="flex items-center justify-between">
               <PickupCountdown order={order} />
               <PickupSourceBadge source={eff.source} />
+            </div>
+            <div className="flex items-center justify-between gap-2">
+              <RequestedTimeLabel order={order} lang={lang} />
+              {/* Visibility, not escalation — acknowledgement gates nothing. */}
+              {order.restaurantAcceptedAt ? null : (
+                <span
+                  className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wide text-muted-foreground"
+                  data-testid={`text-unconfirmed-${order.id}`}
+                >
+                  <CircleDashed className="size-3" /> {t("acknowledge.notYetShort")}
+                </span>
+              )}
             </div>
             <div className="flex items-start gap-2 text-sm text-muted-foreground">
               <MapPin className="size-3.5 mt-0.5 shrink-0" />

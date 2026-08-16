@@ -10,7 +10,7 @@ The current build covers order ingestion, the status state machine, atomic rider
 
 ### 1. Automated test suite
 The platform currently has no automated tests. At minimum we want:
-- Unit tests for the order status transition state machine (every legal transition + every illegal one rejected).
+- Unit tests for the order status state machine: the three invariants (riderId-coupled statuses unreachable, terminals sticky, no same-state), that skipping ahead and correcting backwards are both accepted, and that `nextStatusesFor` never offers a status the machine would refuse. 27 such assertions exist as a scratch script from the D1 work and would port directly.
 - Idempotency tests for the inbound order endpoint (same `orderId` arriving twice updates rather than duplicates).
 - Webhook retry tests covering 4xx (no retry), 5xx (retry with exponential backoff), and crash-recovery from the persisted retry queue.
 - Pickup time priority tests for the override > restaurant > rider > original ordering, including null-handling.
@@ -33,6 +33,26 @@ The system currently assumes server times are UTC and the client renders in `nl-
 ---
 
 ## Operations & Admin
+
+### 6a. Receipts — variants (base build done)
+Every order already carries the complete financial breakdown from the source:
+`deliveryFee`, `tipRider`, `tipRestaurant`, `supTotal`, `statiegeldTotal`,
+`administrationCosts`, `totalAmount`, and a per-line `items[].totalPrice`.
+Nothing consumes them, deliberately — they are receipt input, not operational
+data (see `docs/workflow-decisions.md` D10).
+
+The base receipt is built (`pages/order-receipt.tsx`, decision D10). What
+remains is variation:
+
+- **Per-restaurant enablement.** Receipts are not a default for every
+  restaurant. Belongs beside `restaurants.acceptanceMode`.
+- **Item-only receipts.** Some restaurants want no financial information at
+  all. The money block is already a single self-contained section, so this is
+  a flag and a conditional render.
+- **Thermal printing.** Currently browser print with a print stylesheet. If
+  kitchens use receipt printers, width and character constraints differ
+  substantially.
+
 
 ### 6. Order export / download
 Let coordinators and admins export filtered order lists as CSV. The export should respect the same filters used in the UI (status, restaurant, rider, date range, search) and include the columns needed for downstream reporting: order id, customer, restaurant, rider, statuses with timestamps, effective pickup time, total amount.

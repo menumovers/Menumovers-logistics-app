@@ -1,9 +1,9 @@
-import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   useListOrders,
   useUpdatePickupTime,
+  useMarkOrderReady,
   useListRestaurants,
   useGetOrder,
   getListOrdersQueryKey,
@@ -11,18 +11,20 @@ import {
   getGetOrderQueryKey,
   type OrderListItem,
   type OrderDetail,
+  type RestaurantAcceptanceMode,
 } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { StatusBadge } from "@/components/status-badge";
 import { PickupCountdown, PickupSourceBadge } from "@/components/pickup-countdown";
+import { AcknowledgeCard } from "@/components/acknowledge-card";
+import { PickupTimeInput } from "@/components/pickup-time-input";
 import { useAuth } from "@/lib/auth";
+import { Link } from "wouter";
 import { effectivePickup, formatTime } from "@/lib/format";
 import { useToast } from "@/hooks/use-toast";
-import { CheckCircle2, Layers, Clock, Info, Bike } from "lucide-react";
-import { formatTime as fmtTime } from "@/lib/format";
+import { CheckCircle2, Layers, Clock, Info, Bike, ChefHat, Printer } from "lucide-react";
 
 export default function RestaurantPage() {
   const { t, i18n } = useTranslation();
@@ -36,6 +38,9 @@ export default function RestaurantPage() {
   );
   const restaurants = useListRestaurants({ query: { queryKey: getListRestaurantsQueryKey() } });
   const myRestaurant = restaurants.data?.find((r) => r.id === restId);
+  // How this restaurant is asked to confirm — an operator setting, not a
+  // per-order one. Defaults to the simple confirm until the record loads.
+  const acceptanceMode = myRestaurant?.acceptanceMode ?? "accept";
 
   const active = (orders.data ?? []).filter((o) => !["delivered", "failed"].includes(o.status));
 
@@ -84,12 +89,17 @@ export default function RestaurantPage() {
       ) : (
         <div className="space-y-5">
           {bundleGroups.map((g) => (
-            <BundleCard key={g.tripId} orders={g.orders} lang={lang} />
+            <BundleCard key={g.tripId} orders={g.orders} lang={lang} acceptanceMode={acceptanceMode} />
           ))}
           {solos.length > 0 ? (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               {solos.map((o) => (
-                <RestaurantOrderCard key={o.id} order={o} lang={lang} />
+                <RestaurantOrderCard
+                  key={o.id}
+                  order={o}
+                  lang={lang}
+                  acceptanceMode={acceptanceMode}
+                />
               ))}
             </div>
           ) : null}
@@ -99,10 +109,19 @@ export default function RestaurantPage() {
   );
 }
 
-function BundleCard({ orders, lang }: { orders: OrderListItem[]; lang: string }) {
+function BundleCard({
+  orders,
+  lang,
+  acceptanceMode,
+}: {
+  orders: OrderListItem[];
+  lang: string;
+  acceptanceMode: RestaurantAcceptanceMode;
+}) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const update = useUpdatePickupTime();
+  const markReady = useMarkOrderReady();
   const { toast } = useToast();
   const bundleTime =
     orders[0]?.bundlePickupTime ?? effectivePickup(orders[0]!).iso;
@@ -113,14 +132,16 @@ function BundleCard({ orders, lang }: { orders: OrderListItem[]; lang: string })
     return own && bundleTime && new Date(own).getTime() !== new Date(bundleTime).getTime();
   });
 
+  // Reports a status for each order in the bundle. Deliberately does NOT write
+  // a pickup time: the pickup times are a negotiation and "the food is done" is
+  // not a bid in it. See D14.
   function markAllReady() {
-    const nowIso = new Date().toISOString();
     Promise.all(
       orders.map(
         (o) =>
           new Promise<void>((resolve) => {
-            update.mutate(
-              { id: o.id, data: { source: "restaurant", pickupTime: nowIso } },
+            markReady.mutate(
+              { id: o.id },
               {
                 onSuccess: () => resolve(),
                 onError: () => resolve(),
@@ -160,7 +181,7 @@ function BundleCard({ orders, lang }: { orders: OrderListItem[]; lang: string })
           <div className="flex items-center gap-2 rounded-md bg-card border border-border px-3 py-1.5">
             <Clock className="size-4 text-primary" />
             <span className="text-sm font-bold tabular-nums">
-              {fmtTime(bundleTime, lang)}
+              {formatTime(bundleTime, lang)}
             </span>
           </div>
         </div>
@@ -173,7 +194,7 @@ function BundleCard({ orders, lang }: { orders: OrderListItem[]; lang: string })
               {t("bundle.earliestPickup")}{" "}
               {adjusted.map((o) => (
                 <span key={o.id} className="font-semibold">
-                  #{o.externalOrderId} {t("bundle.wasOriginally", { time: fmtTime(effectivePickup(o).iso, lang) })}.{" "}
+                  #{o.externalOrderId} {t("bundle.wasOriginally", { time: formatTime(effectivePickup(o).iso, lang) })}.{" "}
                 </span>
               ))}
             </span>
@@ -182,7 +203,13 @@ function BundleCard({ orders, lang }: { orders: OrderListItem[]; lang: string })
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {orders.map((o) => (
-            <RestaurantOrderCard key={o.id} order={o} lang={lang} compact />
+            <RestaurantOrderCard
+              key={o.id}
+              order={o}
+              lang={lang}
+              acceptanceMode={acceptanceMode}
+              compact
+            />
           ))}
         </div>
 
@@ -210,11 +237,22 @@ function BundleCard({ orders, lang }: { orders: OrderListItem[]; lang: string })
   );
 }
 
-function RestaurantOrderCard({ order, lang, compact = false }: { order: OrderListItem; lang: string; compact?: boolean }) {
+function RestaurantOrderCard({
+  order,
+  lang,
+  acceptanceMode,
+  compact = false,
+}: {
+  order: OrderListItem;
+  lang: string;
+  acceptanceMode: RestaurantAcceptanceMode;
+  compact?: boolean;
+}) {
   const { t } = useTranslation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const update = useUpdatePickupTime();
+  const markReady = useMarkOrderReady();
 
   // Detail fetch supplies item overrides (hidden + extras) for this card.
   const detail = useGetOrder(order.id, {
@@ -233,26 +271,15 @@ function RestaurantOrderCard({ order, lang, compact = false }: { order: OrderLis
   const extras = overrides.filter((o) => o.type === "add").map((o) => o.addedItem!).filter(Boolean);
 
   const eff = effectivePickup(order);
-  const [hh, setHh] = useState(() => formatTime(eff.iso, lang).split(":")[0] ?? "12");
-  const [mm, setMm] = useState(() => formatTime(eff.iso, lang).split(":")[1] ?? "00");
 
   function invalidate() {
     queryClient.invalidateQueries({ queryKey: getListOrdersQueryKey({ restaurantId: order.restaurantId }) });
     queryClient.invalidateQueries({ queryKey: getGetOrderQueryKey(order.id) });
   }
 
-  function submit(e: React.FormEvent) {
-    e.preventDefault();
-    const date = new Date();
-    const h = Number.parseInt(hh, 10);
-    const m = Number.parseInt(mm, 10);
-    if (Number.isNaN(h) || Number.isNaN(m)) return;
-    date.setHours(h, m, 0, 0);
-    if (date.getTime() < Date.now() - 60_000) {
-      date.setDate(date.getDate() + 1);
-    }
+  function submit(pickupTime: string) {
     update.mutate(
-      { id: order.id, data: { source: "restaurant", pickupTime: date.toISOString() } },
+      { id: order.id, data: { source: "restaurant", pickupTime } },
       {
         onSuccess: () => {
           toast({ title: t("common.save") });
@@ -263,9 +290,12 @@ function RestaurantOrderCard({ order, lang, compact = false }: { order: OrderLis
     );
   }
 
+  // A status report, not a pickup time. This used to write
+  // `pickupTimeRestaurant = now`, so pressing it discarded whatever time the
+  // restaurant had negotiated. See D14.
   function readyForPickup() {
-    update.mutate(
-      { id: order.id, data: { source: "restaurant", pickupTime: new Date().toISOString() } },
+    markReady.mutate(
+      { id: order.id },
       {
         onSuccess: () => {
           toast({ title: t("restaurant.readyForPickupSent") });
@@ -291,16 +321,59 @@ function RestaurantOrderCard({ order, lang, compact = false }: { order: OrderLis
           <PickupSourceBadge source={eff.source} />
         </div>
 
-        <Button
-          type="button"
-          className="w-full h-12 text-base font-semibold"
-          disabled={update.isPending}
-          onClick={readyForPickup}
-          data-testid={`button-ready-${order.id}`}
-        >
-          <CheckCircle2 className="size-4 mr-2" />
-          {t("restaurant.readyForPickup")}
+        <Button asChild variant="outline" size="sm" className="w-full" data-testid={`button-receipt-${order.id}`}>
+          <Link href={`/orders/${order.id}/receipt`}>
+            <Printer className="size-3.5 mr-1.5" /> {t("receipt.title")}
+          </Link>
         </Button>
+
+        <AcknowledgeCard
+          order={order}
+          mode={acceptanceMode}
+          lang={lang}
+          onDone={invalidate}
+        />
+
+        {/* Once reported, the button becomes the record of it. A status that
+            can only be written and never read is how failure reasons went
+            missing (todo-bugs B3). */}
+        {order.restaurantReadyAt ? (
+          <div
+            className="flex items-center justify-center gap-2 rounded-md border border-chart-5/40 bg-chart-5/10 py-3 text-sm font-medium text-chart-5"
+            data-testid={`text-ready-${order.id}`}
+          >
+            <CheckCircle2 className="size-4" />
+            {t("restaurant.readyAt", { time: formatTime(order.restaurantReadyAt, lang) })}
+          </div>
+        ) : (
+          <Button
+            type="button"
+            className="w-full h-12 text-base font-semibold"
+            disabled={markReady.isPending}
+            onClick={readyForPickup}
+            data-testid={`button-ready-${order.id}`}
+          >
+            <CheckCircle2 className="size-4 mr-2" />
+            {t("restaurant.readyForPickup")}
+          </Button>
+        )}
+
+        {/* Notes the source addressed to the kitchen. They arrived on every
+            order and were shown on no screen at all — least of all this one. */}
+        {order.kitchenNotes ? (
+          <div
+            className="flex items-start gap-2 rounded-md border border-accent/40 bg-accent/10 px-2.5 py-2 text-sm"
+            data-testid={`text-kitchen-notes-${order.id}`}
+          >
+            <ChefHat className="size-4 mt-0.5 shrink-0" />
+            <div>
+              <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                {t("restaurant.kitchenNotes")}
+              </div>
+              <div>{order.kitchenNotes}</div>
+            </div>
+          </div>
+        ) : null}
 
         <ul className="text-sm space-y-1">
           {order.items.map((it, i) => {
@@ -340,35 +413,17 @@ function RestaurantOrderCard({ order, lang, compact = false }: { order: OrderLis
           ))}
         </ul>
 
-        {compact ? null : <form onSubmit={submit} className="border-t border-border pt-3 space-y-2">
-          <Label className="text-xs">{t("restaurant.suggestPickup")}</Label>
-          <div className="flex items-center gap-2">
-            <Input
-              type="number"
-              min={0}
-              max={23}
-              value={hh}
-              onChange={(e) => setHh(e.target.value)}
-              className="w-16 tabular-nums"
-              aria-label={t("coordinator.newPickupTime")}
-              data-testid={`input-rest-pickup-hh-${order.id}`}
+        {compact ? null : (
+          <div className="border-t border-border pt-3 space-y-2">
+            <Label className="text-xs">{t("restaurant.suggestPickup")}</Label>
+            <PickupTimeInput
+              currentIso={eff.iso}
+              pending={update.isPending}
+              submitLabel={t("common.save")}
+              onSubmit={submit}
             />
-            <span className="text-muted-foreground">:</span>
-            <Input
-              type="number"
-              min={0}
-              max={59}
-              value={mm}
-              onChange={(e) => setMm(e.target.value)}
-              className="w-16 tabular-nums"
-              aria-label={t("coordinator.newPickupTime")}
-              data-testid={`input-rest-pickup-mm-${order.id}`}
-            />
-            <Button type="submit" size="sm" disabled={update.isPending} data-testid={`button-rest-pickup-save-${order.id}`}>
-              {t("common.save")}
-            </Button>
           </div>
-        </form>}
+        )}
       </CardContent>
     </Card>
   );

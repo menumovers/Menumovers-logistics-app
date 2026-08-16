@@ -1,23 +1,27 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useParams } from "wouter";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   useGetOrder,
   useAssignOrder,
   useTransitionOrderStatus,
   useUpdatePickupTime,
   useHideOrderItem,
+  useUnhideOrderItem,
+  useGetOriginalOrderItems,
   useAddOrderItem,
   useSetRiderNotification,
   useUpdateOrderContact,
+  useHoldOrder,
+  useReleaseOrder,
   useListRiders,
   getGetOrderQueryKey,
+  getGetOriginalOrderItemsQueryKey,
   getListRidersQueryKey,
   getListOrdersQueryKey,
   type OrderDetail,
   type OrderItem,
-  type OrderStatus as OrderStatusType,
   PickupTimeSource,
 } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -36,29 +40,21 @@ import { Separator } from "@/components/ui/separator";
 import { Spinner } from "@/components/ui/spinner";
 import { StatusBadge } from "@/components/status-badge";
 import { PickupCountdown, PickupSourceBadge } from "@/components/pickup-countdown";
-import { ArrowLeft, Bike, MapPin, Phone, Mail, Plus, Eye, EyeOff, Bell, History } from "lucide-react";
+import { PickupTimeInput } from "@/components/pickup-time-input";
+import { PaymentPanel } from "@/components/payment-panel";
+import { DeliveryMethodBadge, RequestedTimeLabel } from "@/components/delivery-expectation";
+import { ArrowLeft, Bike, MapPin, Phone, Mail, Plus, Eye, EyeOff, Bell, History, PauseCircle, PlayCircle, AlertTriangle, Printer } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { getOriginalOrderItems, unhideOrderItem } from "@/lib/api";
 import { effectivePickup, formatCurrency, formatDateTime, formatTime } from "@/lib/format";
-
-const TRANSITIONS: Record<OrderStatusType, OrderStatusType[]> = {
-  pending: ["failed"],
-  driver_assigned: ["en_route_to_restaurant", "failed"],
-  en_route_to_restaurant: ["picked_up", "postponed", "failed"],
-  picked_up: ["en_route_to_customer", "failed"],
-  en_route_to_customer: ["delivered", "postponed", "failed"],
-  postponed: ["en_route_to_restaurant", "en_route_to_customer", "failed"],
-  delivered: [],
-  failed: [],
-};
 
 export default function CoordinatorOrderPage() {
   const { id } = useParams();
   const orderId = id!;
+  const { t, i18n } = useTranslation();
+  const lang = i18n.resolvedLanguage ?? "nl";
   const order = useGetOrder(orderId, {
     query: { queryKey: getGetOrderQueryKey(orderId), refetchInterval: 30_000, enabled: !!orderId },
   });
-  const { t } = useTranslation();
 
   if (order.isLoading || !order.data) {
     return <div className="grid place-items-center py-20"><Spinner className="size-6 text-primary" /></div>;
@@ -72,6 +68,13 @@ export default function CoordinatorOrderPage() {
           <ArrowLeft className="size-4" /> {t("common.back")}
         </Link>
       </div>
+      <div className="flex justify-end -mt-2">
+        <Button asChild variant="outline" size="sm" data-testid="button-open-receipt">
+          <Link href={`/orders/${o.id}/receipt`}>
+            <Printer className="size-4 mr-1.5" /> {t("receipt.title")}
+          </Link>
+        </Button>
+      </div>
       <header className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <div className="text-xs text-muted-foreground tabular-nums">#{o.externalOrderId}</div>
@@ -79,20 +82,52 @@ export default function CoordinatorOrderPage() {
           <div className="text-sm text-muted-foreground">{o.restaurantName}</div>
         </div>
         <div className="flex flex-col items-end gap-2">
-          <StatusBadge status={o.status} />
+          <div className="flex items-center gap-2">
+            <DeliveryMethodBadge order={o} />
+            <StatusBadge status={o.status} />
+          </div>
           <PickupCountdown order={o} size="lg" />
+          <RequestedTimeLabel order={o} lang={lang} withDate />
+          <span
+            className={`text-xs ${o.restaurantAcceptedAt ? "text-chart-5" : "text-muted-foreground"}`}
+            data-testid="text-acknowledged"
+          >
+            {o.restaurantAcceptedAt
+              ? t("acknowledge.doneAt", { time: formatTime(o.restaurantAcceptedAt, lang) })
+              : t("acknowledge.notYet")}
+          </span>
         </div>
       </header>
+
+      {o.status === "failed" && o.failureReason ? (
+        <div
+          className="flex items-start gap-3 rounded-lg border border-destructive/40 bg-destructive/[0.06] p-4"
+          data-testid="banner-failure-reason"
+        >
+          <AlertTriangle className="size-5 mt-0.5 shrink-0 text-destructive" />
+          <div>
+            <div className="text-xs uppercase tracking-wide text-destructive">
+              {t("coordinator.failedReason")}
+            </div>
+            <div className="text-sm">{o.failureReason}</div>
+          </div>
+        </div>
+      ) : null}
 
       <div className="grid gap-5 lg:grid-cols-3">
         <div className="lg:col-span-2 space-y-5">
           <ItemsCard order={o} />
+          <Card>
+            <CardHeader><CardTitle className="text-base">{t("payment.title")}</CardTitle></CardHeader>
+            <CardContent><PaymentPanel order={o} lang={lang} /></CardContent>
+          </Card>
           <PickupCard order={o} />
           <ContactCard order={o} />
           <NotificationCard order={o} />
           <TimelineCard order={o} />
         </div>
         <div className="space-y-5">
+          <HoldCard order={o} />
           <AssignCard order={o} />
           <TransitionCard order={o} />
         </div>
@@ -101,17 +136,125 @@ export default function CoordinatorOrderPage() {
   );
 }
 
-function originalOrderItemsQueryKey(orderId: string) {
-  return ["original-order-items", orderId] as const;
-}
-
 function useInvalidateOrder(orderId: string) {
   const qc = useQueryClient();
   return () => {
     qc.invalidateQueries({ queryKey: getGetOrderQueryKey(orderId) });
     qc.invalidateQueries({ queryKey: getListOrdersQueryKey() });
-    qc.invalidateQueries({ queryKey: originalOrderItemsQueryKey(orderId) });
+    qc.invalidateQueries({ queryKey: getGetOriginalOrderItemsQueryKey(orderId) });
   };
+}
+
+/**
+ * Holds are the only thing that blocks dispatch. A parked order is resolved by
+ * naming its real restaurant (done from the dispatch board); a deliberate hold
+ * is placed and released here.
+ */
+function HoldCard({ order }: { order: OrderDetail }) {
+  const { t, i18n } = useTranslation();
+  const lang = i18n.resolvedLanguage ?? "nl";
+  const hold = useHoldOrder();
+  const release = useReleaseOrder();
+  const invalidate = useInvalidateOrder(order.id);
+  const { toast } = useToast();
+  const [reason, setReason] = useState("");
+  const finished = order.status === "delivered" || order.status === "failed";
+
+  if (order.holdState === "parked") {
+    return (
+      <Card className="border-destructive/40" data-testid="card-hold-parked">
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2 text-destructive">
+            <PauseCircle className="size-4" /> {t("hold.state_parked")}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2 text-sm text-muted-foreground">
+          <p>{t("hold.parkedNotice")}</p>
+          {order.holdReason ? <p className="text-xs italic">{order.holdReason}</p> : null}
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (order.holdState === "on_hold") {
+    return (
+      <Card className="border-accent/50" data-testid="card-hold-active">
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <PauseCircle className="size-4" /> {t("hold.state_on_hold")}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-sm text-muted-foreground">{t("hold.heldNotice")}</p>
+          {order.holdReason ? (
+            <p className="text-xs italic text-muted-foreground">{order.holdReason}</p>
+          ) : null}
+          {order.heldByUserName || order.heldAt ? (
+            <p className="text-xs text-muted-foreground" data-testid="text-hold-attribution">
+              {order.heldByUserName}
+              {order.heldByUserName && order.heldAt ? " · " : ""}
+              {order.heldAt ? t("hold.heldSince", { time: formatTime(order.heldAt, lang) }) : ""}
+            </p>
+          ) : null}
+          <Button
+            variant="outline"
+            className="w-full"
+            disabled={release.isPending}
+            onClick={() =>
+              release.mutate(
+                { id: order.id },
+                { onSuccess: () => { toast({ title: t("hold.release") }); invalidate(); } },
+              )
+            }
+            data-testid="button-release-hold"
+          >
+            <PlayCircle className="size-4 mr-2" /> {t("hold.release")}
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (finished) return null;
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base flex items-center gap-2">
+          <PauseCircle className="size-4" /> {t("hold.hold")}
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-2">
+        <Textarea
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+          rows={2}
+          placeholder={t("hold.holdReasonPlaceholder")}
+          data-testid="textarea-hold-reason"
+        />
+        <Button
+          variant="secondary"
+          className="w-full"
+          disabled={hold.isPending}
+          onClick={() =>
+            hold.mutate(
+              { id: order.id, data: { reason: reason.trim() || null } },
+              {
+                onSuccess: () => {
+                  setReason("");
+                  toast({ title: t("hold.hold") });
+                  invalidate();
+                },
+              },
+            )
+          }
+          data-testid="button-hold-order"
+        >
+          {t("hold.hold")}
+        </Button>
+      </CardContent>
+    </Card>
+  );
 }
 
 function AssignCard({ order }: { order: OrderDetail }) {
@@ -123,7 +266,11 @@ function AssignCard({ order }: { order: OrderDetail }) {
   const { toast } = useToast();
   const candidates = (riders.data ?? []).filter((r) => r.availabilityStatus !== "offline" && r.accountStatus === "active");
 
+  // Not dispatchable: held orders are refused by the server, and customer
+  // pickup is never rider work at all. Don't offer an action that will fail.
   if (order.status !== "pending") return null;
+  if (order.holdState != null) return null;
+  if (order.deliveryMethod === "pickup") return null;
 
   return (
     <Card>
@@ -173,7 +320,9 @@ function TransitionCard({ order }: { order: OrderDetail }) {
   const transition = useTransitionOrderStatus();
   const invalidate = useInvalidateOrder(order.id);
   const [failureReason, setFailureReason] = useState("");
-  const targets = TRANSITIONS[order.status];
+  // Server-derived: status is a report, not a gate, so the options are
+  // whatever the state machine will accept — not a table kept in step by hand.
+  const targets = order.allowedTransitions;
   const { toast } = useToast();
   if (targets.length === 0) return null;
   return (
@@ -220,15 +369,16 @@ function ItemsCard({ order }: { order: OrderDetail }) {
   const { t, i18n } = useTranslation();
   const lang = i18n.resolvedLanguage ?? "nl";
   const hide = useHideOrderItem();
+  const unhide = useUnhideOrderItem();
   const add = useAddOrderItem();
   const invalidate = useInvalidateOrder(order.id);
   const { toast } = useToast();
-  const originalItems = useQuery({
-    queryKey: originalOrderItemsQueryKey(order.id),
-    queryFn: () => getOriginalOrderItems(order.id),
-    refetchInterval: 30_000,
+  const originalItems = useGetOriginalOrderItems(order.id, {
+    query: {
+      queryKey: getGetOriginalOrderItemsQueryKey(order.id),
+      refetchInterval: 30_000,
+    },
   });
-  const [pendingUnhideIndex, setPendingUnhideIndex] = useState<number | null>(null);
   const hidden = new Set(
     (order.itemOverrides ?? []).filter((o) => o.type === "hide" && o.itemIndex != null).map((o) => o.itemIndex as number),
   );
@@ -240,16 +390,9 @@ function ItemsCard({ order }: { order: OrderDetail }) {
   const [price, setPrice] = useState("0.00");
   const [notes, setNotes] = useState("");
 
-  async function unhide(itemIndex: number) {
-    setPendingUnhideIndex(itemIndex);
-    try {
-      await unhideOrderItem(order.id, itemIndex);
-      toast({ title: t("coordinator.unhideItem") });
-      invalidate();
-    } finally {
-      setPendingUnhideIndex(null);
-    }
-  }
+  // One mutation covers every row, so the pending row is read off its
+  // variables rather than tracked in separate state.
+  const unhidingIndex = unhide.isPending ? (unhide.variables?.itemIndex ?? null) : null;
 
   return (
     <Card>
@@ -295,8 +438,20 @@ function ItemsCard({ order }: { order: OrderDetail }) {
                   <Button
                     variant="ghost"
                     size="sm"
-                    disabled={pendingUnhideIndex === i}
-                    onClick={() => void unhide(i)}
+                    disabled={unhidingIndex === i}
+                    onClick={() =>
+                      unhide.mutate(
+                        { id: order.id, itemIndex: i },
+                        {
+                          onSuccess: () => {
+                            toast({ title: t("coordinator.unhideItem") });
+                            invalidate();
+                          },
+                          onError: () =>
+                            toast({ title: t("errors.generic"), variant: "destructive" }),
+                        },
+                      )
+                    }
                     title={t("coordinator.unhideItemLabel", { name: it.name })}
                     data-testid={`button-unhide-item-${i}`}
                   >
@@ -374,17 +529,10 @@ function PickupCard({ order }: { order: OrderDetail }) {
   const eff = effectivePickup(order);
 
   const [source, setSource] = useState<PickupTimeSource>("override");
-  const [time, setTime] = useState(formatTime(eff.iso, "en")); // HH:mm
 
-  function submit(e: React.FormEvent) {
-    e.preventDefault();
-    const [h, m] = time.split(":").map((v) => Number.parseInt(v, 10));
-    if (Number.isNaN(h) || Number.isNaN(m)) return;
-    const date = new Date();
-    date.setHours(h, m, 0, 0);
-    if (date.getTime() < Date.now() - 60_000) date.setDate(date.getDate() + 1);
+  function submit(pickupTime: string) {
     update.mutate(
-      { id: order.id, data: { source, pickupTime: date.toISOString() } },
+      { id: order.id, data: { source, pickupTime } },
       {
         onSuccess: () => {
           toast({ title: t("coordinator.pickupTimes") });
@@ -416,7 +564,7 @@ function PickupCard({ order }: { order: OrderDetail }) {
             );
           })}
         </div>
-        <form onSubmit={submit} className="flex flex-wrap gap-2 items-end">
+        <div className="flex flex-wrap gap-2 items-end">
           <div className="flex-1 min-w-[140px]">
             <Label className="text-xs">{t("pickup.source")}</Label>
             <Select value={source} onValueChange={(v) => setSource(v as PickupTimeSource)}>
@@ -428,13 +576,14 @@ function PickupCard({ order }: { order: OrderDetail }) {
               </SelectContent>
             </Select>
           </div>
-          <div>
-            <Label className="text-xs">{t("coordinator.newPickupTime")}</Label>
-            <Input type="time" value={time} onChange={(e) => setTime(e.target.value)} data-testid="input-pickup-time" />
-          </div>
-          <Button type="submit" disabled={update.isPending} data-testid="button-save-pickup-time">{t("common.save")}</Button>
+          <PickupTimeInput
+            currentIso={eff.iso}
+            onSubmit={submit}
+            pending={update.isPending}
+            submitLabel={t("common.save")}
+          />
           <div className="ml-auto"><PickupSourceBadge source={eff.source} /></div>
-        </form>
+        </div>
       </CardContent>
     </Card>
   );
@@ -447,9 +596,23 @@ function ContactCard({ order }: { order: OrderDetail }) {
   const [name, setName] = useState(order.customerName);
   const [phone, setPhone] = useState(order.customerPhone);
   const [email, setEmail] = useState(order.customerEmail ?? "");
-  const [addr, setAddr] = useState(order.deliveryAddress);
+  // The address is edited by component (D12). `deliveryAddress` is derived on
+  // read and cannot be written; these fields are the only writable copy, which
+  // is what stops the two representations drifting apart.
+  const [street, setStreet] = useState(order.street);
+  const [houseNumber, setHouseNumber] = useState(order.houseNumber ?? "");
+  const [addition, setAddition] = useState(order.addition ?? "");
+  const [postalCode, setPostalCode] = useState(order.postalCode);
+  const [city, setCity] = useState(order.city);
   const [instr, setInstr] = useState(order.deliveryInstructions ?? "");
   const { toast } = useToast();
+  const addressChanged =
+    street !== order.street ||
+    houseNumber !== (order.houseNumber ?? "") ||
+    addition !== (order.addition ?? "") ||
+    postalCode !== order.postalCode ||
+    city !== order.city;
+  const addressIncomplete = !street.trim() || !postalCode.trim() || !city.trim();
   return (
     <Card>
       <CardHeader><CardTitle className="text-base">{t("coordinator.contact")}</CardTitle></CardHeader>
@@ -458,9 +621,20 @@ function ContactCard({ order }: { order: OrderDetail }) {
           <div><Label className="text-xs">{t("common.name")}</Label><Input value={name} onChange={(e) => setName(e.target.value)} data-testid="input-contact-name" /></div>
           <div><Label className="text-xs">{t("common.phone")}</Label><Input value={phone} onChange={(e) => setPhone(e.target.value)} data-testid="input-contact-phone" /></div>
           <div><Label className="text-xs">{t("common.email")}</Label><Input value={email} onChange={(e) => setEmail(e.target.value)} data-testid="input-contact-email" /></div>
-          <div><Label className="text-xs">{t("common.address")}</Label><Input value={addr} onChange={(e) => setAddr(e.target.value)} data-testid="input-contact-address" /></div>
-          <div className="md:col-span-2"><Label className="text-xs">{t("common.notes")}</Label><Textarea value={instr} onChange={(e) => setInstr(e.target.value)} rows={2} data-testid="textarea-contact-instructions" /></div>
         </div>
+        <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
+          <div className="col-span-2 md:col-span-3"><Label className="text-xs">{t("address.street")}</Label><Input value={street} onChange={(e) => setStreet(e.target.value)} data-testid="input-contact-street" /></div>
+          <div><Label className="text-xs">{t("address.houseNumber")}</Label><Input value={houseNumber} onChange={(e) => setHouseNumber(e.target.value)} data-testid="input-contact-house-number" /></div>
+          <div><Label className="text-xs">{t("address.addition")}</Label><Input value={addition} onChange={(e) => setAddition(e.target.value)} data-testid="input-contact-addition" /></div>
+          <div><Label className="text-xs">{t("address.postalCode")}</Label><Input value={postalCode} onChange={(e) => setPostalCode(e.target.value)} data-testid="input-contact-postal-code" /></div>
+          <div className="col-span-2 md:col-span-3"><Label className="text-xs">{t("address.city")}</Label><Input value={city} onChange={(e) => setCity(e.target.value)} data-testid="input-contact-city" /></div>
+          <div className="col-span-2 md:col-span-6"><Label className="text-xs">{t("common.notes")}</Label><Textarea value={instr} onChange={(e) => setInstr(e.target.value)} rows={2} data-testid="textarea-contact-instructions" /></div>
+        </div>
+        {addressIncomplete ? (
+          <p className="text-xs text-destructive" data-testid="text-address-incomplete">
+            {t("address.incomplete")}
+          </p>
+        ) : null}
         <Button
           onClick={() =>
             update.mutate(
@@ -470,16 +644,21 @@ function ContactCard({ order }: { order: OrderDetail }) {
                   customerName: name,
                   customerPhone: phone,
                   customerEmail: email || null,
-                  deliveryAddress: addr,
+                  street,
+                  houseNumber: houseNumber || null,
+                  addition: addition || null,
+                  postalCode,
+                  city,
                   deliveryInstructions: instr || null,
                 },
               },
               {
                 onSuccess: () => { toast({ title: t("coordinator.updateContact") }); invalidate(); },
+                onError: () => toast({ title: t("errors.generic"), variant: "destructive" }),
               },
             )
           }
-          disabled={update.isPending}
+          disabled={update.isPending || addressIncomplete}
           data-testid="button-update-contact"
         >
           {t("coordinator.updateContact")}
@@ -489,6 +668,19 @@ function ContactCard({ order }: { order: OrderDetail }) {
           {order.customerEmail ? <span className="inline-flex items-center gap-1"><Mail className="size-3" />{order.customerEmail}</span> : null}
           <span className="inline-flex items-center gap-1"><MapPin className="size-3" />{order.deliveryAddress}</span>
         </div>
+        {/* The source's own line, shown only when it no longer matches what we
+            hold — otherwise it is the same string twice. This is the audit
+            trail: what arrived, versus what the order says now. */}
+        {order.deliveryAddressOriginal !== order.deliveryAddress ? (
+          <p className="text-xs text-muted-foreground" data-testid="text-address-original">
+            {t("address.asReceived", { address: order.deliveryAddressOriginal })}
+          </p>
+        ) : null}
+        {addressChanged ? (
+          <p className="text-xs text-muted-foreground" data-testid="text-address-unsaved">
+            {t("address.unsaved")}
+          </p>
+        ) : null}
       </CardContent>
     </Card>
   );

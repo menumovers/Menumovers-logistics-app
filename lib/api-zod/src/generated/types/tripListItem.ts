@@ -19,7 +19,12 @@ export interface TripListItem {
   status: TripStatus;
   orderCount: number;
   stopCount: number;
-  completedStopCount?: number;
+  /** Stops whose order reports them completed. Derived, not stored. */
+  doneStopCount: number;
+  /** Stops belonging to a failed order. Not outstanding, not completed —
+`stopCount - doneStopCount - skippedStopCount` is what is left to do.
+ */
+  skippedStopCount: number;
   createdAt: Date;
   updatedAt: Date;
 }

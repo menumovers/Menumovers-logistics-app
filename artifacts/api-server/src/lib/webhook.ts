@@ -1,12 +1,7 @@
 import { and, eq, lte } from "drizzle-orm";
-import {
-  db,
-  systemSettingsTable,
-  webhookRetryQueueTable,
-  SETTING_KEYS,
-  type WebhookRetry,
-} from "@workspace/db";
+import { db, webhookRetryQueueTable, type WebhookRetry } from "@workspace/db";
 import { logger } from "./logger";
+import { SETTINGS, readSetting } from "./settings-registry";
 
 const RETRY_DELAYS_MS = [30_000, 120_000, 300_000];
 const MAX_ATTEMPTS = 4;
@@ -14,9 +9,9 @@ const MAX_ATTEMPTS = 4;
 /**
  * Resolve the outbound webhook URL.
  *
- * Precedence (admin-configured wins):
- *   1. system_settings.outbound_webhook_url (the admin Settings UI writes here)
- *   2. process.env.WEBHOOK_URL (boot-time fallback for fresh installs)
+ * Precedence (admin-configured wins): `system_settings.outbound_webhook_url`,
+ * then `process.env.WEBHOOK_URL` as a boot-time fallback for fresh installs.
+ * Declared in `settings-registry.ts`; resolution lives there.
  *
  * Rationale: operator configuration is runtime, not env. Inverting precedence
  * (admin > env) means an operator can override a misconfigured env var at
@@ -24,12 +19,19 @@ const MAX_ATTEMPTS = 4;
  * the admin can never wonder whether their UI change took effect.
  */
 export async function getOutboundWebhookUrl(): Promise<string | null> {
-  const [row] = await db
-    .select()
-    .from(systemSettingsTable)
-    .where(eq(systemSettingsTable.key, SETTING_KEYS.OUTBOUND_WEBHOOK_URL));
-  if (row?.value) return row.value;
-  return process.env["WEBHOOK_URL"] ?? null;
+  return readSetting(SETTINGS.outboundWebhookUrl);
+}
+
+/**
+ * Whether outbound delivery is active at all. Off by default: the receiving
+ * end doesn't exist yet, so dispatching and retrying at it is pure waste.
+ * An unset URL counts as disabled regardless of the flag — see
+ * docs/workflow-decisions.md D7 ("null OR explicitly disabled").
+ */
+async function isOutboundEnabled(): Promise<boolean> {
+  const enabled = await readSetting(SETTINGS.outboundWebhookEnabled);
+  if (!enabled) return false;
+  return (await getOutboundWebhookUrl()) !== null;
 }
 
 export type OutboundEventType =
@@ -77,8 +79,13 @@ async function attemptDelivery(
  * 30s, 2m, 5m delays. 4xx (except 408/429) are not retried.
  */
 export async function enqueueOutboundEvent(event: OutboundEvent): Promise<void> {
-  const url = await getOutboundWebhookUrl();
   const correlationId = event.correlationId ?? null;
+  // Short-circuit before building any payload or touching the database.
+  if (!(await readSetting(SETTINGS.outboundWebhookEnabled))) {
+    logger.debug({ eventType: event.eventType, correlationId }, "Outbound webhook disabled");
+    return;
+  }
+  const url = await getOutboundWebhookUrl();
   if (!url) {
     logger.debug({ eventType: event.eventType, correlationId }, "No outbound webhook configured");
     return;
@@ -215,6 +222,10 @@ let running = false;
 
 export async function processRetryQueueOnce(): Promise<void> {
   if (running) return;
+  // Cheapest possible check first: while outbound delivery is off, this is the
+  // only work the loop does. Previously it queried webhook_retry_queue every
+  // ten seconds regardless of whether anything was configured to receive.
+  if (!(await isOutboundEnabled())) return;
   running = true;
   try {
     const due = await db

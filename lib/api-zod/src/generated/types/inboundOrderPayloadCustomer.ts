@@ -11,7 +11,16 @@ export type InboundOrderPayloadCustomer = {
   phone: string;
   /** @nullable */
   email?: string | null;
-  /** Single-line display address. Structured components below are separate, not derived from this. */
+  /** The source's own single line, built from the same components it
+sends below (`buildFullAddress()` at the source). It is a
+*rendering* of them, not an independent record — it cannot carry
+anything they don't.
+
+A previous version of this description said the two were
+"separate, not derived from this". That was wrong, and it was
+wrong in the direction that invents work: it implied the line
+might hold detail the components lack.
+ */
   address: string;
   street: string;
   /** @nullable */
