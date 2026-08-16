@@ -94,11 +94,15 @@ nothing yet in production, so don't even 1% hold things back trying to retain
 something."* Schema was changed in place and pushed — no backfills, no
 deprecation cycles, no compatibility shims.
 
-**That authorization was scoped to that conversation and has lapsed.** It is not
-a standing rule, and a later session must not read it as one. Before dropping a
+**That authorization was scoped to that conversation and lapsed.** It is not a
+standing rule, and a later session must not read it as one. Before dropping a
 column, skipping a backfill or removing a compatibility path, re-confirm that
-nothing is running anywhere with data worth keeping. The cost of asking is a
-sentence; the cost of assuming is a dropped column.
+nothing is running anywhere with data worth keeping.
+
+**Re-confirmed 2026-08-15:** *"this is all still development, there's nothing to
+preserve."* So the D12 rename and the D6 column drop can be applied without
+ceremony. This re-confirmation expires the same way the first one did — it is a
+statement about today, not a standing rule.
 
 Recorded in `docs/constraint-overrides.md` O2.
 

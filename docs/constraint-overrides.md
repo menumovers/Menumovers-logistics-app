@@ -96,8 +96,12 @@ Kept briefly so a reconciliation pass can see what changed, then cleared.
 - **Superseded (2026-08-14):** *"nothing yet in production, don't hold anything
   back to retain something."*
 - **Answered: scoped to that conversation only.** Not a standing rule. The
-  authorization has lapsed; a later session re-confirms before dropping
-  anything.
+  authorization lapsed; a later session re-confirms before dropping anything.
+- **Re-confirmed 2026-08-15**, when the D12 rename and the D6 column drop were
+  about to be pushed: *"this is all still development, there's nothing to
+  preserve."* The mechanism worked as intended — the question was asked, and
+  cheaply. Note that a re-confirmation is itself scoped to the conversation it
+  was given in.
 - **Written forward:** `docs/environment-checklist.md` Part 2 now carries the
   expiry as a marked warning rather than stating the rule open-endedly — that
   doc was the one thing likely to mislead a future reader into applying it.
