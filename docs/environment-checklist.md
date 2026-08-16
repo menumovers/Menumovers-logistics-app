@@ -228,6 +228,12 @@ built — its column drop is folded into Part 1's schema impact above.
   for adding one.
 - **Outbound webhook request signing** does not exist and is a prerequisite for
   enabling the webhook (D7). Not tracked as active work.
-- **Documentation corrections for D1** are pending sign-off: `replit.md` §1,
-  `architecture-full-technical.md`:32, the SSOT transition table, and a planned
-  test line in `todo-roadmap.md` all still describe the strict state machine.
+- **Documentation is reconciled at the end of the work stream, not per
+  decision** (`workflow-decisions.md` §G). Docs that still describe the
+  project's older intentions are expected, and are not a gap to report.
+
+  The D1 corrections *were* made — `replit.md` §1, `architecture-full-technical.md`,
+  the SSOT registry and the `todo-roadmap.md` test line all describe
+  status-as-report now. This entry previously called them "pending sign-off",
+  which was both stale and the wrong frame: it treated one decision inside a
+  contained process as if it needed its own approval gate.

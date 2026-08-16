@@ -2,9 +2,11 @@
 
 ## 2026-08-15 — The address components become canonical; the source's line becomes a receipt
 
-The source sends an address twice, independently: one display line and six
-structured components. We stored both and treated the line as canonical, while
-`POST /orders/:id/contact` wrote only the line — so the first coordinator
+The source keeps the address as components, sends them to us as-is, and also
+sends its own `buildFullAddress()` rendering of them as one line. Both come
+from a single record. We stored both as writable and treated the line as
+canonical, while `POST /orders/:id/contact` wrote only the line — so the first
+coordinator
 correction made the two disagree permanently, with nothing recording which was
 current (`todo-bugs.md` B5).
 
@@ -32,13 +34,12 @@ at the single call site. Order search matches the components joined via
 matches the original line so an order stays findable by the address it arrived
 with.
 
-The cost is small. Missing data is not part of it — the two representations
-come from the same record, so a gap in the components is a gap in the line too,
-and `formatAddress` drops blank parts rather than leaving a stray comma. Nor is
-it unusual house numbers: `houseNumber` is text, nothing parses it, and `12-14`
-prints verbatim. What is real is that we now choose the ordering and
-punctuation, so the line may read slightly differently from the source's, and we
-own a small function that could have bugs. 21 assertions cover it.
+The cost is almost nothing. Since the source builds its line from the same
+components, we are doing what it already does with our own formatter — there is
+no information to drop. Gaps are symmetric, and `formatAddress` omits blank
+parts rather than leaving a stray comma. What is real: we chose our own ordering
+and punctuation, so the line may read slightly differently from the source's,
+and we own a small function that could have bugs. 21 assertions cover it.
 
 Resolves the deferred "Legacy `deliveryAddress` text column" note in
 `todo-out-of-scope.md`. Rationale in `docs/workflow-decisions.md` D12.

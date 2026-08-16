@@ -83,7 +83,7 @@ export const IngestOrderBody = zod.object({
     address: zod
       .string()
       .describe(
-        "Single-line display address. Structured components below are separate, not derived from this.",
+        "The source's own single line, built from the same components it\nsends below (`buildFullAddress()` at the source). It is a\n\*rendering\* of them, not an independent record — it cannot carry\nanything they don't.\n\nA previous version of this description said the two were\n\"separate, not derived from this\". That was wrong, and it was\nwrong in the direction that invents work: it implied the line\nmight hold detail the components lack.\n",
       ),
     street: zod.string(),
     houseNumber: zod.string().nullish(),

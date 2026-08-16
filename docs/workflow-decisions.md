@@ -415,16 +415,24 @@ when is missing the thing a coordinator triaging a queue actually wants
 
 **Decided 2026-08-15. Built 2026-08-15.** Closes `todo-bugs.md` B5.
 
-The source sends an address twice, independently: a single display line, and
-six structured components. We were writing both and treating the line as
-canonical — so the first coordinator correction made them disagree permanently,
-with nothing recording which was current.
+The source keeps the address as components and sends them to us as-is. It also
+runs them through its own `buildFullAddress()` and sends the resulting line as
+`customer.address`. So we receive one record twice: the components, and the
+source's rendering of them.
 
-**The components are canonical for everything the app does.** They are what a
-coordinator edits, and what any future area grouping, postcode sort or
-geocoding will query. **The source's line is kept purely for audit**, under the
-same rule as D11: `deliveryAddressOriginal`, immutable after insert, so someone
-can always see what actually arrived.
+We were storing both as writable and treating the rendering as canonical — so
+the first coordinator correction made them disagree permanently, with nothing
+recording which was current.
+
+**The components are canonical for everything the app does** — which is what
+they already are at the source. They are what a coordinator edits, and what any
+future area grouping, postcode sort or geocoding will query.
+
+**The source's line is kept purely for audit**, under the same rule as D11:
+`deliveryAddressOriginal`, immutable after insert. Because it is a rendering of
+the components *as they arrived*, it doubles as a snapshot of them before any
+coordinator correction — which is more useful than a second address, and is the
+real reason to keep it.
 
 That is what removes the drift — not better synchronisation, but **one writable
 copy**. There is nothing left to keep in step.
@@ -449,21 +457,24 @@ copy**. There is nothing left to keep in step.
 
 ### What this costs
 
-Very little, and less than two earlier drafts of this section claimed.
+Almost nothing, and less than two earlier drafts of this section claimed.
 
-**Not missing data.** If the source has no house number, its own line lacks one
-too — the two representations come out of the same record, so a gap is a gap
-either way. `formatAddress` drops blank parts before joining, so an absent house
-number gives `Hoofdstraat, 1011 AB Amsterdam`, never a stray comma. Empty
-string, `null` and whitespace all behave identically.
+Both drafts were wrong because they assumed the source's line might contain
+something the components don't. It cannot: the source builds that line *from*
+those components. We are now doing what it already does, with our own
+formatter. So there is no information to drop, and never was.
 
-**Not unusual house numbers.** `houseNumber` is text and nothing parses it.
-`12-14` and `12hs` are stored and printed verbatim.
+The gap cases are symmetric for the same reason — if the source has no house
+number, its own line lacks one too. `formatAddress` drops blank parts before
+joining, so an absent house number gives `Hoofdstraat, 1011 AB Amsterdam`,
+never a stray comma; empty string, `null` and whitespace behave identically.
+Unusual house numbers are not a hazard either: `houseNumber` is text, nothing
+parses it, and `12-14` prints verbatim.
 
-**What is actually true:** we now choose the ordering and punctuation, so the
-line may read slightly differently from the one the source composed. Cosmetic,
-and no reason to keep two writable copies. Beyond that we own a small function
-that could have bugs, which is what the 21 assertions are for.
+**What is actually true:** we chose our own ordering and punctuation, so our
+line may read slightly differently from the source's. Cosmetic. Beyond that we
+own a small function that could have bugs, which is what the 21 assertions are
+for.
 
 ### Replay
 
@@ -497,6 +508,8 @@ evidence, and never soften one back into a question.**
 | Fact | Where it is applied |
 |---|---|
 | `latitude` / `longitude` are **not populated** by the source. Empty vs. omitted is immaterial — there is no coordinate data | `field-audit.md` §2 |
+| The source holds the address as components. It sends them as-is *and* sends its own `buildFullAddress()` rendering of them as `customer.address` — one record, two forms. The line can never carry what the components lack | D12 |
+| `happy_hour` is a discount on delivery cost in exchange for the customer accepting less control over timing | D5 |
 | `deliveryTimeType` sends exactly `asap`, `later_today`, `other_day` | D4 |
 | `requestedDeliveryTime` is the customer's checkout selection as a timestamp; for ASAP it is the storefront's *estimate*, not a promise. The string the customer saw is a separate field not sent to us | D4, OpenAPI `InboundOrderPayload` |
 | `cashPayment` means **any payment not made online** — not necessarily cash | D-none; `components/payment-panel.tsx`, OpenAPI |
@@ -506,7 +519,26 @@ evidence, and never soften one back into a question.**
 | Restaurants sometimes hand-number items on packaging; the receipt is paper to write on, so it must not pre-number | D10 |
 | Receipts are not enabled for every restaurant, and some will eventually be item-only | D10 |
 
-## G. Deliberately not now
+## G. What this work stream is
+
+**This conversation is one contained process, not a series of shipped
+increments.** Its job is to make the architecture match the intended UX and UI.
+Implementing, applying schema, testing against a live system and going forward
+happen **after** it, as one step, not per decision.
+
+That framing keeps being lost, and the loss has a signature: treating each
+decision as needing its own deployment, its own live verification, its own
+sign-off — then reporting the absence of those as open risk. They are not
+risk. They are the plan.
+
+**Documentation follows the same shape.** Much of `docs/` still describes the
+project's older intentions. The order is: settle the new expectations first,
+*then* make the documentation match the new reality. Existing docs are not
+constraints to be obeyed on the way — that is what
+`constraint-overrides.md` is for. A doc that prescribes the old design is
+something to update at the end, not something to argue with in the middle.
+
+## Deliberately not now
 
 Real work, deliberately sequenced out of the current stream. **Do not propose
 any of these as a next step.** Listing one as "still open" is technically true
