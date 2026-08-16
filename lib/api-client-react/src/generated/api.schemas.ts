@@ -441,7 +441,18 @@ export interface Order {
   customerPhone: string;
   /** @nullable */
   customerEmail?: string | null;
+  /** The order's current address as one line, built from the components
+below on every read and never stored. This is what screens render.
+Corrections show up here because the components are the only
+writable copy (D12).
+ */
   deliveryAddress: string;
+  /** The single-line address exactly as the source sent it, immutable
+after ingestion — the same pattern as `pickupTimeOriginal`. Kept so
+a coordinator can see what actually arrived. Nothing operational
+reads it; use `deliveryAddress` for anything the app does.
+ */
+  deliveryAddressOriginal: string;
   street: string;
   /** @nullable */
   houseNumber?: string | null;
@@ -640,12 +651,30 @@ export interface SetRiderNotificationRequest {
   message?: string | null;
 }
 
+/**
+ * The address is corrected component by component. There is no
+`deliveryAddress` field: that value is derived from the components on
+read, and `deliveryAddressOriginal` is immutable, so the components are
+the only writable record of where the order goes (D12).
+
+ */
 export interface UpdateOrderContactRequest {
   customerName?: string;
   customerPhone?: string;
   /** @nullable */
   customerEmail?: string | null;
-  deliveryAddress?: string;
+  /** @minLength 1 */
+  street?: string;
+  /** @nullable */
+  houseNumber?: string | null;
+  /** @nullable */
+  addition?: string | null;
+  /** @minLength 1 */
+  postalCode?: string;
+  /** @minLength 1 */
+  city?: string;
+  /** @minLength 1 */
+  country?: string;
   /** @nullable */
   deliveryInstructions?: string | null;
 }

@@ -24,7 +24,18 @@ export interface Order {
   customerPhone: string;
   /** @nullable */
   customerEmail?: string | null;
+  /** The order's current address as one line, built from the components
+below on every read and never stored. This is what screens render.
+Corrections show up here because the components are the only
+writable copy (D12).
+ */
   deliveryAddress: string;
+  /** The single-line address exactly as the source sent it, immutable
+after ingestion — the same pattern as `pickupTimeOriginal`. Kept so
+a coordinator can see what actually arrived. Nothing operational
+reads it; use `deliveryAddress` for anything the app does.
+ */
+  deliveryAddressOriginal: string;
   street: string;
   /** @nullable */
   houseNumber?: string | null;

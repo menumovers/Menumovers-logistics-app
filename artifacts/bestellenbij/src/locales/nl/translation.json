@@ -51,6 +51,16 @@
     "toggleSidebar": "Zijbalk wisselen",
     "details": "Details"
   },
+  "address": {
+    "street": "Straat",
+    "houseNumber": "Nr.",
+    "addition": "Toev.",
+    "postalCode": "Postcode",
+    "city": "Plaats",
+    "incomplete": "Straat, postcode en plaats zijn verplicht",
+    "asReceived": "Zoals ontvangen: {{address}}",
+    "unsaved": "Adres gewijzigd — nog niet opgeslagen"
+  },
   "landing": {
     "heading": "Bestellenbij",
     "sub": "Kies hoe je vandaag inlogt.",

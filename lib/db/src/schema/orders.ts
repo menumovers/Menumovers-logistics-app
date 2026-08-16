@@ -80,11 +80,24 @@ export const ordersTable = pgTable(
     customerName: text("customer_name").notNull(),
     customerPhone: text("customer_phone").notNull(),
     customerEmail: text("customer_email"),
-    deliveryAddress: text("delivery_address").notNull(),
-    // Structured address components, sent alongside deliveryAddress rather
-    // than replacing it — deliveryAddress stays the single display string
-    // for anything still reading it directly. Whether to eventually drop it
-    // is an open decision, not acted on here.
+    /**
+     * IMMUTABLE after insert. Application layer must never UPDATE this column.
+     *
+     * The source's own single-line address, kept verbatim so a coordinator can
+     * see what actually arrived. It is **not** the working address and nothing
+     * operational reads it — the structured components below are what the app
+     * edits, queries and renders. The two are sent independently by the source;
+     * this one is never derived from those.
+     *
+     * Same shape as `pickupTimeOriginal`: an original preserved beside a
+     * mutable working value. See workflow-decisions D12.
+     */
+    deliveryAddressOriginal: text("delivery_address_original").notNull(),
+    /**
+     * The working address. These are what a coordinator corrects and what
+     * every screen renders (via a display string built from them), so there is
+     * exactly one writable copy of where the order goes.
+     */
     street: text("street").notNull(),
     houseNumber: text("house_number"),
     addition: text("addition"),

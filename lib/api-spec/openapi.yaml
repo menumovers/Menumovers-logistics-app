@@ -1379,6 +1379,7 @@ components:
         - customerName
         - customerPhone
         - deliveryAddress
+        - deliveryAddressOriginal
         - street
         - postalCode
         - city
@@ -1419,6 +1420,18 @@ components:
           type: ["string", "null"]
         deliveryAddress:
           type: string
+          description: |
+            The order's current address as one line, built from the components
+            below on every read and never stored. This is what screens render.
+            Corrections show up here because the components are the only
+            writable copy (D12).
+        deliveryAddressOriginal:
+          type: string
+          description: |
+            The single-line address exactly as the source sent it, immutable
+            after ingestion — the same pattern as `pickupTimeOriginal`. Kept so
+            a coordinator can see what actually arrived. Nothing operational
+            reads it; use `deliveryAddress` for anything the app does.
         street:
           type: string
         houseNumber:
@@ -1692,6 +1705,11 @@ components:
           type: ["string", "null"]
     UpdateOrderContactRequest:
       type: object
+      description: |
+        The address is corrected component by component. There is no
+        `deliveryAddress` field: that value is derived from the components on
+        read, and `deliveryAddressOriginal` is immutable, so the components are
+        the only writable record of where the order goes (D12).
       properties:
         customerName:
           type: string
@@ -1699,8 +1717,22 @@ components:
           type: string
         customerEmail:
           type: ["string", "null"]
-        deliveryAddress:
+        street:
           type: string
+          minLength: 1
+        houseNumber:
+          type: ["string", "null"]
+        addition:
+          type: ["string", "null"]
+        postalCode:
+          type: string
+          minLength: 1
+        city:
+          type: string
+          minLength: 1
+        country:
+          type: string
+          minLength: 1
         deliveryInstructions:
           type: ["string", "null"]
     RiderWithWorkload:

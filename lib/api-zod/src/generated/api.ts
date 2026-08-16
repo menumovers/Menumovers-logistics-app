@@ -186,7 +186,16 @@ export const IngestOrderResponse = zod.object({
   customerName: zod.string(),
   customerPhone: zod.string(),
   customerEmail: zod.string().nullish(),
-  deliveryAddress: zod.string(),
+  deliveryAddress: zod
+    .string()
+    .describe(
+      "The order's current address as one line, built from the components\nbelow on every read and never stored. This is what screens render.\nCorrections show up here because the components are the only\nwritable copy (D12).\n",
+    ),
+  deliveryAddressOriginal: zod
+    .string()
+    .describe(
+      "The single-line address exactly as the source sent it, immutable\nafter ingestion — the same pattern as `pickupTimeOriginal`. Kept so\na coordinator can see what actually arrived. Nothing operational\nreads it; use `deliveryAddress` for anything the app does.\n",
+    ),
   street: zod.string(),
   houseNumber: zod.string().nullish(),
   addition: zod.string().nullish(),
@@ -351,7 +360,16 @@ export const ListOrdersResponseItem = zod
     customerName: zod.string(),
     customerPhone: zod.string(),
     customerEmail: zod.string().nullish(),
-    deliveryAddress: zod.string(),
+    deliveryAddress: zod
+      .string()
+      .describe(
+        "The order's current address as one line, built from the components\nbelow on every read and never stored. This is what screens render.\nCorrections show up here because the components are the only\nwritable copy (D12).\n",
+      ),
+    deliveryAddressOriginal: zod
+      .string()
+      .describe(
+        "The single-line address exactly as the source sent it, immutable\nafter ingestion — the same pattern as `pickupTimeOriginal`. Kept so\na coordinator can see what actually arrived. Nothing operational\nreads it; use `deliveryAddress` for anything the app does.\n",
+      ),
     street: zod.string(),
     houseNumber: zod.string().nullish(),
     addition: zod.string().nullish(),
@@ -511,7 +529,16 @@ export const GetOrderResponse = zod
     customerName: zod.string(),
     customerPhone: zod.string(),
     customerEmail: zod.string().nullish(),
-    deliveryAddress: zod.string(),
+    deliveryAddress: zod
+      .string()
+      .describe(
+        "The order's current address as one line, built from the components\nbelow on every read and never stored. This is what screens render.\nCorrections show up here because the components are the only\nwritable copy (D12).\n",
+      ),
+    deliveryAddressOriginal: zod
+      .string()
+      .describe(
+        "The single-line address exactly as the source sent it, immutable\nafter ingestion — the same pattern as `pickupTimeOriginal`. Kept so\na coordinator can see what actually arrived. Nothing operational\nreads it; use `deliveryAddress` for anything the app does.\n",
+      ),
     street: zod.string(),
     houseNumber: zod.string().nullish(),
     addition: zod.string().nullish(),
@@ -755,7 +782,16 @@ export const TransitionOrderStatusResponse = zod
     customerName: zod.string(),
     customerPhone: zod.string(),
     customerEmail: zod.string().nullish(),
-    deliveryAddress: zod.string(),
+    deliveryAddress: zod
+      .string()
+      .describe(
+        "The order's current address as one line, built from the components\nbelow on every read and never stored. This is what screens render.\nCorrections show up here because the components are the only\nwritable copy (D12).\n",
+      ),
+    deliveryAddressOriginal: zod
+      .string()
+      .describe(
+        "The single-line address exactly as the source sent it, immutable\nafter ingestion — the same pattern as `pickupTimeOriginal`. Kept so\na coordinator can see what actually arrived. Nothing operational\nreads it; use `deliveryAddress` for anything the app does.\n",
+      ),
     street: zod.string(),
     houseNumber: zod.string().nullish(),
     addition: zod.string().nullish(),
@@ -988,7 +1024,16 @@ export const AssignOrderResponse = zod
     customerName: zod.string(),
     customerPhone: zod.string(),
     customerEmail: zod.string().nullish(),
-    deliveryAddress: zod.string(),
+    deliveryAddress: zod
+      .string()
+      .describe(
+        "The order's current address as one line, built from the components\nbelow on every read and never stored. This is what screens render.\nCorrections show up here because the components are the only\nwritable copy (D12).\n",
+      ),
+    deliveryAddressOriginal: zod
+      .string()
+      .describe(
+        "The single-line address exactly as the source sent it, immutable\nafter ingestion — the same pattern as `pickupTimeOriginal`. Kept so\na coordinator can see what actually arrived. Nothing operational\nreads it; use `deliveryAddress` for anything the app does.\n",
+      ),
     street: zod.string(),
     houseNumber: zod.string().nullish(),
     addition: zod.string().nullish(),
@@ -1222,7 +1267,16 @@ export const UpdatePickupTimeResponse = zod
     customerName: zod.string(),
     customerPhone: zod.string(),
     customerEmail: zod.string().nullish(),
-    deliveryAddress: zod.string(),
+    deliveryAddress: zod
+      .string()
+      .describe(
+        "The order's current address as one line, built from the components\nbelow on every read and never stored. This is what screens render.\nCorrections show up here because the components are the only\nwritable copy (D12).\n",
+      ),
+    deliveryAddressOriginal: zod
+      .string()
+      .describe(
+        "The single-line address exactly as the source sent it, immutable\nafter ingestion — the same pattern as `pickupTimeOriginal`. Kept so\na coordinator can see what actually arrived. Nothing operational\nreads it; use `deliveryAddress` for anything the app does.\n",
+      ),
     street: zod.string(),
     houseNumber: zod.string().nullish(),
     addition: zod.string().nullish(),
@@ -1455,7 +1509,16 @@ export const HideOrderItemResponse = zod
     customerName: zod.string(),
     customerPhone: zod.string(),
     customerEmail: zod.string().nullish(),
-    deliveryAddress: zod.string(),
+    deliveryAddress: zod
+      .string()
+      .describe(
+        "The order's current address as one line, built from the components\nbelow on every read and never stored. This is what screens render.\nCorrections show up here because the components are the only\nwritable copy (D12).\n",
+      ),
+    deliveryAddressOriginal: zod
+      .string()
+      .describe(
+        "The single-line address exactly as the source sent it, immutable\nafter ingestion — the same pattern as `pickupTimeOriginal`. Kept so\na coordinator can see what actually arrived. Nothing operational\nreads it; use `deliveryAddress` for anything the app does.\n",
+      ),
     street: zod.string(),
     houseNumber: zod.string().nullish(),
     addition: zod.string().nullish(),
@@ -1703,7 +1766,16 @@ export const AddOrderItemResponse = zod
     customerName: zod.string(),
     customerPhone: zod.string(),
     customerEmail: zod.string().nullish(),
-    deliveryAddress: zod.string(),
+    deliveryAddress: zod
+      .string()
+      .describe(
+        "The order's current address as one line, built from the components\nbelow on every read and never stored. This is what screens render.\nCorrections show up here because the components are the only\nwritable copy (D12).\n",
+      ),
+    deliveryAddressOriginal: zod
+      .string()
+      .describe(
+        "The single-line address exactly as the source sent it, immutable\nafter ingestion — the same pattern as `pickupTimeOriginal`. Kept so\na coordinator can see what actually arrived. Nothing operational\nreads it; use `deliveryAddress` for anything the app does.\n",
+      ),
     street: zod.string(),
     houseNumber: zod.string().nullish(),
     addition: zod.string().nullish(),
@@ -1986,7 +2058,16 @@ export const SetRiderNotificationResponse = zod
     customerName: zod.string(),
     customerPhone: zod.string(),
     customerEmail: zod.string().nullish(),
-    deliveryAddress: zod.string(),
+    deliveryAddress: zod
+      .string()
+      .describe(
+        "The order's current address as one line, built from the components\nbelow on every read and never stored. This is what screens render.\nCorrections show up here because the components are the only\nwritable copy (D12).\n",
+      ),
+    deliveryAddressOriginal: zod
+      .string()
+      .describe(
+        "The single-line address exactly as the source sent it, immutable\nafter ingestion — the same pattern as `pickupTimeOriginal`. Kept so\na coordinator can see what actually arrived. Nothing operational\nreads it; use `deliveryAddress` for anything the app does.\n",
+      ),
     street: zod.string(),
     houseNumber: zod.string().nullish(),
     addition: zod.string().nullish(),
@@ -2196,13 +2277,22 @@ export const UpdateOrderContactParams = zod.object({
   id: zod.coerce.string(),
 });
 
-export const UpdateOrderContactBody = zod.object({
-  customerName: zod.string().optional(),
-  customerPhone: zod.string().optional(),
-  customerEmail: zod.string().nullish(),
-  deliveryAddress: zod.string().optional(),
-  deliveryInstructions: zod.string().nullish(),
-});
+export const UpdateOrderContactBody = zod
+  .object({
+    customerName: zod.string().optional(),
+    customerPhone: zod.string().optional(),
+    customerEmail: zod.string().nullish(),
+    street: zod.string().min(1).optional(),
+    houseNumber: zod.string().nullish(),
+    addition: zod.string().nullish(),
+    postalCode: zod.string().min(1).optional(),
+    city: zod.string().min(1).optional(),
+    country: zod.string().min(1).optional(),
+    deliveryInstructions: zod.string().nullish(),
+  })
+  .describe(
+    "The address is corrected component by component. There is no\n`deliveryAddress` field: that value is derived from the components on\nread, and `deliveryAddressOriginal` is immutable, so the components are\nthe only writable record of where the order goes (D12).\n",
+  );
 
 export const UpdateOrderContactResponse = zod
   .object({
@@ -2223,7 +2313,16 @@ export const UpdateOrderContactResponse = zod
     customerName: zod.string(),
     customerPhone: zod.string(),
     customerEmail: zod.string().nullish(),
-    deliveryAddress: zod.string(),
+    deliveryAddress: zod
+      .string()
+      .describe(
+        "The order's current address as one line, built from the components\nbelow on every read and never stored. This is what screens render.\nCorrections show up here because the components are the only\nwritable copy (D12).\n",
+      ),
+    deliveryAddressOriginal: zod
+      .string()
+      .describe(
+        "The single-line address exactly as the source sent it, immutable\nafter ingestion — the same pattern as `pickupTimeOriginal`. Kept so\na coordinator can see what actually arrived. Nothing operational\nreads it; use `deliveryAddress` for anything the app does.\n",
+      ),
     street: zod.string(),
     houseNumber: zod.string().nullish(),
     addition: zod.string().nullish(),
@@ -2470,7 +2569,16 @@ export const AcknowledgeOrderResponse = zod
     customerName: zod.string(),
     customerPhone: zod.string(),
     customerEmail: zod.string().nullish(),
-    deliveryAddress: zod.string(),
+    deliveryAddress: zod
+      .string()
+      .describe(
+        "The order's current address as one line, built from the components\nbelow on every read and never stored. This is what screens render.\nCorrections show up here because the components are the only\nwritable copy (D12).\n",
+      ),
+    deliveryAddressOriginal: zod
+      .string()
+      .describe(
+        "The single-line address exactly as the source sent it, immutable\nafter ingestion — the same pattern as `pickupTimeOriginal`. Kept so\na coordinator can see what actually arrived. Nothing operational\nreads it; use `deliveryAddress` for anything the app does.\n",
+      ),
     street: zod.string(),
     houseNumber: zod.string().nullish(),
     addition: zod.string().nullish(),
@@ -2707,7 +2815,16 @@ export const HoldOrderResponse = zod
     customerName: zod.string(),
     customerPhone: zod.string(),
     customerEmail: zod.string().nullish(),
-    deliveryAddress: zod.string(),
+    deliveryAddress: zod
+      .string()
+      .describe(
+        "The order's current address as one line, built from the components\nbelow on every read and never stored. This is what screens render.\nCorrections show up here because the components are the only\nwritable copy (D12).\n",
+      ),
+    deliveryAddressOriginal: zod
+      .string()
+      .describe(
+        "The single-line address exactly as the source sent it, immutable\nafter ingestion — the same pattern as `pickupTimeOriginal`. Kept so\na coordinator can see what actually arrived. Nothing operational\nreads it; use `deliveryAddress` for anything the app does.\n",
+      ),
     street: zod.string(),
     houseNumber: zod.string().nullish(),
     addition: zod.string().nullish(),
@@ -2936,7 +3053,16 @@ export const ReleaseOrderResponse = zod
     customerName: zod.string(),
     customerPhone: zod.string(),
     customerEmail: zod.string().nullish(),
-    deliveryAddress: zod.string(),
+    deliveryAddress: zod
+      .string()
+      .describe(
+        "The order's current address as one line, built from the components\nbelow on every read and never stored. This is what screens render.\nCorrections show up here because the components are the only\nwritable copy (D12).\n",
+      ),
+    deliveryAddressOriginal: zod
+      .string()
+      .describe(
+        "The single-line address exactly as the source sent it, immutable\nafter ingestion — the same pattern as `pickupTimeOriginal`. Kept so\na coordinator can see what actually arrived. Nothing operational\nreads it; use `deliveryAddress` for anything the app does.\n",
+      ),
     street: zod.string(),
     houseNumber: zod.string().nullish(),
     addition: zod.string().nullish(),
@@ -3173,7 +3299,16 @@ export const SetOrderRestaurantResponse = zod
     customerName: zod.string(),
     customerPhone: zod.string(),
     customerEmail: zod.string().nullish(),
-    deliveryAddress: zod.string(),
+    deliveryAddress: zod
+      .string()
+      .describe(
+        "The order's current address as one line, built from the components\nbelow on every read and never stored. This is what screens render.\nCorrections show up here because the components are the only\nwritable copy (D12).\n",
+      ),
+    deliveryAddressOriginal: zod
+      .string()
+      .describe(
+        "The single-line address exactly as the source sent it, immutable\nafter ingestion — the same pattern as `pickupTimeOriginal`. Kept so\na coordinator can see what actually arrived. Nothing operational\nreads it; use `deliveryAddress` for anything the app does.\n",
+      ),
     street: zod.string(),
     houseNumber: zod.string().nullish(),
     addition: zod.string().nullish(),
@@ -3771,7 +3906,16 @@ export const GetTripResponse = zod
             customerName: zod.string(),
             customerPhone: zod.string(),
             customerEmail: zod.string().nullish(),
-            deliveryAddress: zod.string(),
+            deliveryAddress: zod
+              .string()
+              .describe(
+                "The order's current address as one line, built from the components\nbelow on every read and never stored. This is what screens render.\nCorrections show up here because the components are the only\nwritable copy (D12).\n",
+              ),
+            deliveryAddressOriginal: zod
+              .string()
+              .describe(
+                "The single-line address exactly as the source sent it, immutable\nafter ingestion — the same pattern as `pickupTimeOriginal`. Kept so\na coordinator can see what actually arrived. Nothing operational\nreads it; use `deliveryAddress` for anything the app does.\n",
+              ),
             street: zod.string(),
             houseNumber: zod.string().nullish(),
             addition: zod.string().nullish(),
@@ -4012,7 +4156,16 @@ export const UpdateTripResponse = zod
             customerName: zod.string(),
             customerPhone: zod.string(),
             customerEmail: zod.string().nullish(),
-            deliveryAddress: zod.string(),
+            deliveryAddress: zod
+              .string()
+              .describe(
+                "The order's current address as one line, built from the components\nbelow on every read and never stored. This is what screens render.\nCorrections show up here because the components are the only\nwritable copy (D12).\n",
+              ),
+            deliveryAddressOriginal: zod
+              .string()
+              .describe(
+                "The single-line address exactly as the source sent it, immutable\nafter ingestion — the same pattern as `pickupTimeOriginal`. Kept so\na coordinator can see what actually arrived. Nothing operational\nreads it; use `deliveryAddress` for anything the app does.\n",
+              ),
             street: zod.string(),
             houseNumber: zod.string().nullish(),
             addition: zod.string().nullish(),
@@ -4253,7 +4406,16 @@ export const ReplaceTripStopsResponse = zod
             customerName: zod.string(),
             customerPhone: zod.string(),
             customerEmail: zod.string().nullish(),
-            deliveryAddress: zod.string(),
+            deliveryAddress: zod
+              .string()
+              .describe(
+                "The order's current address as one line, built from the components\nbelow on every read and never stored. This is what screens render.\nCorrections show up here because the components are the only\nwritable copy (D12).\n",
+              ),
+            deliveryAddressOriginal: zod
+              .string()
+              .describe(
+                "The single-line address exactly as the source sent it, immutable\nafter ingestion — the same pattern as `pickupTimeOriginal`. Kept so\na coordinator can see what actually arrived. Nothing operational\nreads it; use `deliveryAddress` for anything the app does.\n",
+              ),
             street: zod.string(),
             houseNumber: zod.string().nullish(),
             addition: zod.string().nullish(),
@@ -4483,7 +4645,16 @@ export const DissolveTripResponse = zod
             customerName: zod.string(),
             customerPhone: zod.string(),
             customerEmail: zod.string().nullish(),
-            deliveryAddress: zod.string(),
+            deliveryAddress: zod
+              .string()
+              .describe(
+                "The order's current address as one line, built from the components\nbelow on every read and never stored. This is what screens render.\nCorrections show up here because the components are the only\nwritable copy (D12).\n",
+              ),
+            deliveryAddressOriginal: zod
+              .string()
+              .describe(
+                "The single-line address exactly as the source sent it, immutable\nafter ingestion — the same pattern as `pickupTimeOriginal`. Kept so\na coordinator can see what actually arrived. Nothing operational\nreads it; use `deliveryAddress` for anything the app does.\n",
+              ),
             street: zod.string(),
             houseNumber: zod.string().nullish(),
             addition: zod.string().nullish(),

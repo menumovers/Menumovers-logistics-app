@@ -1,9 +1,11 @@
 # Field Audit — inbound order payload
 
 **Completed 2026-08-15.** A finished report, not a working document — the
-questions it asked have been answered. Its live follow-ups moved to `todo.md`
-(L8, L9) and its durable rule to `replit.md` §5; nothing here is waiting on
-anyone.
+questions it asked have been answered, and its durable rule went to
+`replit.md` §5. Nothing here is waiting on anyone.
+
+Two of its findings were acted on the same day and are marked in place: §1 was
+inverted by D12, and §3's `heldAt` is now displayed (`todo.md` L8).
 
 Kept because the value is the *reasoning*: which fields we keep, which we
 could throw, and why. That is expensive to reconstruct and cheap to store.
@@ -31,24 +33,23 @@ graph. See §3.
 
 ---
 
-## 1. The flat address string is what gets rendered
+## 1. The components are the address
 
 `street` · `houseNumber` · `addition` · `postalCode` · `city`
 
-**Keep. Nothing to build.** Every screen renders `deliveryAddress`, the
-single-line display string; the components sit beside it unread, by design.
+**Superseded 2026-08-15 by D12.** At the time of the audit these were unread:
+every screen rendered `deliveryAddress`, the source's single-line string, and
+the components sat beside it doing nothing.
 
-This is still the setup for **`todo-bugs.md` B5**, which is a data-integrity
-problem rather than a display one: `POST /orders/:id/contact` writes only
-`deliveryAddress`, so the first coordinator correction makes the two
-representations disagree permanently, with nothing recording which is current.
-Harmless while nothing reads the components; live the moment anything does.
+That has been inverted. The components are now canonical — they are what a
+coordinator edits, what order search queries, and what the displayed line is
+built from on every read. The source's line became
+`deliveryAddressOriginal`: immutable, audit-only, the same pattern as §3.
 
-An older deferred note points the other way —
-`todo-out-of-scope.md`, "Legacy `deliveryAddress` text column" — asking whether
-readers should move onto the structured fields and the flat string be dropped.
-Both directions remain open. What is not open is holding two
-independently-writable copies of one fact.
+This also closed `todo-bugs.md` **B5**, and not by synchronising the two
+copies — by removing the second writable one. `POST /orders/:id/contact` takes
+components and no longer accepts an address string, so there is nothing left
+that can drift.
 
 ## 2. Arrives, genuinely nothing to do with it
 

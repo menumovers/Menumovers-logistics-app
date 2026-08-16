@@ -1,5 +1,47 @@
 # Changelog
 
+## 2026-08-15 — The address components become canonical; the source's line becomes a receipt
+
+The source sends an address twice, independently: one display line and six
+structured components. We stored both and treated the line as canonical, while
+`POST /orders/:id/contact` wrote only the line — so the first coordinator
+correction made the two disagree permanently, with nothing recording which was
+current (`todo-bugs.md` B5).
+
+Nothing had chosen that arrangement. The components were added in Phase 2 with
+a commit message saying they *"replace reliance on a single deliveryAddress
+string"*, and the second half of that change never happened. The string won by
+being there first.
+
+The components are now canonical for everything operational — what a
+coordinator edits, what order search queries, what the displayed line is built
+from. `orders.delivery_address` is renamed `delivery_address_original` and made
+immutable, holding the source's own line for audit only. Same pattern as
+`pickupTimeOriginal`, and the same reasoning as D11: keep the original so a
+question can be answered later, without letting it pretend to be the record.
+
+**What removes the drift is that there is now one writable copy**, not better
+synchronisation between two.
+
+`lib/address.ts` builds the display line on every read; it is never stored.
+Screens are unchanged — they still render `deliveryAddress` — but the value now
+reflects corrections. `UpdateOrderContactRequest` drops `deliveryAddress` in
+favour of the components, which the generated types turned into a compile error
+at the single call site. Order search matches the components joined via
+`concat_ws`, so "Hoofdstraat 12" still matches across two columns, and still
+matches the original line so an order stays findable by the address it arrived
+with.
+
+The cost, taken deliberately: we now own Dutch address formatting, including
+`12-14`, `12hs`, missing house numbers, and `NOT NULL` columns that can still
+hold empty strings. 21 assertions cover it, including that the output never
+carries a stray or doubled separator. It is an acceptable cost because the
+derived line only has to be legible — the original is still there if it reads
+awkwardly.
+
+Resolves the deferred "Legacy `deliveryAddress` text column" note in
+`todo-out-of-scope.md`. Rationale in `docs/workflow-decisions.md` D12.
+
 ## 2026-08-15 — Trip progress derives from order status
 
 `trip_stops.completed_at` was read in four places to compute the coordinator's

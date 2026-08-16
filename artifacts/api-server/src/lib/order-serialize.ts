@@ -15,6 +15,7 @@ import {
 } from "@workspace/db";
 import { resolveEffectivePickupTime } from "./pickup-time";
 import { nextStatusesFor } from "./state-machine";
+import { formatAddress } from "./address";
 
 type Numeric = string;
 
@@ -139,7 +140,12 @@ function baseOrderFields(
     customerName: order.customerName,
     customerPhone: order.customerPhone,
     customerEmail: order.customerEmail,
-    deliveryAddress: order.deliveryAddress,
+    // Built from the components on every read, never stored (D12). Screens keep
+    // reading `deliveryAddress` and keep showing one line; what changed is that
+    // the line now reflects corrections, because the components are the only
+    // writable copy. `deliveryAddressOriginal` is what the source sent.
+    deliveryAddress: formatAddress(order),
+    deliveryAddressOriginal: order.deliveryAddressOriginal,
     street: order.street,
     houseNumber: order.houseNumber,
     addition: order.addition,

@@ -220,7 +220,7 @@ router.post(
         customerName: payload.customer.name,
         customerPhone: payload.customer.phone,
         customerEmail: payload.customer.email ?? null,
-        deliveryAddress: payload.customer.address,
+        deliveryAddressOriginal: payload.customer.address,
         street: payload.customer.street,
         houseNumber: payload.customer.houseNumber ?? null,
         addition: payload.customer.addition ?? null,
@@ -277,7 +277,9 @@ router.post(
           customerName: payload.customer.name,
           customerPhone: payload.customer.phone,
           customerEmail: payload.customer.email ?? null,
-          deliveryAddress: payload.customer.address,
+          // deliveryAddressOriginal excluded — immutable like pickupTimeOriginal
+          // and sourceCreatedAt (D12). A replay's own address is not lost:
+          // originalPayload below is refreshed every time.
           street: payload.customer.street,
           houseNumber: payload.customer.houseNumber ?? null,
           addition: payload.customer.addition ?? null,
@@ -407,7 +409,15 @@ router.get(
       filters.push(
         or(
           ilike(ordersTable.customerName, term),
-          ilike(ordersTable.deliveryAddress, term),
+          // Search the components joined the way they read, so "Hoofdstraat 12"
+          // and "1011 AB Amsterdam" both match despite spanning columns. The
+          // source's original line stays searchable too: after a correction an
+          // order should still be findable by the address it arrived with.
+          ilike(
+            sql`concat_ws(' ', ${ordersTable.street}, ${ordersTable.houseNumber}, ${ordersTable.addition}, ${ordersTable.postalCode}, ${ordersTable.city})`,
+            term,
+          ),
+          ilike(ordersTable.deliveryAddressOriginal, term),
           ilike(ordersTable.externalOrderId, term),
         )!,
       );
@@ -879,7 +889,16 @@ router.post(
     if (parsed.data.customerName !== undefined) updates.customerName = parsed.data.customerName;
     if (parsed.data.customerPhone !== undefined) updates.customerPhone = parsed.data.customerPhone;
     if (parsed.data.customerEmail !== undefined) updates.customerEmail = parsed.data.customerEmail ?? null;
-    if (parsed.data.deliveryAddress !== undefined) updates.deliveryAddress = parsed.data.deliveryAddress;
+    // The address is corrected component by component (D12). `deliveryAddress`
+    // is derived on read and `deliveryAddressOriginal` is immutable, so there is
+    // exactly one writable copy of where the order goes — which is what stopped
+    // the two representations drifting (todo-bugs B5).
+    if (parsed.data.street !== undefined) updates.street = parsed.data.street;
+    if (parsed.data.houseNumber !== undefined) updates.houseNumber = parsed.data.houseNumber ?? null;
+    if (parsed.data.addition !== undefined) updates.addition = parsed.data.addition ?? null;
+    if (parsed.data.postalCode !== undefined) updates.postalCode = parsed.data.postalCode;
+    if (parsed.data.city !== undefined) updates.city = parsed.data.city;
+    if (parsed.data.country !== undefined) updates.country = parsed.data.country;
     if (parsed.data.deliveryInstructions !== undefined) {
       updates.deliveryInstructions = parsed.data.deliveryInstructions ?? null;
     }

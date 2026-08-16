@@ -144,7 +144,13 @@ The API changed shape with it: `TripStop.completedAt` became
 
 ## B5. The structured address silently drifts from the display address
 
-**Severity: medium — two disagreeing records with no indication which is right.**
+**FIXED 2026-08-15** — by D12, which removes the second writable copy rather
+than synchronising the two. The components are canonical; the source's line
+becomes `deliveryAddressOriginal`, immutable and audit-only; the display string
+is derived on read. `POST /orders/:id/contact` takes components and no longer
+accepts an address string, so there is nothing left that can drift.
+
+~~Severity: medium — two disagreeing records with no indication which is right.~~
 
 Ingestion stores both `deliveryAddress` (a flat display string) and the
 structured components (`street`, `houseNumber`, `addition`, `postalCode`,

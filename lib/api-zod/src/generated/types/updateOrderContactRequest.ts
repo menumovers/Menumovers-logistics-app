@@ -6,12 +6,30 @@
  * OpenAPI spec version: 0.1.0
  */
 
+/**
+ * The address is corrected component by component. There is no
+`deliveryAddress` field: that value is derived from the components on
+read, and `deliveryAddressOriginal` is immutable, so the components are
+the only writable record of where the order goes (D12).
+
+ */
 export interface UpdateOrderContactRequest {
   customerName?: string;
   customerPhone?: string;
   /** @nullable */
   customerEmail?: string | null;
-  deliveryAddress?: string;
+  /** @minLength 1 */
+  street?: string;
+  /** @nullable */
+  houseNumber?: string | null;
+  /** @nullable */
+  addition?: string | null;
+  /** @minLength 1 */
+  postalCode?: string;
+  /** @minLength 1 */
+  city?: string;
+  /** @minLength 1 */
+  country?: string;
   /** @nullable */
   deliveryInstructions?: string | null;
 }

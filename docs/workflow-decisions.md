@@ -411,6 +411,67 @@ when is missing the thing a coordinator triaging a queue actually wants
 
 ---
 
+## D12. The components are the address; the source's line is the receipt
+
+**Decided 2026-08-15. Built 2026-08-15.** Closes `todo-bugs.md` B5.
+
+The source sends an address twice, independently: a single display line, and
+six structured components. We were writing both and treating the line as
+canonical — so the first coordinator correction made them disagree permanently,
+with nothing recording which was current.
+
+**The components are canonical for everything the app does.** They are what a
+coordinator edits, and what any future area grouping, postcode sort or
+geocoding will query. **The source's line is kept purely for audit**, under the
+same rule as D11: `deliveryAddressOriginal`, immutable after insert, so someone
+can always see what actually arrived.
+
+That is what removes the drift — not better synchronisation, but **one writable
+copy**. There is nothing left to keep in step.
+
+### How it fits together
+
+- `orders.delivery_address` → `delivery_address_original`, immutable, commented
+  the same way as `pickupTimeOriginal`.
+- `lib/address.ts` builds the display line from the components on every read.
+  The serializer still emits `deliveryAddress`, so every screen keeps working
+  and now shows corrections. It also emits `deliveryAddressOriginal`.
+- `POST /orders/:id/contact` takes components and no longer accepts an address
+  string. The generated types made this a compile error at the one call site,
+  which is the contract doing its job.
+- Order search matches the components joined as they read
+  (`concat_ws`), so "Hoofdstraat 12" still finds an order despite spanning two
+  columns — **and** still matches the original line, so an order stays findable
+  by the address it arrived with.
+- The coordinator's contact card is now six fields. It shows the source's line
+  only when it differs from the current one, which is exactly when it is
+  interesting.
+
+### The cost, taken deliberately
+
+We now own Dutch address formatting. The source's line was correct for free;
+ours has to handle `12-14`, `12hs`, a missing house number, and blank
+components that are `NOT NULL` at the column but can still be empty strings.
+Verified with 21 assertions, including that the output never carries a stray or
+doubled separator.
+
+That cost is acceptable because the derived line only has to be *legible* — it
+is not the record. If it renders awkwardly, `deliveryAddressOriginal` is right
+there and nothing has been lost.
+
+**One thing to confirm against real data:** whether the source's line ever
+carries information the components don't. If it does, nothing breaks — the line
+is still stored — but it would mean the derived display drops detail, and the
+formatter should learn about it.
+
+### Replay
+
+`deliveryAddressOriginal` is not updated when the source re-sends an order,
+matching `pickupTimeOriginal` and `sourceCreatedAt`. Nothing is lost: the
+replay refreshes `originalPayload`, which carries the newer line.
+
+---
+
 # Told once, not to be asked again
 
 The two sections below exist because the decision log above did not stop things

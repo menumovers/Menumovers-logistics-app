@@ -51,6 +51,16 @@
     "toggleSidebar": "Toggle sidebar",
     "details": "Details"
   },
+  "address": {
+    "street": "Street",
+    "houseNumber": "No.",
+    "addition": "Add.",
+    "postalCode": "Postcode",
+    "city": "City",
+    "incomplete": "Street, postcode and city are required",
+    "asReceived": "As received: {{address}}",
+    "unsaved": "Address changed — not saved yet"
+  },
   "landing": {
     "heading": "Bestellenbij",
     "sub": "Choose how you'll sign in today.",

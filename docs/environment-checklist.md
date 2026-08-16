@@ -41,6 +41,7 @@ Branch `claude/app-workflow-schema-alignment-n4dnrz`.
 | 7 | Restaurant acknowledgement, with a per-restaurant confirmation style | D3 |
 | 8 | Order receipt — printable kitchen document | D10 |
 | 9 | Trips — rider trip view, progress derived from order status | D6 |
+| 10 | Address — components canonical, the source's line kept immutable for audit | D12 |
 
 ### Schema impact
 
@@ -51,6 +52,11 @@ removes `is_parked` / `parked_reason`, which it replaces.
 Item 7 adds a `restaurant_acceptance_mode` enum and `restaurants.acceptance_mode`
 (default `accept`), plus `orders.restaurant_accepted_at` and
 `orders.restaurant_accepted_by_user_id`.
+
+Item 10 **renames** `orders.delivery_address` to `delivery_address_original`.
+A rename, not a drop — no data is lost — but `drizzle-kit push` may offer it as
+a drop-and-add rather than a rename, which would empty it. Confirm the prompt
+before accepting.
 
 Item 9 **drops** `trip_stops.completed_at`. Nothing has ever written it, so
 there is no data in it to lose — but see the warning below before running a
@@ -150,6 +156,14 @@ only. These are the checks worth running once deployed.
       trip. Progress must survive the reorder — it is read from the orders, and
       replacing stops no longer has anything to carry across.
 
+- [ ] **Correct an address** from the coordinator's contact card. The displayed
+      line must update to match, and "as received" should appear underneath
+      showing the source's original — that pair is the whole point of D12.
+- [ ] **Search for the old address** afterwards. The order must still be
+      findable by the address it arrived with, and by the corrected one.
+- [ ] **Replay an order** through inbound ingestion. `delivery_address_original`
+      must not move, matching `pickup_time_original`.
+
 - [ ] **Send a cash order** and confirm the rider sees the amount to collect,
       the storefront's own payment wording, and any change to bring — plus a
       "Cash" badge on the list card before they open it.
@@ -198,11 +212,11 @@ built — its column drop is folded into Part 1's schema impact above.
 
 ## Part 6 — Known gaps
 
-- **No automated tests, and the stand-in scripts rot.** 112 assertions across
-  seven scripts cover the pure calculations — pickup times (16), money
+- **No automated tests, and the stand-in scripts rot.** 133 assertions across
+  eight scripts cover the pure calculations — pickup times (16), money
   arithmetic (21), date handling (13), delivery method (5), the state machine
-  (23), the receipt adjustment (9), trip progress (25). All seven were re-run
-  and re-counted on 2026-08-15. They live as throwaway scripts outside the
+  (23), the receipt adjustment (9), trip progress (25), address formatting (21).
+  All eight were re-run and re-counted on 2026-08-15. They live as throwaway scripts outside the
   repository, because there is no runner (`todo.md` H3).
 
   One of them proved the risk: it covered helpers that were later deleted with

@@ -596,9 +596,23 @@ function ContactCard({ order }: { order: OrderDetail }) {
   const [name, setName] = useState(order.customerName);
   const [phone, setPhone] = useState(order.customerPhone);
   const [email, setEmail] = useState(order.customerEmail ?? "");
-  const [addr, setAddr] = useState(order.deliveryAddress);
+  // The address is edited by component (D12). `deliveryAddress` is derived on
+  // read and cannot be written; these fields are the only writable copy, which
+  // is what stops the two representations drifting apart.
+  const [street, setStreet] = useState(order.street);
+  const [houseNumber, setHouseNumber] = useState(order.houseNumber ?? "");
+  const [addition, setAddition] = useState(order.addition ?? "");
+  const [postalCode, setPostalCode] = useState(order.postalCode);
+  const [city, setCity] = useState(order.city);
   const [instr, setInstr] = useState(order.deliveryInstructions ?? "");
   const { toast } = useToast();
+  const addressChanged =
+    street !== order.street ||
+    houseNumber !== (order.houseNumber ?? "") ||
+    addition !== (order.addition ?? "") ||
+    postalCode !== order.postalCode ||
+    city !== order.city;
+  const addressIncomplete = !street.trim() || !postalCode.trim() || !city.trim();
   return (
     <Card>
       <CardHeader><CardTitle className="text-base">{t("coordinator.contact")}</CardTitle></CardHeader>
@@ -607,9 +621,20 @@ function ContactCard({ order }: { order: OrderDetail }) {
           <div><Label className="text-xs">{t("common.name")}</Label><Input value={name} onChange={(e) => setName(e.target.value)} data-testid="input-contact-name" /></div>
           <div><Label className="text-xs">{t("common.phone")}</Label><Input value={phone} onChange={(e) => setPhone(e.target.value)} data-testid="input-contact-phone" /></div>
           <div><Label className="text-xs">{t("common.email")}</Label><Input value={email} onChange={(e) => setEmail(e.target.value)} data-testid="input-contact-email" /></div>
-          <div><Label className="text-xs">{t("common.address")}</Label><Input value={addr} onChange={(e) => setAddr(e.target.value)} data-testid="input-contact-address" /></div>
-          <div className="md:col-span-2"><Label className="text-xs">{t("common.notes")}</Label><Textarea value={instr} onChange={(e) => setInstr(e.target.value)} rows={2} data-testid="textarea-contact-instructions" /></div>
         </div>
+        <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
+          <div className="col-span-2 md:col-span-3"><Label className="text-xs">{t("address.street")}</Label><Input value={street} onChange={(e) => setStreet(e.target.value)} data-testid="input-contact-street" /></div>
+          <div><Label className="text-xs">{t("address.houseNumber")}</Label><Input value={houseNumber} onChange={(e) => setHouseNumber(e.target.value)} data-testid="input-contact-house-number" /></div>
+          <div><Label className="text-xs">{t("address.addition")}</Label><Input value={addition} onChange={(e) => setAddition(e.target.value)} data-testid="input-contact-addition" /></div>
+          <div><Label className="text-xs">{t("address.postalCode")}</Label><Input value={postalCode} onChange={(e) => setPostalCode(e.target.value)} data-testid="input-contact-postal-code" /></div>
+          <div className="col-span-2 md:col-span-3"><Label className="text-xs">{t("address.city")}</Label><Input value={city} onChange={(e) => setCity(e.target.value)} data-testid="input-contact-city" /></div>
+          <div className="col-span-2 md:col-span-6"><Label className="text-xs">{t("common.notes")}</Label><Textarea value={instr} onChange={(e) => setInstr(e.target.value)} rows={2} data-testid="textarea-contact-instructions" /></div>
+        </div>
+        {addressIncomplete ? (
+          <p className="text-xs text-destructive" data-testid="text-address-incomplete">
+            {t("address.incomplete")}
+          </p>
+        ) : null}
         <Button
           onClick={() =>
             update.mutate(
@@ -619,16 +644,21 @@ function ContactCard({ order }: { order: OrderDetail }) {
                   customerName: name,
                   customerPhone: phone,
                   customerEmail: email || null,
-                  deliveryAddress: addr,
+                  street,
+                  houseNumber: houseNumber || null,
+                  addition: addition || null,
+                  postalCode,
+                  city,
                   deliveryInstructions: instr || null,
                 },
               },
               {
                 onSuccess: () => { toast({ title: t("coordinator.updateContact") }); invalidate(); },
+                onError: () => toast({ title: t("errors.generic"), variant: "destructive" }),
               },
             )
           }
-          disabled={update.isPending}
+          disabled={update.isPending || addressIncomplete}
           data-testid="button-update-contact"
         >
           {t("coordinator.updateContact")}
@@ -638,6 +668,19 @@ function ContactCard({ order }: { order: OrderDetail }) {
           {order.customerEmail ? <span className="inline-flex items-center gap-1"><Mail className="size-3" />{order.customerEmail}</span> : null}
           <span className="inline-flex items-center gap-1"><MapPin className="size-3" />{order.deliveryAddress}</span>
         </div>
+        {/* The source's own line, shown only when it no longer matches what we
+            hold — otherwise it is the same string twice. This is the audit
+            trail: what arrived, versus what the order says now. */}
+        {order.deliveryAddressOriginal !== order.deliveryAddress ? (
+          <p className="text-xs text-muted-foreground" data-testid="text-address-original">
+            {t("address.asReceived", { address: order.deliveryAddressOriginal })}
+          </p>
+        ) : null}
+        {addressChanged ? (
+          <p className="text-xs text-muted-foreground" data-testid="text-address-unsaved">
+            {t("address.unsaved")}
+          </p>
+        ) : null}
       </CardContent>
     </Card>
   );
