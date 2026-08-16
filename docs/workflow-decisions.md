@@ -447,17 +447,20 @@ copy**. There is nothing left to keep in step.
   only when it differs from the current one, which is exactly when it is
   interesting.
 
-### The cost, taken deliberately
+### What this costs
 
-We now own Dutch address formatting. The source's line was correct for free;
-ours has to handle `12-14`, `12hs`, a missing house number, and blank
-components that are `NOT NULL` at the column but can still be empty strings.
-Verified with 21 assertions, including that the output never carries a stray or
-doubled separator.
+We now punctuate addresses ourselves, and we can get it wrong.
 
-That cost is acceptable because the derived line only has to be *legible* — it
-is not the record. If it renders awkwardly, `deliveryAddressOriginal` is right
-there and nothing has been lost.
+Before, the source sent a finished line and we printed it. Now we join five
+fields, so a missing one can produce `Hoofdstraat , Amsterdam` — a stray comma
+where the house number should be. `houseNumber` and `addition` are nullable, and
+`street` / `postalCode` / `city` are `NOT NULL` but can still hold an empty
+string, so "the column has a value" is not the same as "there is something to
+print".
+
+That is the whole cost: it can look wrong. It cannot lose anything, because the
+source's line is still stored — if ours reads badly, the real one is one field
+away. Most of the 21 assertions exist to catch stray and doubled separators.
 
 **One thing to confirm against real data:** whether the source's line ever
 carries information the components don't. If it does, nothing breaks — the line

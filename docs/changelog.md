@@ -32,12 +32,12 @@ at the single call site. Order search matches the components joined via
 matches the original line so an order stays findable by the address it arrived
 with.
 
-The cost, taken deliberately: we now own Dutch address formatting, including
-`12-14`, `12hs`, missing house numbers, and `NOT NULL` columns that can still
-hold empty strings. 21 assertions cover it, including that the output never
-carries a stray or doubled separator. It is an acceptable cost because the
-derived line only has to be legible — the original is still there if it reads
-awkwardly.
+The cost: we now punctuate addresses ourselves and can get it wrong. Joining
+five fields means a missing one can print `Hoofdstraat , Amsterdam`. Note that
+`street`, `postalCode` and `city` are `NOT NULL` but can still hold an empty
+string, so a non-null column is not proof there is something to print. It can
+only look wrong, never lose anything — the source's line is still stored. Most
+of the 21 assertions are there to catch stray and doubled separators.
 
 Resolves the deferred "Legacy `deliveryAddress` text column" note in
 `todo-out-of-scope.md`. Rationale in `docs/workflow-decisions.md` D12.
