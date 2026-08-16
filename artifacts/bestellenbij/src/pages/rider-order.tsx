@@ -61,7 +61,7 @@ export default function RiderOrderPage() {
     return <div className="grid place-items-center py-20"><Spinner className="size-6 text-primary" /></div>;
   }
   const o = order.data;
-  const allowed = o.allowedTransitions;
+  const allowed = o.allowedTransitions ?? [];
   const happyNext = HAPPY_PATH[o.status];
   // The primary button only appears when the expected next step is genuinely
   // acceptable; everything else acceptable goes in the secondary list.

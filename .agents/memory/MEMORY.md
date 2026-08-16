@@ -1,0 +1,1 @@
+- [DB schema sync requirement](db-schema-sync.md) — after any schema change, db:live-drift must be run and drift must be pushed; db:drift alone is not sufficient.

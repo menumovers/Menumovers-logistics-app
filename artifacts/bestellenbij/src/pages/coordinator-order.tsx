@@ -322,7 +322,7 @@ function TransitionCard({ order }: { order: OrderDetail }) {
   const [failureReason, setFailureReason] = useState("");
   // Server-derived: status is a report, not a gate, so the options are
   // whatever the state machine will accept — not a table kept in step by hand.
-  const targets = order.allowedTransitions;
+  const targets = order.allowedTransitions ?? [];
   const { toast } = useToast();
   if (targets.length === 0) return null;
   return (
