@@ -3,6 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import {
   useListOrders,
   useUpdatePickupTime,
+  useMarkOrderReady,
   useListRestaurants,
   useGetOrder,
   getListOrdersQueryKey,
@@ -120,6 +121,7 @@ function BundleCard({
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const update = useUpdatePickupTime();
+  const markReady = useMarkOrderReady();
   const { toast } = useToast();
   const bundleTime =
     orders[0]?.bundlePickupTime ?? effectivePickup(orders[0]!).iso;
@@ -130,14 +132,16 @@ function BundleCard({
     return own && bundleTime && new Date(own).getTime() !== new Date(bundleTime).getTime();
   });
 
+  // Reports a status for each order in the bundle. Deliberately does NOT write
+  // a pickup time: the pickup times are a negotiation and "the food is done" is
+  // not a bid in it. See D14.
   function markAllReady() {
-    const nowIso = new Date().toISOString();
     Promise.all(
       orders.map(
         (o) =>
           new Promise<void>((resolve) => {
-            update.mutate(
-              { id: o.id, data: { source: "restaurant", pickupTime: nowIso } },
+            markReady.mutate(
+              { id: o.id },
               {
                 onSuccess: () => resolve(),
                 onError: () => resolve(),
@@ -248,6 +252,7 @@ function RestaurantOrderCard({
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const update = useUpdatePickupTime();
+  const markReady = useMarkOrderReady();
 
   // Detail fetch supplies item overrides (hidden + extras) for this card.
   const detail = useGetOrder(order.id, {
@@ -285,9 +290,12 @@ function RestaurantOrderCard({
     );
   }
 
+  // A status report, not a pickup time. This used to write
+  // `pickupTimeRestaurant = now`, so pressing it discarded whatever time the
+  // restaurant had negotiated. See D14.
   function readyForPickup() {
-    update.mutate(
-      { id: order.id, data: { source: "restaurant", pickupTime: new Date().toISOString() } },
+    markReady.mutate(
+      { id: order.id },
       {
         onSuccess: () => {
           toast({ title: t("restaurant.readyForPickupSent") });
@@ -326,16 +334,29 @@ function RestaurantOrderCard({
           onDone={invalidate}
         />
 
-        <Button
-          type="button"
-          className="w-full h-12 text-base font-semibold"
-          disabled={update.isPending}
-          onClick={readyForPickup}
-          data-testid={`button-ready-${order.id}`}
-        >
-          <CheckCircle2 className="size-4 mr-2" />
-          {t("restaurant.readyForPickup")}
-        </Button>
+        {/* Once reported, the button becomes the record of it. A status that
+            can only be written and never read is how failure reasons went
+            missing (todo-bugs B3). */}
+        {order.restaurantReadyAt ? (
+          <div
+            className="flex items-center justify-center gap-2 rounded-md border border-chart-5/40 bg-chart-5/10 py-3 text-sm font-medium text-chart-5"
+            data-testid={`text-ready-${order.id}`}
+          >
+            <CheckCircle2 className="size-4" />
+            {t("restaurant.readyAt", { time: formatTime(order.restaurantReadyAt, lang) })}
+          </div>
+        ) : (
+          <Button
+            type="button"
+            className="w-full h-12 text-base font-semibold"
+            disabled={markReady.isPending}
+            onClick={readyForPickup}
+            data-testid={`button-ready-${order.id}`}
+          >
+            <CheckCircle2 className="size-4 mr-2" />
+            {t("restaurant.readyForPickup")}
+          </Button>
+        )}
 
         {/* Notes the source addressed to the kitchen. They arrived on every
             order and were shown on no screen at all — least of all this one. */}

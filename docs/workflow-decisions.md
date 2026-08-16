@@ -106,10 +106,14 @@ coordinator:
 - After acknowledging, restaurants can still change the pickup time and report
   status, per D1.
 
-**Consequence:** this frees "Ready for pickup" from double duty. It currently
-writes `pickupTimeRestaurant = now` because it is the restaurant's only
-action, which conflates "the food is ready" with "I suggest this pickup time"
-and permanently pins the effective pickup time to the moment it was pressed.
+**Consequence:** this frees "Ready for pickup" from double duty. It was writing
+`pickupTimeRestaurant = now` because it was the restaurant's only action, which
+conflated "the food is ready" with "I suggest this pickup time" and pinned the
+effective pickup time to the moment it was pressed.
+
+*Identified here on 2026-08-14 and not actually fixed until D14 on 2026-08-15 —
+this decision added the acknowledgement flow without removing the old
+behaviour.*
 
 ---
 
@@ -622,6 +626,76 @@ for.
 `deliveryAddressOriginal` is not updated when the source re-sends an order,
 matching `pickupTimeOriginal` and `sourceCreatedAt`. Nothing is lost: the
 replay refreshes `originalPayload`, which carries the newer line.
+
+---
+
+## D14. Pickup times are a negotiation; "ready" is a status
+
+**Decided 2026-08-15. Built 2026-08-15.** Closes a gap D3 identified and did not
+fix.
+
+Four parties write a pickup time, and they are all doing the same thing:
+**forecasting when collection should happen, each adding what the previous one
+could not know.**
+
+| Who | What they add |
+|---|---|
+| The storefront's calculation | presets and minimum times, knowing neither the restaurant's reality nor the streets |
+| The restaurant | its own reality — *"you think 18:00; I'd like 18:10"* |
+| The rider | theirs — *"site says 18:00, restaurant says 18:10, I say 18:12"* |
+| The coordinator | arbitration, overriding whatever was negotiated |
+
+**Resolution is unchanged and now deliberate rather than inherited:**
+
+```
+coordinator  >  restaurant  >  rider  >  storefront
+```
+
+Only the storefront set it → storefront's. Restaurant but not rider → the
+restaurant's. Both → the restaurant's. Rider but not restaurant → the rider's.
+Coordinator at all → the coordinator's, always.
+
+### The outlier
+
+**"Ready for pickup" is not part of that negotiation.** It communicates no
+future expectation; it reports a present fact. It belongs to the restaurant's
+own journey — seen, accepted, ready, picked up — which runs parallel to the
+rider's and is informational. Of every status in the system, only `delivered`
+produces an outcome.
+
+It was writing `pickupTimeRestaurant = now`, so **a status update silently won
+an argument it was never in**: pressing the button discarded whatever time the
+restaurant had negotiated and replaced it with the moment of the press. Worse
+on a scheduled order, where a kitchen finishing early would drag the pickup
+time hours forward.
+
+Now it writes `orders.restaurantReadyAt` through `POST /orders/:id/ready`, and
+touches no pickup time at all. Idempotent, so a double-tap doesn't rewrite when
+the food was actually ready.
+
+Shown in two places, because a status nothing displays is the shape of a bug we
+already fixed once (`todo-bugs.md` B3): the restaurant card replaces the button
+with the time it was reported, and the rider sees "food ready since 18:04" on
+the order they're travelling to. It tells a rider the food is waiting — not when
+to collect. The agreed pickup time is still the agreed pickup time.
+
+### Why this sat unfixed all day
+
+D3 named it in the morning, in its own consequences section, and the build that
+followed added the acknowledgement flow without removing the old behaviour. It
+then got reported as open three separate times without being fixed, because it
+was treated as blocked on "where should the status live?"
+
+It never was. Removing a bad write does not depend on knowing the final home for
+what it wrote. **A small certain fix should not wait on a large uncertain one.**
+
+### Still open
+
+The restaurant journey exists now as two timestamps — acknowledged and ready —
+not as a modelled sequence. Whether it becomes one, and whether "seen" and
+"accepted" split apart, is undecided. The restaurant's "picked up" is already
+the shared order status, since a restaurant reporting a pickup is a second
+observer of one event rather than a separate claim (D1).
 
 ---
 

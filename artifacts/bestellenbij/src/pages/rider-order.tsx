@@ -23,9 +23,9 @@ import { PickupCountdown, PickupSourceBadge } from "@/components/pickup-countdow
 import { DeliveryMethodBadge, RequestedTimeLabel } from "@/components/delivery-expectation";
 import { PickupTimeInput } from "@/components/pickup-time-input";
 import { PaymentPanel } from "@/components/payment-panel";
-import { ArrowLeft, Phone, MapPin, Bell, BellOff, Store, ChevronRight, Clock, Layers } from "lucide-react";
+import { ArrowLeft, Phone, MapPin, Bell, BellOff, Store, ChevronRight, Clock, Layers, CheckCircle2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { effectivePickup, formatCurrency } from "@/lib/format";
+import { effectivePickup, formatCurrency, formatTime } from "@/lib/format";
 
 /**
  * The expected order of events, used purely to pick which button is the big
@@ -117,6 +117,18 @@ export default function RiderOrderPage() {
             <PickupSourceBadge source={effectivePickup(o).source} />
           </div>
           <RequestedTimeLabel order={o} lang={lang} withDate />
+          {/* The kitchen's own status. Worth a rider's attention on the way
+              there: it says the food is waiting, not when to collect — the
+              pickup time above is still the agreed time (D14). */}
+          {o.restaurantReadyAt ? (
+            <div
+              className="flex items-center gap-2 rounded-md border border-chart-5/40 bg-chart-5/10 px-3 py-2 text-sm font-medium text-chart-5"
+              data-testid="text-restaurant-ready"
+            >
+              <CheckCircle2 className="size-4 shrink-0" />
+              {t("restaurant.readyAt", { time: formatTime(o.restaurantReadyAt, lang) })}
+            </div>
+          ) : null}
           <div className="space-y-2 text-sm">
             <div className="flex items-start gap-2"><Store className="size-4 mt-0.5 text-muted-foreground" /><span className="font-medium">{o.restaurantName}</span></div>
             <div className="border-t border-border pt-2">

@@ -601,6 +601,14 @@ which blocks nothing — it is a read receipt, not a gate.
    * @nullable
    */
   restaurantAcceptedAt?: string | null;
+  /**
+   * When the kitchen reported the food was done. A status on the
+restaurant's own journey (seen/accepted → ready → picked up), which
+is informational — it is not a pickup time and nothing waits on it.
+
+   * @nullable
+   */
+  restaurantReadyAt?: string | null;
   /** @nullable */
   restaurantAcceptedByName?: string | null;
   /** The hold family — the only mechanism that gates an order. Null means not

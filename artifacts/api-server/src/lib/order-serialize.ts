@@ -206,6 +206,7 @@ function baseOrderFields(
     allowedTransitions: nextStatusesFor(order.status),
     itemsAdjustment,
     restaurantAcceptedAt: order.restaurantAcceptedAt,
+    restaurantReadyAt: order.restaurantReadyAt,
     restaurantAcceptedByName,
     holdState: order.holdState,
     holdReason: order.holdReason,

@@ -1459,6 +1459,103 @@ export const useUpdateOrderContact = <
 };
 
 /**
+ * A **status**, not a pickup time. The four pickup-time fields are a
+negotiation — successive forecasts of when collection should happen,
+from the storefront, the restaurant, the rider and the coordinator.
+"The food is ready" is not a bid in that negotiation, so this endpoint
+deliberately does not touch `pickupTimeRestaurant`.
+
+It used to: pressing the button overwrote whatever time the restaurant
+had agreed with the moment of the press, so a status update silently won
+an argument it was never part of. See `docs/workflow-decisions.md` D14.
+
+Idempotent — the first report stands, so a double-tap does not rewrite
+when the food was actually ready.
+
+ * @summary The kitchen reports the food is done
+ */
+export const getMarkOrderReadyUrl = (id: string) => {
+  return `/api/orders/${id}/ready`;
+};
+
+export const markOrderReady = async (
+  id: string,
+  options?: RequestInit,
+): Promise<OrderDetail> => {
+  return customFetch<OrderDetail>(getMarkOrderReadyUrl(id), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getMarkOrderReadyMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof markOrderReady>>,
+    TError,
+    { id: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof markOrderReady>>,
+  TError,
+  { id: string },
+  TContext
+> => {
+  const mutationKey = ["markOrderReady"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof markOrderReady>>,
+    { id: string }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return markOrderReady(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type MarkOrderReadyMutationResult = NonNullable<
+  Awaited<ReturnType<typeof markOrderReady>>
+>;
+
+export type MarkOrderReadyMutationError = ErrorType<unknown>;
+
+/**
+ * @summary The kitchen reports the food is done
+ */
+export const useMarkOrderReady = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof markOrderReady>>,
+    TError,
+    { id: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof markOrderReady>>,
+  TError,
+  { id: string },
+  TContext
+> => {
+  return useMutation(getMarkOrderReadyMutationOptions(options));
+};
+
+/**
  * Records that the restaurant has seen the order and its pickup time. This is a
 read receipt, not a gate — nothing waits on it, and the delivery team works
 the order before and without it. Restaurant staff may acknowledge orders for

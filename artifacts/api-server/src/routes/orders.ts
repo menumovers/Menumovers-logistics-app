@@ -916,6 +916,44 @@ router.post(
 );
 
 // =====================================================================
+// POST /orders/:id/ready — the kitchen reports the food is done
+// =====================================================================
+router.post(
+  "/orders/:id/ready",
+  requireAuth,
+  requireRole("admin", "coordinator", "restaurant_staff"),
+  wrap(async (req, res) => {
+    const id = req.params["id"] as string;
+    const auth = req.auth!;
+
+    const order = await loadOrderOr404(id);
+    if (
+      auth.role === "restaurant_staff" &&
+      auth.restaurantId !== order.restaurantId
+    ) {
+      throw httpError(403, "FORBIDDEN", "Forbidden");
+    }
+
+    // A status, not a pickup time. This deliberately does NOT touch
+    // pickupTimeRestaurant: the pickup times are a negotiation between the
+    // storefront, restaurant, rider and coordinator, and "the food is done" is
+    // not a bid in that negotiation. It used to write there, so pressing the
+    // button silently replaced whatever the restaurant had agreed. See D14.
+    //
+    // Idempotent: the first report stands, so a double-tap doesn't rewrite when
+    // the food was actually ready.
+    if (!order.restaurantReadyAt) {
+      await db
+        .update(ordersTable)
+        .set({ restaurantReadyAt: new Date(), restaurantReadyByUserId: auth.sub })
+        .where(eq(ordersTable.id, id));
+    }
+
+    res.json(await serializeOrderDetail(id));
+  }),
+);
+
+// =====================================================================
 // POST /orders/:id/acknowledge — restaurant read receipt
 // =====================================================================
 router.post(

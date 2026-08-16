@@ -412,6 +412,37 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/OrderDetail"
+  /orders/{id}/ready:
+    post:
+      operationId: markOrderReady
+      tags: [orders]
+      summary: The kitchen reports the food is done
+      description: |
+        A **status**, not a pickup time. The four pickup-time fields are a
+        negotiation — successive forecasts of when collection should happen,
+        from the storefront, the restaurant, the rider and the coordinator.
+        "The food is ready" is not a bid in that negotiation, so this endpoint
+        deliberately does not touch `pickupTimeRestaurant`.
+
+        It used to: pressing the button overwrote whatever time the restaurant
+        had agreed with the moment of the press, so a status update silently won
+        an argument it was never part of. See `docs/workflow-decisions.md` D14.
+
+        Idempotent — the first report stands, so a double-tap does not rewrite
+        when the food was actually ready.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Updated order
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrderDetail"
   /orders/{id}/acknowledge:
     post:
       operationId: acknowledgeOrder
@@ -1610,6 +1641,13 @@ components:
           description: |
             When the restaurant acknowledged the order. Null means not yet acknowledged,
             which blocks nothing — it is a read receipt, not a gate.
+        restaurantReadyAt:
+          type: ["string", "null"]
+          format: date-time
+          description: |
+            When the kitchen reported the food was done. A status on the
+            restaurant's own journey (seen/accepted → ready → picked up), which
+            is informational — it is not a pickup time and nothing waits on it.
         restaurantAcceptedByName:
           type: ["string", "null"]
         holdState:

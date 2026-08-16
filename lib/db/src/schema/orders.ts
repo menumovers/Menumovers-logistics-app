@@ -182,6 +182,27 @@ export const ordersTable = pgTable(
       () => usersTable.id,
       { onDelete: "set null" },
     ),
+    /**
+     * The kitchen reporting that the food is done.
+     *
+     * A **status**, not a pickup time. The four pickup-time columns above are a
+     * negotiation — successive forecasts of when collection should happen, each
+     * party adding what the previous one couldn't know. "Ready" is not a
+     * forecast; it is a fact about the present that happens to be a timestamp.
+     *
+     * It used to be written into `pickupTimeRestaurant`, so a status update
+     * silently won an argument it was never part of: pressing the button
+     * replaced whatever time the restaurant had negotiated with the moment the
+     * button was pressed. See workflow-decisions D3 and D14.
+     *
+     * Part of the restaurant's own journey (seen/accepted → ready → picked up),
+     * which is informational. Only `delivered` produces an outcome.
+     */
+    restaurantReadyAt: timestamp("restaurant_ready_at", { withTimezone: true }),
+    restaurantReadyByUserId: uuid("restaurant_ready_by_user_id").references(
+      () => usersTable.id,
+      { onDelete: "set null" },
+    ),
     // The hold family. NULL means the order is not held. A hold blocks *new
     // assignment only* — an order already being worked keeps accepting status
     // reports, so a hold never freezes a rider mid-delivery.

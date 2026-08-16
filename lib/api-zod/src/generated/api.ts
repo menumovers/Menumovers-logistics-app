@@ -330,6 +330,12 @@ export const IngestOrderResponse = zod.object({
     .describe(
       "When the restaurant acknowledged the order. Null means not yet acknowledged,\nwhich blocks nothing — it is a read receipt, not a gate.\n",
     ),
+  restaurantReadyAt: zod.coerce
+    .date()
+    .nullish()
+    .describe(
+      "When the kitchen reported the food was done. A status on the\nrestaurant's own journey (seen\/accepted → ready → picked up), which\nis informational — it is not a pickup time and nothing waits on it.\n",
+    ),
   restaurantAcceptedByName: zod.string().nullish(),
   holdState: zod
     .union([zod.enum(["parked", "on_hold"]), zod.null()])
@@ -504,6 +510,12 @@ export const ListOrdersResponseItem = zod
       .describe(
         "When the restaurant acknowledged the order. Null means not yet acknowledged,\nwhich blocks nothing — it is a read receipt, not a gate.\n",
       ),
+    restaurantReadyAt: zod.coerce
+      .date()
+      .nullish()
+      .describe(
+        "When the kitchen reported the food was done. A status on the\nrestaurant's own journey (seen\/accepted → ready → picked up), which\nis informational — it is not a pickup time and nothing waits on it.\n",
+      ),
     restaurantAcceptedByName: zod.string().nullish(),
     holdState: zod
       .union([zod.enum(["parked", "on_hold"]), zod.null()])
@@ -672,6 +684,12 @@ export const GetOrderResponse = zod
       .nullish()
       .describe(
         "When the restaurant acknowledged the order. Null means not yet acknowledged,\nwhich blocks nothing — it is a read receipt, not a gate.\n",
+      ),
+    restaurantReadyAt: zod.coerce
+      .date()
+      .nullish()
+      .describe(
+        "When the kitchen reported the food was done. A status on the\nrestaurant's own journey (seen\/accepted → ready → picked up), which\nis informational — it is not a pickup time and nothing waits on it.\n",
       ),
     restaurantAcceptedByName: zod.string().nullish(),
     holdState: zod
@@ -926,6 +944,12 @@ export const TransitionOrderStatusResponse = zod
       .describe(
         "When the restaurant acknowledged the order. Null means not yet acknowledged,\nwhich blocks nothing — it is a read receipt, not a gate.\n",
       ),
+    restaurantReadyAt: zod.coerce
+      .date()
+      .nullish()
+      .describe(
+        "When the kitchen reported the food was done. A status on the\nrestaurant's own journey (seen\/accepted → ready → picked up), which\nis informational — it is not a pickup time and nothing waits on it.\n",
+      ),
     restaurantAcceptedByName: zod.string().nullish(),
     holdState: zod
       .union([zod.enum(["parked", "on_hold"]), zod.null()])
@@ -1167,6 +1191,12 @@ export const AssignOrderResponse = zod
       .nullish()
       .describe(
         "When the restaurant acknowledged the order. Null means not yet acknowledged,\nwhich blocks nothing — it is a read receipt, not a gate.\n",
+      ),
+    restaurantReadyAt: zod.coerce
+      .date()
+      .nullish()
+      .describe(
+        "When the kitchen reported the food was done. A status on the\nrestaurant's own journey (seen\/accepted → ready → picked up), which\nis informational — it is not a pickup time and nothing waits on it.\n",
       ),
     restaurantAcceptedByName: zod.string().nullish(),
     holdState: zod
@@ -1411,6 +1441,12 @@ export const UpdatePickupTimeResponse = zod
       .describe(
         "When the restaurant acknowledged the order. Null means not yet acknowledged,\nwhich blocks nothing — it is a read receipt, not a gate.\n",
       ),
+    restaurantReadyAt: zod.coerce
+      .date()
+      .nullish()
+      .describe(
+        "When the kitchen reported the food was done. A status on the\nrestaurant's own journey (seen\/accepted → ready → picked up), which\nis informational — it is not a pickup time and nothing waits on it.\n",
+      ),
     restaurantAcceptedByName: zod.string().nullish(),
     holdState: zod
       .union([zod.enum(["parked", "on_hold"]), zod.null()])
@@ -1652,6 +1688,12 @@ export const HideOrderItemResponse = zod
       .nullish()
       .describe(
         "When the restaurant acknowledged the order. Null means not yet acknowledged,\nwhich blocks nothing — it is a read receipt, not a gate.\n",
+      ),
+    restaurantReadyAt: zod.coerce
+      .date()
+      .nullish()
+      .describe(
+        "When the kitchen reported the food was done. A status on the\nrestaurant's own journey (seen\/accepted → ready → picked up), which\nis informational — it is not a pickup time and nothing waits on it.\n",
       ),
     restaurantAcceptedByName: zod.string().nullish(),
     holdState: zod
@@ -1909,6 +1951,12 @@ export const AddOrderItemResponse = zod
       .nullish()
       .describe(
         "When the restaurant acknowledged the order. Null means not yet acknowledged,\nwhich blocks nothing — it is a read receipt, not a gate.\n",
+      ),
+    restaurantReadyAt: zod.coerce
+      .date()
+      .nullish()
+      .describe(
+        "When the kitchen reported the food was done. A status on the\nrestaurant's own journey (seen\/accepted → ready → picked up), which\nis informational — it is not a pickup time and nothing waits on it.\n",
       ),
     restaurantAcceptedByName: zod.string().nullish(),
     holdState: zod
@@ -2202,6 +2250,12 @@ export const SetRiderNotificationResponse = zod
       .describe(
         "When the restaurant acknowledged the order. Null means not yet acknowledged,\nwhich blocks nothing — it is a read receipt, not a gate.\n",
       ),
+    restaurantReadyAt: zod.coerce
+      .date()
+      .nullish()
+      .describe(
+        "When the kitchen reported the food was done. A status on the\nrestaurant's own journey (seen\/accepted → ready → picked up), which\nis informational — it is not a pickup time and nothing waits on it.\n",
+      ),
     restaurantAcceptedByName: zod.string().nullish(),
     holdState: zod
       .union([zod.enum(["parked", "on_hold"]), zod.null()])
@@ -2456,6 +2510,269 @@ export const UpdateOrderContactResponse = zod
       .nullish()
       .describe(
         "When the restaurant acknowledged the order. Null means not yet acknowledged,\nwhich blocks nothing — it is a read receipt, not a gate.\n",
+      ),
+    restaurantReadyAt: zod.coerce
+      .date()
+      .nullish()
+      .describe(
+        "When the kitchen reported the food was done. A status on the\nrestaurant's own journey (seen\/accepted → ready → picked up), which\nis informational — it is not a pickup time and nothing waits on it.\n",
+      ),
+    restaurantAcceptedByName: zod.string().nullish(),
+    holdState: zod
+      .union([zod.enum(["parked", "on_hold"]), zod.null()])
+      .optional()
+      .describe(
+        "The hold family — the only mechanism that gates an order. Null means not\nheld. A hold blocks new assignment only; an order already being worked\nkeeps accepting status reports.\n",
+      ),
+    holdReason: zod.string().nullish(),
+    heldAt: zod.coerce.date().nullish(),
+    heldByUserName: zod
+      .string()
+      .nullish()
+      .describe("Null for automatic holds (`parked`)."),
+    tripId: zod.string().nullish(),
+    tripNumber: zod
+      .number()
+      .nullish()
+      .describe(
+        "Human-friendly trip number for the trip this order belongs to.",
+      ),
+    bundlePickupTime: zod.coerce
+      .date()
+      .nullish()
+      .describe(
+        "Earliest effective pickup time across same-restaurant orders in\nthe same trip. Null when the order is not part of a trip with\nanother order at the same restaurant.\n",
+      ),
+    createdAt: zod.coerce.date(),
+  })
+  .and(
+    zod.object({
+      restaurantName: zod.string().optional(),
+      riderName: zod.string().nullish(),
+    }),
+  )
+  .and(
+    zod.object({
+      statusLog: zod.array(
+        zod.object({
+          id: zod.string(),
+          fromStatus: zod
+            .union([
+              zod.enum([
+                "pending",
+                "driver_assigned",
+                "en_route_to_restaurant",
+                "picked_up",
+                "en_route_to_customer",
+                "delivered",
+                "failed",
+                "postponed",
+              ]),
+              zod.null(),
+            ])
+            .optional(),
+          toStatus: zod.enum([
+            "pending",
+            "driver_assigned",
+            "en_route_to_restaurant",
+            "picked_up",
+            "en_route_to_customer",
+            "delivered",
+            "failed",
+            "postponed",
+          ]),
+          actorUserId: zod.string().nullish(),
+          actorUserName: zod.string().nullish(),
+          actorRole: zod.string().nullish(),
+          note: zod.string().nullish(),
+          createdAt: zod.coerce.date(),
+        }),
+      ),
+      itemOverrides: zod.array(
+        zod.object({
+          id: zod.string(),
+          type: zod.enum(["hide", "add"]),
+          itemIndex: zod.number().nullish(),
+          addedItem: zod
+            .union([
+              zod.object({
+                name: zod.string(),
+                quantity: zod.number(),
+                price: zod.string(),
+                notes: zod.string().nullish(),
+                totalPrice: zod
+                  .string()
+                  .nullish()
+                  .describe(
+                    "Line total as sent by the source, not computed here. Absent for items added later via the admin add-item flow.",
+                  ),
+                externalId: zod
+                  .string()
+                  .nullish()
+                  .describe(
+                    "POS\/kitchen article id, when the source provides one.",
+                  ),
+              }),
+              zod.null(),
+            ])
+            .optional(),
+          createdAt: zod.coerce.date(),
+        }),
+      ),
+    }),
+  );
+
+/**
+ * A **status**, not a pickup time. The four pickup-time fields are a
+negotiation — successive forecasts of when collection should happen,
+from the storefront, the restaurant, the rider and the coordinator.
+"The food is ready" is not a bid in that negotiation, so this endpoint
+deliberately does not touch `pickupTimeRestaurant`.
+
+It used to: pressing the button overwrote whatever time the restaurant
+had agreed with the moment of the press, so a status update silently won
+an argument it was never part of. See `docs/workflow-decisions.md` D14.
+
+Idempotent — the first report stands, so a double-tap does not rewrite
+when the food was actually ready.
+
+ * @summary The kitchen reports the food is done
+ */
+export const MarkOrderReadyParams = zod.object({
+  id: zod.coerce.string(),
+});
+
+export const MarkOrderReadyResponse = zod
+  .object({
+    id: zod.string(),
+    externalOrderId: zod.string(),
+    restaurantId: zod.string(),
+    riderId: zod.string().nullish(),
+    status: zod.enum([
+      "pending",
+      "driver_assigned",
+      "en_route_to_restaurant",
+      "picked_up",
+      "en_route_to_customer",
+      "delivered",
+      "failed",
+      "postponed",
+    ]),
+    customerName: zod.string(),
+    customerPhone: zod.string(),
+    customerEmail: zod.string().nullish(),
+    deliveryAddress: zod
+      .string()
+      .describe(
+        "The order's current address as one line, built from the components\nbelow on every read and never stored. This is what screens render.\nCorrections show up here because the components are the only\nwritable copy (D12).\n",
+      ),
+    deliveryAddressOriginal: zod
+      .string()
+      .describe(
+        "The single-line address exactly as the source sent it, immutable\nafter ingestion — the same pattern as `pickupTimeOriginal`. Kept so\na coordinator can see what actually arrived. Nothing operational\nreads it; use `deliveryAddress` for anything the app does.\n",
+      ),
+    street: zod.string(),
+    houseNumber: zod.string().nullish(),
+    addition: zod.string().nullish(),
+    postalCode: zod.string(),
+    city: zod.string(),
+    country: zod.string(),
+    latitude: zod.string().nullish(),
+    longitude: zod.string().nullish(),
+    deliveryInstructions: zod.string().nullish(),
+    deliveryFee: zod.string(),
+    totalAmount: zod.string(),
+    tipRider: zod.string(),
+    tipRestaurant: zod.string(),
+    supTotal: zod.string(),
+    statiegeldTotal: zod.string(),
+    administrationCosts: zod.string(),
+    deliveryMethod: zod.enum(["delivery", "pickup", "happy_hour"]),
+    paymentMethod: zod.string(),
+    cashPayment: zod
+      .object({
+        type: zod.string().nullish(),
+        changeAmount: zod.string().nullish(),
+        changeRequired: zod.string().nullish(),
+        label: zod.string().nullish(),
+      })
+      .nullish(),
+    kitchenNotes: zod.string().nullish(),
+    items: zod.array(
+      zod.object({
+        name: zod.string(),
+        quantity: zod.number(),
+        price: zod.string(),
+        notes: zod.string().nullish(),
+        totalPrice: zod
+          .string()
+          .nullish()
+          .describe(
+            "Line total as sent by the source, not computed here. Absent for items added later via the admin add-item flow.",
+          ),
+        externalId: zod
+          .string()
+          .nullish()
+          .describe("POS\/kitchen article id, when the source provides one."),
+      }),
+    ),
+    pickupTimeOriginal: zod.coerce.date(),
+    pickupTimeRider: zod.coerce.date().nullish(),
+    pickupTimeRestaurant: zod.coerce.date().nullish(),
+    pickupTimeOverride: zod.coerce.date().nullish(),
+    sourceCreatedAt: zod.coerce.date(),
+    requestedDeliveryTime: zod.coerce
+      .date()
+      .describe(
+        "The customer's checkout selection resolved to a timestamp, and the\nstorefront's source of truth for fulfilment. For a scheduled order this\nis exactly the time they picked; for an ASAP order it is the storefront's\ncalculated delivery estimate. The user-facing string the customer actually\nsaw (\"Zo snel mogelijk\", \"vandaag om 18:30\") lives in the storefront's\nseparate `deliveryTimeDisplay` field and is NOT sent here — so an ASAP\ntime should be presented as an estimate, never as a promised time.\n",
+      ),
+    deliveryTimeType: zod.enum(["asap", "later_today", "other_day"]),
+    sourceRestaurantReadyTime: zod.coerce.date().nullish(),
+    restaurantMinDeliveryTime: zod.number().nullish(),
+    restaurantMinPickupTime: zod.number().nullish(),
+    restaurantMinPrepTime: zod.number().nullish(),
+    deliveryTeamMinDeliveryTime: zod.number().nullish(),
+    deliveryTeamMinPickupTime: zod.number().nullish(),
+    deliveryTeamMinPrepTime: zod.number().nullish(),
+    effectivePickupTime: zod.coerce.date(),
+    effectivePickupSource: zod
+      .enum(["rider", "restaurant", "override"])
+      .optional(),
+    pendingRiderNotification: zod.string().nullish(),
+    failureReason: zod.string().nullish(),
+    allowedTransitions: zod
+      .array(
+        zod.enum([
+          "pending",
+          "driver_assigned",
+          "en_route_to_restaurant",
+          "picked_up",
+          "en_route_to_customer",
+          "delivered",
+          "failed",
+          "postponed",
+        ]),
+      )
+      .describe(
+        "Statuses reportable from the order's current one, derived server-side from\nthe state machine. Status is a report rather than a gate: skipping ahead\nand correcting a mis-tap are both accepted. `pending` and `driver_assigned`\nnever appear — they are coupled to `riderId` and written by\n`POST \/orders\/{id}\/assign`. Clients should render these rather than keep\ntheir own transition table.\n",
+      ),
+    itemsAdjustment: zod
+      .string()
+      .nullish()
+      .describe(
+        "Value of the delivered items minus the value of the ordered items, when a\ncoordinator has hidden or added anything. Null when untouched. `totalAmount`\nis written once at ingestion and never recomputed, so this is the amount by\nwhich the delivered list no longer matches what was charged — surfaced on the\nreceipt rather than silently producing a breakdown that doesn't add up.\n",
+      ),
+    restaurantAcceptedAt: zod.coerce
+      .date()
+      .nullish()
+      .describe(
+        "When the restaurant acknowledged the order. Null means not yet acknowledged,\nwhich blocks nothing — it is a read receipt, not a gate.\n",
+      ),
+    restaurantReadyAt: zod.coerce
+      .date()
+      .nullish()
+      .describe(
+        "When the kitchen reported the food was done. A status on the\nrestaurant's own journey (seen\/accepted → ready → picked up), which\nis informational — it is not a pickup time and nothing waits on it.\n",
       ),
     restaurantAcceptedByName: zod.string().nullish(),
     holdState: zod
@@ -2713,6 +3030,12 @@ export const AcknowledgeOrderResponse = zod
       .describe(
         "When the restaurant acknowledged the order. Null means not yet acknowledged,\nwhich blocks nothing — it is a read receipt, not a gate.\n",
       ),
+    restaurantReadyAt: zod.coerce
+      .date()
+      .nullish()
+      .describe(
+        "When the kitchen reported the food was done. A status on the\nrestaurant's own journey (seen\/accepted → ready → picked up), which\nis informational — it is not a pickup time and nothing waits on it.\n",
+      ),
     restaurantAcceptedByName: zod.string().nullish(),
     holdState: zod
       .union([zod.enum(["parked", "on_hold"]), zod.null()])
@@ -2959,6 +3282,12 @@ export const HoldOrderResponse = zod
       .describe(
         "When the restaurant acknowledged the order. Null means not yet acknowledged,\nwhich blocks nothing — it is a read receipt, not a gate.\n",
       ),
+    restaurantReadyAt: zod.coerce
+      .date()
+      .nullish()
+      .describe(
+        "When the kitchen reported the food was done. A status on the\nrestaurant's own journey (seen\/accepted → ready → picked up), which\nis informational — it is not a pickup time and nothing waits on it.\n",
+      ),
     restaurantAcceptedByName: zod.string().nullish(),
     holdState: zod
       .union([zod.enum(["parked", "on_hold"]), zod.null()])
@@ -3196,6 +3525,12 @@ export const ReleaseOrderResponse = zod
       .nullish()
       .describe(
         "When the restaurant acknowledged the order. Null means not yet acknowledged,\nwhich blocks nothing — it is a read receipt, not a gate.\n",
+      ),
+    restaurantReadyAt: zod.coerce
+      .date()
+      .nullish()
+      .describe(
+        "When the kitchen reported the food was done. A status on the\nrestaurant's own journey (seen\/accepted → ready → picked up), which\nis informational — it is not a pickup time and nothing waits on it.\n",
       ),
     restaurantAcceptedByName: zod.string().nullish(),
     holdState: zod
@@ -3442,6 +3777,12 @@ export const SetOrderRestaurantResponse = zod
       .nullish()
       .describe(
         "When the restaurant acknowledged the order. Null means not yet acknowledged,\nwhich blocks nothing — it is a read receipt, not a gate.\n",
+      ),
+    restaurantReadyAt: zod.coerce
+      .date()
+      .nullish()
+      .describe(
+        "When the kitchen reported the food was done. A status on the\nrestaurant's own journey (seen\/accepted → ready → picked up), which\nis informational — it is not a pickup time and nothing waits on it.\n",
       ),
     restaurantAcceptedByName: zod.string().nullish(),
     holdState: zod
@@ -4085,6 +4426,12 @@ export const GetTripResponse = zod
               .describe(
                 "When the restaurant acknowledged the order. Null means not yet acknowledged,\nwhich blocks nothing — it is a read receipt, not a gate.\n",
               ),
+            restaurantReadyAt: zod.coerce
+              .date()
+              .nullish()
+              .describe(
+                "When the kitchen reported the food was done. A status on the\nrestaurant's own journey (seen\/accepted → ready → picked up), which\nis informational — it is not a pickup time and nothing waits on it.\n",
+              ),
             restaurantAcceptedByName: zod.string().nullish(),
             holdState: zod
               .union([zod.enum(["parked", "on_hold"]), zod.null()])
@@ -4334,6 +4681,12 @@ export const UpdateTripResponse = zod
               .nullish()
               .describe(
                 "When the restaurant acknowledged the order. Null means not yet acknowledged,\nwhich blocks nothing — it is a read receipt, not a gate.\n",
+              ),
+            restaurantReadyAt: zod.coerce
+              .date()
+              .nullish()
+              .describe(
+                "When the kitchen reported the food was done. A status on the\nrestaurant's own journey (seen\/accepted → ready → picked up), which\nis informational — it is not a pickup time and nothing waits on it.\n",
               ),
             restaurantAcceptedByName: zod.string().nullish(),
             holdState: zod
@@ -4585,6 +4938,12 @@ export const ReplaceTripStopsResponse = zod
               .describe(
                 "When the restaurant acknowledged the order. Null means not yet acknowledged,\nwhich blocks nothing — it is a read receipt, not a gate.\n",
               ),
+            restaurantReadyAt: zod.coerce
+              .date()
+              .nullish()
+              .describe(
+                "When the kitchen reported the food was done. A status on the\nrestaurant's own journey (seen\/accepted → ready → picked up), which\nis informational — it is not a pickup time and nothing waits on it.\n",
+              ),
             restaurantAcceptedByName: zod.string().nullish(),
             holdState: zod
               .union([zod.enum(["parked", "on_hold"]), zod.null()])
@@ -4823,6 +5182,12 @@ export const DissolveTripResponse = zod
               .nullish()
               .describe(
                 "When the restaurant acknowledged the order. Null means not yet acknowledged,\nwhich blocks nothing — it is a read receipt, not a gate.\n",
+              ),
+            restaurantReadyAt: zod.coerce
+              .date()
+              .nullish()
+              .describe(
+                "When the kitchen reported the food was done. A status on the\nrestaurant's own journey (seen\/accepted → ready → picked up), which\nis informational — it is not a pickup time and nothing waits on it.\n",
               ),
             restaurantAcceptedByName: zod.string().nullish(),
             holdState: zod
