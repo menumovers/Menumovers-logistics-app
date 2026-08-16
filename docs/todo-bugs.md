@@ -120,7 +120,17 @@ note at transition time so the timeline is self-contained.
 
 ## B4. Trip progress can never advance
 
-**Severity: medium — a permanently wrong number on the dispatch board.**
+**FIXED 2026-08-15** — the mechanism is retired rather than repaired, per D6.
+`lib/trip-progress.ts` derives each stop's state from its order's status, and
+`trip_stops.completed_at` is gone from the schema. A trip now reports progress
+from the record the rider is already keeping up to date, so there is no second
+thing to remember and no way for the two to disagree.
+
+The API changed shape with it: `TripStop.completedAt` became `TripStop.state`
+(`upcoming` / `done` / `skipped`), and `TripListItem.completedStopCount` became
+`doneStopCount` + `skippedStopCount`. Kept below for the record.
+
+~~Severity: medium — a permanently wrong number on the dispatch board.~~
 
 `trip_stops.completedAt` is read in four places in `routes/trips.ts` to compute
 `completedStopCount`, which drives the coordinator's trip progress bar. **No
@@ -129,16 +139,6 @@ preserves prior values when stops are replaced, and those values are always
 null.
 
 Every trip therefore displays 0% forever.
-
-**FIXED 2026-08-15** — the mechanism is retired rather than repaired, per D6.
-`lib/trip-progress.ts` derives each stop's state from its order's status, and
-`trip_stops.completed_at` is gone from the schema. A trip now reports progress
-from the record the rider is already keeping up to date, so there is no second
-thing to remember and no way for the two to disagree.
-
-The API changed shape with it: `TripStop.completedAt` became
-`TripStop.state` (`upcoming` / `done` / `skipped`), and
-`TripListItem.completedStopCount` became `doneStopCount` + `skippedStopCount`.
 
 ---
 
