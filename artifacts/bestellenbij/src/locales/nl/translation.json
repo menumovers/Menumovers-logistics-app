@@ -68,7 +68,7 @@
     "footer": "Tip: installeer de app op je beginscherm voor de beste ervaring.",
     "rider": {
       "title": "Ik ben rijder",
-      "sub": "Intern team — rijders, dispatch, beheer"
+      "sub": "Intern team — rijders, coördinatie, beheer"
     },
     "restaurant": {
       "title": "Ik werk in het restaurant",
@@ -79,7 +79,7 @@
     "heading": "Welkom terug",
     "sub": "Meld je aan om je dienst te starten",
     "riderHeading": "Inloggen — rijder-app",
-    "riderSub": "Voor rijders, dispatch en beheer",
+    "riderSub": "Voor rijders, coördinatie en beheer",
     "restaurantHeading": "Inloggen — restaurant-app",
     "restaurantSub": "Voor restaurantmedewerkers",
     "email": "E-mailadres",
@@ -93,7 +93,7 @@
     "signOutOther": "Huidig account uitloggen",
     "back": "Terug",
     "switchToRestaurant": "Restaurantmedewerker? Log hier in",
-    "switchToRider": "Rijder of dispatch? Log hier in",
+    "switchToRider": "Rijder of coördinator? Log hier in",
     "footer": "Alle accounts gebruiken het wachtwoord 'password'",
     "logoLabel": "Bestellenbij-logo"
   },

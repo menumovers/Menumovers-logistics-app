@@ -5,7 +5,7 @@
   },
   "nav": {
     "admin": "Admin",
-    "coordinator": "Dispatch",
+    "coordinator": "Coordination",
     "rider": "Rider",
     "restaurant": "Restaurant",
     "settings": "Settings",
@@ -68,7 +68,7 @@
     "footer": "Tip: install the app on your home screen for the best experience.",
     "rider": {
       "title": "I'm a rider",
-      "sub": "Internal team — riders, dispatch, admin"
+      "sub": "Internal team — riders, coordination, admin"
     },
     "restaurant": {
       "title": "I'm restaurant staff",
@@ -79,7 +79,7 @@
     "heading": "Welcome back",
     "sub": "Sign in to start your shift",
     "riderHeading": "Sign in — rider app",
-    "riderSub": "For riders, dispatch and admin",
+    "riderSub": "For riders, coordination and admin",
     "restaurantHeading": "Sign in — restaurant app",
     "restaurantSub": "For restaurant staff",
     "email": "Email address",
@@ -93,7 +93,7 @@
     "signOutOther": "Sign out current account",
     "back": "Back",
     "switchToRestaurant": "Restaurant staff? Sign in here",
-    "switchToRider": "Rider or dispatch? Sign in here",
+    "switchToRider": "Rider or coordinator? Sign in here",
     "footer": "All accounts use password 'password'",
     "logoLabel": "Bestellenbij logo"
   },
@@ -132,7 +132,7 @@
     "time": "Time"
   },
   "coordinator": {
-    "title": "Dispatch",
+    "title": "Coordination",
     "subtitle": "Live order board",
     "filterStatus": "Status",
     "filterRestaurant": "Restaurant",
@@ -193,7 +193,7 @@
     "pushUnsupported": "Push is not supported on this device",
     "pushNotConfigured": "Server has not configured push",
     "pushDenied": "Push is blocked in your browser settings",
-    "notification": "Note from dispatch",
+    "notification": "Note from the coordinator",
     "sectionActive": "Active deliveries",
     "sectionQueue": "Queue",
     "sectionOpen": "Open orders",
@@ -259,7 +259,7 @@
     "outboundSource_settings": "Setting",
     "outboundSource_unset": "Not set",
     "settingsSaved": "Settings updated",
-    "dispatchPolicy": "Dispatch policy",
+    "dispatchPolicy": "Coordination policy",
     "allowRiderSelfClaim": "Riders may self-claim orders",
     "allowRiderSelfClaimHelp": "When off, only a coordinator can assign a rider to an order",
     "pickupTiming": "Pickup timing",
@@ -272,7 +272,7 @@
     "acceptanceMode": "Confirmation style",
     "acceptanceMode_accept": "Single confirm",
     "acceptanceMode_choose_time": "Choose one of three times",
-    "acceptanceModeHelp": "How this restaurant confirms an order. Confirming never blocks dispatch either way — it just records that they've seen it."
+    "acceptanceModeHelp": "How this restaurant confirms an order. Confirming never blocks coordination either way — it just records that they've seen it."
   },
   "settings": {
     "title": "Settings",
@@ -421,7 +421,7 @@
     "paysWith": "Customer pays with {{amount}} —",
     "bringChange": "bring {{amount}} change",
     "changeInconsistent": "Customer is paying {{amount}}, less than the order total — check before you go",
-    "changeUnknown": "Change needed, but the amount didn't come through — check with dispatch"
+    "changeUnknown": "Change needed, but the amount didn't come through — check with the coordinator"
   },
   "receipt": {
     "title": "Receipt",
