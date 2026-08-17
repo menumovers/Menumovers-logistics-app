@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { Link } from "wouter";
+import { ShieldCheck } from "lucide-react";
 import { useUpdateUser } from "@workspace/api-client-react";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
@@ -53,6 +55,20 @@ export default function SettingsPage() {
       <div>
         <h1 className="text-2xl font-bold tracking-tight">{t("settings.title")}</h1>
       </div>
+
+      {user.role === "admin" ? (
+        <Card className="md:hidden">
+          <CardContent className="flex items-center justify-between pt-6">
+            <div className="flex items-center gap-2 text-sm">
+              <ShieldCheck className="size-4 text-muted-foreground" />
+              {t("settings.adminPanel")}
+            </div>
+            <Button asChild variant="outline" size="sm" data-testid="link-settings-admin">
+              <Link href="/admin">{t("nav.admin")}</Link>
+            </Button>
+          </CardContent>
+        </Card>
+      ) : null}
 
       <Card>
         <CardHeader>

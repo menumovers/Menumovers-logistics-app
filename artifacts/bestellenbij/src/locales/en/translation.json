@@ -268,6 +268,7 @@
     "passwordChanged": "Password updated",
     "appearance": "Appearance",
     "darkMode": "Dark mode",
+    "adminPanel": "Manage users, restaurants and system settings",
     "logout": "Sign out"
   },
   "push": {
