@@ -103,6 +103,7 @@ function OrdersPanel() {
   const lang = i18n.resolvedLanguage ?? "nl";
   const [sortBy, setSortBy] = useState<SortKey>("pickup");
   const [quickFilters, setQuickFilters] = useState<Set<QuickFilterKey>>(new Set());
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [status, setStatus] = useState<string>(ALL);
   const [restaurantId, setRestaurantId] = useState<string>(ALL);
@@ -165,61 +166,75 @@ function OrdersPanel() {
   return (
     <div className="space-y-4">
       <Card>
-        <CardContent className="flex flex-wrap items-end gap-3 py-4">
-          <div>
-            <Label className="text-xs text-muted-foreground">{t("admin.ordersSort")}</Label>
-            <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortKey)}>
-              <SelectTrigger className="w-56" data-testid="select-orders-sort"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="pickup">{t("admin.ordersSort_pickup")}</SelectItem>
-                <SelectItem value="delivery">{t("admin.ordersSort_delivery")}</SelectItem>
-                <SelectItem value="createdAsc">{t("admin.ordersSort_createdAsc")}</SelectItem>
-                <SelectItem value="createdDesc">{t("admin.ordersSort_createdDesc")}</SelectItem>
-                <SelectItem value="orderNr">{t("admin.ordersSort_orderNr")}</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" data-testid="button-orders-quick-filter">
-                <Filter className="size-3.5 mr-1.5" />
-                {t("admin.ordersQuickFilter")}
-                {quickFilters.size > 0 ? ` (${quickFilters.size})` : ""}
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start">
-              {QUICK_FILTER_KEYS.map((key) => (
-                <DropdownMenuCheckboxItem
-                  key={key}
-                  checked={quickFilters.has(key)}
-                  onCheckedChange={() => toggleQuickFilter(key)}
-                  onSelect={(e) => e.preventDefault()}
-                  data-testid={`checkbox-quick-filter-${key}`}
-                >
-                  {t(`admin.ordersQuickFilter_${key}`)}
-                </DropdownMenuCheckboxItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-
+        <CardContent className="flex flex-wrap items-center gap-3 py-3">
           <Button
             variant="ghost"
-            onClick={() => setAdvancedOpen((v) => !v)}
-            data-testid="button-orders-advanced-filter-toggle"
+            onClick={() => setFiltersOpen((v) => !v)}
+            data-testid="button-orders-filters-toggle"
           >
             <SlidersHorizontal className="size-3.5 mr-1.5" />
-            {t("admin.ordersAdvancedFilter")}
-            <ChevronDown className={cn("size-3.5 ml-1 transition-transform", advancedOpen && "rotate-180")} />
+            {t("admin.ordersFilters")}
+            <ChevronDown className={cn("size-3.5 ml-1 transition-transform", filtersOpen && "rotate-180")} />
           </Button>
 
           <div className="ml-auto text-sm text-muted-foreground tabular-nums" data-testid="text-admin-orders-count">
             {t("coordinator.ordersCount", { count: sorted.length })}
           </div>
         </CardContent>
+
+        {filtersOpen ? (
+          <CardContent className="flex flex-wrap items-end gap-3 pt-0 pb-4 border-t border-border">
+            <div>
+              <Label className="text-xs text-muted-foreground">{t("admin.ordersSort")}</Label>
+              <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortKey)}>
+                <SelectTrigger className="w-56" data-testid="select-orders-sort"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="pickup">{t("admin.ordersSort_pickup")}</SelectItem>
+                  <SelectItem value="delivery">{t("admin.ordersSort_delivery")}</SelectItem>
+                  <SelectItem value="createdAsc">{t("admin.ordersSort_createdAsc")}</SelectItem>
+                  <SelectItem value="createdDesc">{t("admin.ordersSort_createdDesc")}</SelectItem>
+                  <SelectItem value="orderNr">{t("admin.ordersSort_orderNr")}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" data-testid="button-orders-quick-filter">
+                  <Filter className="size-3.5 mr-1.5" />
+                  {t("admin.ordersQuickFilter")}
+                  {quickFilters.size > 0 ? ` (${quickFilters.size})` : ""}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start">
+                {QUICK_FILTER_KEYS.map((key) => (
+                  <DropdownMenuCheckboxItem
+                    key={key}
+                    checked={quickFilters.has(key)}
+                    onCheckedChange={() => toggleQuickFilter(key)}
+                    onSelect={(e) => e.preventDefault()}
+                    data-testid={`checkbox-quick-filter-${key}`}
+                  >
+                    {t(`admin.ordersQuickFilter_${key}`)}
+                  </DropdownMenuCheckboxItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            <Button
+              variant="ghost"
+              onClick={() => setAdvancedOpen((v) => !v)}
+              data-testid="button-orders-advanced-filter-toggle"
+            >
+              <SlidersHorizontal className="size-3.5 mr-1.5" />
+              {t("admin.ordersAdvancedFilter")}
+              <ChevronDown className={cn("size-3.5 ml-1 transition-transform", advancedOpen && "rotate-180")} />
+            </Button>
+          </CardContent>
+        ) : null}
       </Card>
 
-      {advancedOpen ? (
+      {filtersOpen && advancedOpen ? (
         <Card>
           <CardContent className="grid grid-cols-1 md:grid-cols-4 gap-3 py-4">
             <div>
@@ -346,12 +361,24 @@ function UsersPanel() {
   const del = useDeleteUser();
 
   const [form, setForm] = useState({ email: "", name: "", password: "", role: "coordinator" as UserRoleType, restaurantId: "" });
+  const [formOpen, setFormOpen] = useState(false);
   function invalidate() { qc.invalidateQueries({ queryKey: getListUsersQueryKey() }); }
 
   return (
     <div className="space-y-4">
       <Card>
-        <CardHeader><CardTitle className="text-base flex items-center gap-2"><Plus className="size-4" />{t("admin.newUser")}</CardTitle></CardHeader>
+        <CardHeader>
+          <button
+            type="button"
+            className="flex items-center justify-between w-full text-left"
+            onClick={() => setFormOpen((v) => !v)}
+            data-testid="button-toggle-new-user"
+          >
+            <CardTitle className="text-base flex items-center gap-2"><Plus className="size-4" />{t("admin.newUser")}</CardTitle>
+            <ChevronDown className={cn("size-4 transition-transform", formOpen && "rotate-180")} />
+          </button>
+        </CardHeader>
+        {formOpen ? (
         <CardContent>
           <form
             className="grid grid-cols-1 md:grid-cols-5 gap-3 items-end"
@@ -404,6 +431,7 @@ function UsersPanel() {
             <div className="md:col-span-5"><Button type="submit" disabled={create.isPending} data-testid="button-create-user">{t("common.create")}</Button></div>
           </form>
         </CardContent>
+        ) : null}
       </Card>
 
       <div className="grid gap-3">
@@ -455,12 +483,24 @@ function RestaurantsPanel() {
   const { toast } = useToast();
 
   const [form, setForm] = useState({ name: "", nameCode: "", address: "", phone: "", minDeliveryTime: 30 });
+  const [formOpen, setFormOpen] = useState(false);
   function invalidate() { qc.invalidateQueries({ queryKey: getListRestaurantsQueryKey() }); }
 
   return (
     <div className="space-y-4">
       <Card>
-        <CardHeader><CardTitle className="text-base flex items-center gap-2"><Plus className="size-4" />{t("admin.newRestaurant")}</CardTitle></CardHeader>
+        <CardHeader>
+          <button
+            type="button"
+            className="flex items-center justify-between w-full text-left"
+            onClick={() => setFormOpen((v) => !v)}
+            data-testid="button-toggle-new-restaurant"
+          >
+            <CardTitle className="text-base flex items-center gap-2"><Plus className="size-4" />{t("admin.newRestaurant")}</CardTitle>
+            <ChevronDown className={cn("size-4 transition-transform", formOpen && "rotate-180")} />
+          </button>
+        </CardHeader>
+        {formOpen ? (
         <CardContent>
           <form
             className="grid grid-cols-1 md:grid-cols-5 gap-3 items-end"
@@ -493,6 +533,7 @@ function RestaurantsPanel() {
             <Button type="submit" disabled={create.isPending} data-testid="button-create-restaurant">{t("common.create")}</Button>
           </form>
         </CardContent>
+        ) : null}
       </Card>
       <div className="grid gap-3">
         {(restaurants.data ?? []).map((r: Restaurant) => (
@@ -562,12 +603,24 @@ function RidersPanel() {
   const { toast } = useToast();
 
   const [form, setForm] = useState({ name: "", nameCode: "", email: "", password: "", phone: "", availabilityStatus: "online" as RiderAvailabilityType });
+  const [formOpen, setFormOpen] = useState(false);
   function invalidate() { qc.invalidateQueries({ queryKey: getListRidersQueryKey() }); }
 
   return (
     <div className="space-y-4">
       <Card>
-        <CardHeader><CardTitle className="text-base flex items-center gap-2"><Plus className="size-4" />{t("admin.newRider")}</CardTitle></CardHeader>
+        <CardHeader>
+          <button
+            type="button"
+            className="flex items-center justify-between w-full text-left"
+            onClick={() => setFormOpen((v) => !v)}
+            data-testid="button-toggle-new-rider"
+          >
+            <CardTitle className="text-base flex items-center gap-2"><Plus className="size-4" />{t("admin.newRider")}</CardTitle>
+            <ChevronDown className={cn("size-4 transition-transform", formOpen && "rotate-180")} />
+          </button>
+        </CardHeader>
+        {formOpen ? (
         <CardContent>
           <form
             className="grid grid-cols-1 md:grid-cols-5 gap-3 items-end"
@@ -603,6 +656,7 @@ function RidersPanel() {
             <Button type="submit" disabled={create.isPending} data-testid="button-create-rider">{t("common.create")}</Button>
           </form>
         </CardContent>
+        ) : null}
       </Card>
 
       <div className="grid gap-3">
@@ -819,6 +873,57 @@ function SettingsPanel() {
   const value = touched ? url : settings.data?.outboundWebhookUrl ?? "";
   return (
     <div className="space-y-4 max-w-2xl">
+      {settings.data ? <PickupTimingCard settings={settings.data} /> : null}
+      {settings.data ? (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">{t("admin.dispatchPolicy")}</CardTitle>
+          </CardHeader>
+          <CardContent className="py-2 space-y-3 text-sm">
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <Label htmlFor="allow-rider-self-claim" className="text-sm">
+                  {t("admin.allowRiderSelfClaim")}
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  {t("admin.allowRiderSelfClaimHelp")}
+                </p>
+              </div>
+              <Switch
+                id="allow-rider-self-claim"
+                checked={settings.data.allowRiderSelfClaim}
+                disabled={update.isPending}
+                onCheckedChange={(checked) =>
+                  update.mutate(
+                    { data: { allowRiderSelfClaim: checked } },
+                    {
+                      onSuccess: (data) => {
+                        toast({ title: t("admin.settingsSaved") });
+                        qc.setQueryData(getGetSettingsQueryKey(), data);
+                      },
+                    },
+                  )
+                }
+                data-testid="switch-allow-rider-self-claim"
+              />
+            </div>
+          </CardContent>
+        </Card>
+      ) : null}
+      {settings.data ? (
+        <Card>
+          <CardContent className="py-4 space-y-2 text-sm">
+            <div className="flex items-center gap-2" data-testid="status-vapid">
+              {settings.data.vapidConfigured ? <CheckCircle2 className="size-4 text-chart-5" /> : <AlertCircle className="size-4 text-destructive" />}
+              {t("admin.vapidConfigured")}
+            </div>
+            <div className="flex items-center gap-2" data-testid="status-inbound">
+              {settings.data.inboundSecretConfigured ? <CheckCircle2 className="size-4 text-chart-5" /> : <AlertCircle className="size-4 text-destructive" />}
+              {t("admin.inboundConfigured")}
+            </div>
+          </CardContent>
+        </Card>
+      ) : null}
       <Card>
         <CardHeader><CardTitle className="text-base">{t("admin.outboundWebhook")}</CardTitle></CardHeader>
         <CardContent className="space-y-3">
@@ -884,57 +989,6 @@ function SettingsPanel() {
           </Button>
         </CardContent>
       </Card>
-      {settings.data ? (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">{t("admin.dispatchPolicy")}</CardTitle>
-          </CardHeader>
-          <CardContent className="py-2 space-y-3 text-sm">
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label htmlFor="allow-rider-self-claim" className="text-sm">
-                  {t("admin.allowRiderSelfClaim")}
-                </Label>
-                <p className="text-xs text-muted-foreground">
-                  {t("admin.allowRiderSelfClaimHelp")}
-                </p>
-              </div>
-              <Switch
-                id="allow-rider-self-claim"
-                checked={settings.data.allowRiderSelfClaim}
-                disabled={update.isPending}
-                onCheckedChange={(checked) =>
-                  update.mutate(
-                    { data: { allowRiderSelfClaim: checked } },
-                    {
-                      onSuccess: (data) => {
-                        toast({ title: t("admin.settingsSaved") });
-                        qc.setQueryData(getGetSettingsQueryKey(), data);
-                      },
-                    },
-                  )
-                }
-                data-testid="switch-allow-rider-self-claim"
-              />
-            </div>
-          </CardContent>
-        </Card>
-      ) : null}
-      {settings.data ? <PickupTimingCard settings={settings.data} /> : null}
-      {settings.data ? (
-        <Card>
-          <CardContent className="py-4 space-y-2 text-sm">
-            <div className="flex items-center gap-2" data-testid="status-vapid">
-              {settings.data.vapidConfigured ? <CheckCircle2 className="size-4 text-chart-5" /> : <AlertCircle className="size-4 text-destructive" />}
-              {t("admin.vapidConfigured")}
-            </div>
-            <div className="flex items-center gap-2" data-testid="status-inbound">
-              {settings.data.inboundSecretConfigured ? <CheckCircle2 className="size-4 text-chart-5" /> : <AlertCircle className="size-4 text-destructive" />}
-              {t("admin.inboundConfigured")}
-            </div>
-          </CardContent>
-        </Card>
-      ) : null}
     </div>
   );
 }

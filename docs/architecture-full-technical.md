@@ -98,7 +98,10 @@ What the system explicitly does not do:
 │   │       │                       coordinator-trip-builder, rider, rider-order,
 │   │       │                       restaurant, settings, not-found
 │   │       ├── components/        layout, status-badge, pickup-countdown,
-│   │       │                       locale-switch, push-opt-in, ui/* (shadcn)
+│   │       │                       delivery-expectation, acknowledge-card,
+│   │       │                       payment-panel, pickup-time-input,
+│   │       │                       searchable-select, locale-switch,
+│   │       │                       push-opt-in, ui/* (shadcn)
 │   │       └── locales/           nl/translation.json, en/translation.json
 │   └── mockup-sandbox/    Vite preview server for canvas iframes (design only).
 ├── lib/
