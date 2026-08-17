@@ -91,7 +91,7 @@ One line per domain — go check the registry before writing anything in a cover
 - **Time / Locale** (active locale resolution, locale-aware UI mapping) → `docs/architecture-sources-of-truth.md` §Time/Locale
 - **External Services** (outbound webhook dispatch + retry, push dispatch, push audiences, typed settings readers, revoked-token janitor) → `docs/architecture-sources-of-truth.md` §External Services
 - **Data Access** (Drizzle client, order serialization, HTTP errors, logger, rate limits) → `docs/architecture-sources-of-truth.md` §Data Access
-- **Frontend Plumbing** (API client config, auth context, app context, PWA manifests, generated hooks + Zods) → `docs/architecture-sources-of-truth.md` §Frontend Plumbing
+- **Frontend Plumbing** (API client config, auth context, app context, PWA manifests, generated hooks + Zods, searchable filter select) → `docs/architecture-sources-of-truth.md` §Frontend Plumbing
 
 ---
 

@@ -1,5 +1,33 @@
 # Changelog
 
+## 2026-08-17 — Admin Orders tab, searchable filters, and a dropdown viewport bug
+
+The admin page gained an **Orders** tab (tabs reordered: Orders, Riders,
+Restaurants, Users, System) — every order, sortable by pickup time / estimated
+delivery time / creation time / order number, with a multi-select quick
+filter (active-within-1h/2h, future today/all, completed today, past
+today/all — OR'd together, keyed off effective pickup time) and an advanced
+filter mirroring the coordinator page's search/status/restaurant/rider
+fields. Each row links into the existing `/coordinator/orders/:id` detail
+page — no new route needed.
+
+**New shared pattern:** `components/searchable-select.tsx` (`SearchableSelect`)
+— a `Popover` + `Command` combobox for filter lists long enough that
+scrolling to one entry stops being practical. Swapped in for the
+Restaurant/Rider filters on both the coordinator dispatch board and the
+admin Orders tab's advanced filter. Registered in
+`architecture-sources-of-truth.md` §Frontend Plumbing.
+
+**Bug fix worth recording because it was silent:** the shared `Select`
+popup's content had `max-h-[--radix-select-content-available-height]`
+instead of `max-h-[var(--radix-select-content-available-height)]` — the bare
+custom-property reference doesn't resolve to anything, so Tailwind emitted no
+working `max-height` at all. A long option list (e.g. every restaurant)
+could render past the edge of the viewport, most visibly when Radix flipped
+the popup upward for lack of room below. Fixed in `Select` and the identical
+copy-pasted bug in `ContextMenu` (unused today, same file lineage);
+`Popover` gained the same cap ahead of `SearchableSelect` needing it.
+
 ## 2026-08-15 — Pickup times: two anchors, never combined
 
 Closes the question that opened this audit: *why is anything computing from
