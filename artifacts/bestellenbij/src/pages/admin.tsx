@@ -29,7 +29,7 @@ import {
 import { Spinner } from "@/components/ui/spinner";
 import { Plus, Trash2, CheckCircle2, AlertCircle, Filter, SlidersHorizontal, ChevronDown, ChevronRight } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { formatDateTime, effectivePickup, minutesUntil } from "@/lib/format";
+import { formatDateTime, formatTime, effectivePickup, minutesUntil } from "@/lib/format";
 import { RequestedTimeLabel } from "@/components/delivery-expectation";
 import { cn } from "@/lib/utils";
 
@@ -291,11 +291,22 @@ function OrdersPanel() {
               <TableBody>
                 {sorted.map((o) => {
                   const eff = effectivePickup(o);
+                  const otherDay = o.deliveryTimeType === "other_day";
                   return (
                     <TableRow key={o.id} data-testid={`row-admin-order-${o.id}`}>
-                      <TableCell className="tabular-nums font-medium whitespace-nowrap">#{o.externalOrderId}</TableCell>
-                      <TableCell className="tabular-nums whitespace-nowrap">{formatDateTime(eff.iso, lang)}</TableCell>
-                      <TableCell className="whitespace-nowrap"><RequestedTimeLabel order={o} lang={lang} withDate /></TableCell>
+                      <TableCell className="tabular-nums font-medium whitespace-nowrap">
+                        <Link
+                          href={`/coordinator/orders/${o.id}`}
+                          className="hover:underline underline-offset-2"
+                          data-testid={`link-admin-order-number-${o.id}`}
+                        >
+                          #{o.externalOrderId.slice(-5)}
+                        </Link>
+                      </TableCell>
+                      <TableCell className="tabular-nums whitespace-nowrap">
+                        {otherDay ? formatDateTime(eff.iso, lang) : formatTime(eff.iso, lang)}
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap"><RequestedTimeLabel order={o} lang={lang} /></TableCell>
                       <TableCell className="truncate max-w-[180px]">{o.restaurantName ?? "—"}</TableCell>
                       <TableCell className="truncate max-w-[240px]">{o.deliveryAddress}</TableCell>
                       <TableCell className="text-right">

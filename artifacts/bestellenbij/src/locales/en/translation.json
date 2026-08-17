@@ -389,9 +389,7 @@
     "timeType_other_day": "Another day",
     "requested": "Customer asked for",
     "pickupSection": "Customer pickup ({{count}})",
-    "pickupSectionHelp": "The customer collects these themselves — they are never offered to riders.",
-    "timeType_asap_short": "ASAP",
-    "estimated": "est. {{time}}"
+    "pickupSectionHelp": "The customer collects these themselves — they are never offered to riders."
   },
   "acknowledge": {
     "title": "Confirm this order",

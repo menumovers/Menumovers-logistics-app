@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { CalendarClock, Zap, Tag, ShoppingBag } from "lucide-react";
+import { Clock, Zap, Tag, ShoppingBag } from "lucide-react";
 import { formatDateTime, formatTime } from "@/lib/format";
 
 /**
@@ -70,7 +70,6 @@ export function RequestedTimeLabel({
   lang: string;
   withDate?: boolean;
 }) {
-  const { t } = useTranslation();
   const asap = order.deliveryTimeType === "asap";
   const otherDay = order.deliveryTimeType === "other_day";
   const showDate = withDate || otherDay;
@@ -79,15 +78,11 @@ export function RequestedTimeLabel({
       className="inline-flex items-center gap-1 text-xs text-muted-foreground"
       data-testid="label-requested-time"
     >
-      {asap ? <Zap className="size-3" /> : <CalendarClock className="size-3" />}
-      {asap ? <span>{t("delivery.timeType_asap_short")} ·</span> : null}
+      {asap ? <Zap className="size-3" /> : <Clock className="size-3" />}
       <span className="tabular-nums">
-        {(() => {
-          const when = showDate
-            ? formatDateTime(order.requestedDeliveryTime, lang)
-            : formatTime(order.requestedDeliveryTime, lang);
-          return asap ? t("delivery.estimated", { time: when }) : when;
-        })()}
+        {showDate
+          ? formatDateTime(order.requestedDeliveryTime, lang)
+          : formatTime(order.requestedDeliveryTime, lang)}
       </span>
     </span>
   );
