@@ -25,7 +25,7 @@ import { SearchableSelect } from "@/components/searchable-select";
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
-  DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuTrigger,
+  DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuTrigger, DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { Spinner } from "@/components/ui/spinner";
 import { Plus, Trash2, CheckCircle2, AlertCircle, Filter, SlidersHorizontal, ChevronDown, ChevronRight } from "lucide-react";
@@ -40,17 +40,32 @@ export default function AdminPage() {
     <div className="space-y-5">
       <h1 className="text-2xl font-bold tracking-tight">{t("admin.title")}</h1>
       <Tabs defaultValue="orders">
-        <TabsList>
-          <TabsTrigger value="orders" data-testid="tab-orders">{t("admin.orders")}</TabsTrigger>
-          <TabsTrigger value="riders" data-testid="tab-riders">{t("admin.riders")}</TabsTrigger>
-          <TabsTrigger value="restaurants" data-testid="tab-restaurants">{t("admin.restaurants")}</TabsTrigger>
-          <TabsTrigger value="users" data-testid="tab-users">{t("admin.users")}</TabsTrigger>
-          <TabsTrigger value="settings" data-testid="tab-settings">{t("admin.settings")}</TabsTrigger>
+        <TabsList className="flex sm:inline-flex w-full sm:w-max justify-between sm:justify-start gap-1 sm:gap-0">
+          <div className="flex overflow-x-auto gap-1 min-w-0 -mx-1 px-1 sm:mx-0 sm:px-0 sm:overflow-visible">
+            <TabsTrigger value="orders" data-testid="tab-orders">{t("admin.orders")}</TabsTrigger>
+            <TabsTrigger value="riders" data-testid="tab-riders">{t("admin.riders")}</TabsTrigger>
+            <TabsTrigger value="restaurants" data-testid="tab-restaurants">{t("admin.restaurants")}</TabsTrigger>
+          </div>
+          <div className="flex gap-1 shrink-0">
+            <TabsTrigger value="users" data-testid="tab-users" aria-label={t("admin.users")} className="px-2 sm:px-3">
+              <span className="hidden sm:inline">{t("admin.users")}</span>
+              <span className="sm:hidden text-base" aria-hidden="true">👤</span>
+            </TabsTrigger>
+            <TabsTrigger value="add" data-testid="tab-add" aria-label={t("admin.add")} className="px-2 sm:px-3">
+              <span className="hidden sm:inline">{t("admin.add")}</span>
+              <span className="sm:hidden font-bold tracking-tighter" aria-hidden="true">+++</span>
+            </TabsTrigger>
+            <TabsTrigger value="settings" data-testid="tab-settings" aria-label={t("admin.settings")} className="px-2 sm:px-3">
+              <span className="hidden sm:inline">{t("admin.settings")}</span>
+              <span className="sm:hidden text-base" aria-hidden="true">🔧</span>
+            </TabsTrigger>
+          </div>
         </TabsList>
         <TabsContent value="orders" className="mt-4"><OrdersPanel /></TabsContent>
         <TabsContent value="riders" className="mt-4"><RidersPanel /></TabsContent>
         <TabsContent value="restaurants" className="mt-4"><RestaurantsPanel /></TabsContent>
         <TabsContent value="users" className="mt-4"><UsersPanel /></TabsContent>
+        <TabsContent value="add" className="mt-4"><AddPanel /></TabsContent>
         <TabsContent value="settings" className="mt-4"><SettingsPanel /></TabsContent>
       </Tabs>
     </div>
@@ -96,6 +111,45 @@ function matchesQuickFilter(order: OrderListItem, key: QuickFilterKey, now: Date
     case "pastToday": return mins < 0 && today;
     case "pastAll": return mins < 0;
   }
+}
+
+type NameSortKey = "nameAsc" | "nameDesc";
+
+function sortByName<T>(items: T[], sortBy: NameSortKey, getName: (item: T) => string): T[] {
+  const arr = [...items];
+  arr.sort((a, b) => getName(a).localeCompare(getName(b)));
+  if (sortBy === "nameDesc") arr.reverse();
+  return arr;
+}
+
+function NameSortSelect({ value, onValueChange, testId }: { value: NameSortKey; onValueChange: (v: NameSortKey) => void; testId: string }) {
+  const { t } = useTranslation();
+  return (
+    <Select value={value} onValueChange={(v) => onValueChange(v as NameSortKey)}>
+      <SelectTrigger className="w-40" data-testid={testId}><SelectValue /></SelectTrigger>
+      <SelectContent>
+        <SelectItem value="nameAsc">{t("admin.sortNameAsc")}</SelectItem>
+        <SelectItem value="nameDesc">{t("admin.sortNameDesc")}</SelectItem>
+      </SelectContent>
+    </Select>
+  );
+}
+
+const RIDER_STATUS_FILTER_KEYS = ["online", "offline", "backup"] as const;
+const RIDER_WORKLOAD_FILTER_KEYS = ["hasActive", "noActive"] as const;
+const RIDER_QUICK_FILTER_KEYS = [...RIDER_STATUS_FILTER_KEYS, ...RIDER_WORKLOAD_FILTER_KEYS] as const;
+type RiderQuickFilterKey = (typeof RIDER_QUICK_FILTER_KEYS)[number];
+
+/** Status options and workload options are two independent facets — each is OR'd internally, and the two facets are AND'd together. */
+function matchesRiderQuickFilters(rider: RiderWithWorkload, quickFilters: Set<RiderQuickFilterKey>): boolean {
+  const selectedStatus = RIDER_STATUS_FILTER_KEYS.filter((k) => quickFilters.has(k));
+  const selectedWorkload = RIDER_WORKLOAD_FILTER_KEYS.filter((k) => quickFilters.has(k));
+  const hasActive = rider.activeOrderCount > 0;
+  const statusOk = selectedStatus.length === 0 || selectedStatus.some((k) => rider.availabilityStatus === k);
+  const workloadOk =
+    selectedWorkload.length === 0 ||
+    selectedWorkload.some((k) => (k === "hasActive" ? hasActive : !hasActive));
+  return statusOk && workloadOk;
 }
 
 function OrdersPanel() {
@@ -353,89 +407,40 @@ function OrdersPanel() {
 function UsersPanel() {
   const { t } = useTranslation();
   const qc = useQueryClient();
-  const { toast } = useToast();
   const users = useListUsers({ query: { queryKey: getListUsersQueryKey() } });
-  const restaurants = useListRestaurants({ query: { queryKey: getListRestaurantsQueryKey() } });
-  const create = useCreateUser();
   const updateUser = useUpdateUser();
   const del = useDeleteUser();
 
-  const [form, setForm] = useState({ email: "", name: "", password: "", role: "coordinator" as UserRoleType, restaurantId: "" });
-  const [formOpen, setFormOpen] = useState(false);
+  const [q, setQ] = useState("");
+  const [sortBy, setSortBy] = useState<NameSortKey>("nameAsc");
   function invalidate() { qc.invalidateQueries({ queryKey: getListUsersQueryKey() }); }
+
+  const filtered = useMemo(() => {
+    const all = users.data ?? [];
+    const needle = q.trim().toLowerCase();
+    const matching = needle
+      ? all.filter((u) => u.name.toLowerCase().includes(needle) || u.email.toLowerCase().includes(needle))
+      : all;
+    return sortByName(matching, sortBy, (u) => u.name);
+  }, [users.data, q, sortBy]);
 
   return (
     <div className="space-y-4">
       <Card>
-        <CardHeader>
-          <button
-            type="button"
-            className="flex items-center justify-between w-full text-left"
-            onClick={() => setFormOpen((v) => !v)}
-            data-testid="button-toggle-new-user"
-          >
-            <CardTitle className="text-base flex items-center gap-2"><Plus className="size-4" />{t("admin.newUser")}</CardTitle>
-            <ChevronDown className={cn("size-4 transition-transform", formOpen && "rotate-180")} />
-          </button>
-        </CardHeader>
-        {formOpen ? (
-        <CardContent>
-          <form
-            className="grid grid-cols-1 md:grid-cols-5 gap-3 items-end"
-            onSubmit={(e) => {
-              e.preventDefault();
-              if (!form.email || !form.password || !form.name) return;
-              create.mutate(
-                {
-                  data: {
-                    email: form.email, name: form.name, password: form.password, role: form.role,
-                    restaurantId: form.role === "restaurant_staff" ? form.restaurantId || null : null,
-                  },
-                },
-                {
-                  onSuccess: () => {
-                    setForm({ email: "", name: "", password: "", role: "coordinator", restaurantId: "" });
-                    toast({ title: t("admin.newUser") });
-                    invalidate();
-                  },
-                  onError: () => toast({ title: t("errors.generic"), variant: "destructive" }),
-                },
-              );
-            }}
-          >
-            <div><Label className="text-xs">{t("common.name")}</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required data-testid="input-new-user-name" /></div>
-            <div><Label className="text-xs">{t("common.email")}</Label><Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required data-testid="input-new-user-email" /></div>
-            <div><Label className="text-xs">{t("common.password")}</Label><Input type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required minLength={8} data-testid="input-new-user-password" /></div>
-            <div>
-              <Label className="text-xs">{t("common.role")}</Label>
-              <Select value={form.role} onValueChange={(v) => setForm({ ...form, role: v as UserRoleType })}>
-                <SelectTrigger data-testid="select-new-user-role"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {Object.values(UserRole).map((r) => (
-                    <SelectItem key={r} value={r}>{t(`roles.${r}`)}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            {form.role === "restaurant_staff" ? (
-              <div>
-                <Label className="text-xs">{t("nav.restaurant")}</Label>
-                <Select value={form.restaurantId} onValueChange={(v) => setForm({ ...form, restaurantId: v })}>
-                  <SelectTrigger data-testid="select-new-user-restaurant"><SelectValue placeholder="—" /></SelectTrigger>
-                  <SelectContent>
-                    {(restaurants.data ?? []).map((r) => (<SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>))}
-                  </SelectContent>
-                </Select>
-              </div>
-            ) : <div />}
-            <div className="md:col-span-5"><Button type="submit" disabled={create.isPending} data-testid="button-create-user">{t("common.create")}</Button></div>
-          </form>
+        <CardContent className="flex flex-wrap items-end gap-3 py-3">
+          <div className="flex-1 min-w-[180px]">
+            <Label className="text-xs text-muted-foreground">{t("common.search")}</Label>
+            <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t("common.search")} data-testid="input-users-search" />
+          </div>
+          <div>
+            <Label className="text-xs text-muted-foreground">{t("common.sortBy")}</Label>
+            <NameSortSelect value={sortBy} onValueChange={setSortBy} testId="select-users-sort" />
+          </div>
         </CardContent>
-        ) : null}
       </Card>
 
       <div className="grid gap-3">
-        {(users.data ?? []).map((u: ApiUser) => (
+        {filtered.map((u: ApiUser) => (
           <Card key={u.id} data-testid={`row-user-${u.id}`}>
             <CardContent className="py-3 flex flex-wrap items-center gap-3">
               <div className="flex-1 min-w-[200px]">
@@ -477,66 +482,38 @@ function RestaurantsPanel() {
   const { t } = useTranslation();
   const qc = useQueryClient();
   const restaurants = useListRestaurants({ query: { queryKey: getListRestaurantsQueryKey() } });
-  const create = useCreateRestaurant();
   const update = useUpdateRestaurant();
   const del = useDeleteRestaurant();
-  const { toast } = useToast();
 
-  const [form, setForm] = useState({ name: "", nameCode: "", address: "", phone: "", minDeliveryTime: 30 });
-  const [formOpen, setFormOpen] = useState(false);
+  const [q, setQ] = useState("");
+  const [sortBy, setSortBy] = useState<NameSortKey>("nameAsc");
   function invalidate() { qc.invalidateQueries({ queryKey: getListRestaurantsQueryKey() }); }
+
+  const filtered = useMemo(() => {
+    const all = restaurants.data ?? [];
+    const needle = q.trim().toLowerCase();
+    const matching = needle
+      ? all.filter((r) => r.name.toLowerCase().includes(needle) || r.nameCode.toLowerCase().includes(needle) || r.address.toLowerCase().includes(needle))
+      : all;
+    return sortByName(matching, sortBy, (r) => r.name);
+  }, [restaurants.data, q, sortBy]);
 
   return (
     <div className="space-y-4">
       <Card>
-        <CardHeader>
-          <button
-            type="button"
-            className="flex items-center justify-between w-full text-left"
-            onClick={() => setFormOpen((v) => !v)}
-            data-testid="button-toggle-new-restaurant"
-          >
-            <CardTitle className="text-base flex items-center gap-2"><Plus className="size-4" />{t("admin.newRestaurant")}</CardTitle>
-            <ChevronDown className={cn("size-4 transition-transform", formOpen && "rotate-180")} />
-          </button>
-        </CardHeader>
-        {formOpen ? (
-        <CardContent>
-          <form
-            className="grid grid-cols-1 md:grid-cols-5 gap-3 items-end"
-            onSubmit={(e) => {
-              e.preventDefault();
-              create.mutate(
-                {
-                  data: {
-                    name: form.name, nameCode: form.nameCode, address: form.address,
-                    phone: form.phone || null,
-                    minDeliveryTime: Math.max(1, Number(form.minDeliveryTime) || 30),
-                  },
-                },
-                {
-                  onSuccess: () => {
-                    setForm({ name: "", nameCode: "", address: "", phone: "", minDeliveryTime: 30 });
-                    toast({ title: t("admin.newRestaurant") });
-                    invalidate();
-                  },
-                  onError: () => toast({ title: t("errors.generic"), variant: "destructive" }),
-                },
-              );
-            }}
-          >
-            <div className="md:col-span-2"><Label className="text-xs">{t("common.name")}</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required data-testid="input-new-rest-name" /></div>
-            <div><Label className="text-xs">{t("admin.nameCode")}</Label><Input value={form.nameCode} onChange={(e) => setForm({ ...form, nameCode: e.target.value })} required data-testid="input-new-rest-name-code" /></div>
-            <div className="md:col-span-2"><Label className="text-xs">{t("common.address")}</Label><Input value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} required data-testid="input-new-rest-address" /></div>
-            <div><Label className="text-xs">{t("common.phone")}</Label><Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} data-testid="input-new-rest-phone" /></div>
-            <div className="md:col-span-2"><Label className="text-xs">{t("admin.minDeliveryTime")}</Label><Input type="number" min={1} value={form.minDeliveryTime} onChange={(e) => setForm({ ...form, minDeliveryTime: Number(e.target.value) })} data-testid="input-new-rest-min-delivery" /></div>
-            <Button type="submit" disabled={create.isPending} data-testid="button-create-restaurant">{t("common.create")}</Button>
-          </form>
+        <CardContent className="flex flex-wrap items-end gap-3 py-3">
+          <div className="flex-1 min-w-[180px]">
+            <Label className="text-xs text-muted-foreground">{t("common.search")}</Label>
+            <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t("common.search")} data-testid="input-restaurants-search" />
+          </div>
+          <div>
+            <Label className="text-xs text-muted-foreground">{t("common.sortBy")}</Label>
+            <NameSortSelect value={sortBy} onValueChange={setSortBy} testId="select-restaurants-sort" />
+          </div>
         </CardContent>
-        ) : null}
       </Card>
       <div className="grid gap-3">
-        {(restaurants.data ?? []).map((r: Restaurant) => (
+        {filtered.map((r: Restaurant) => (
           <RestaurantRow key={r.id} restaurant={r} onUpdate={update.mutate} onInvalidate={invalidate} onDelete={() => del.mutate({ id: r.id }, { onSuccess: invalidate })} />
         ))}
       </div>
@@ -598,69 +575,86 @@ function RidersPanel() {
   const { t } = useTranslation();
   const qc = useQueryClient();
   const riders = useListRiders({ query: { queryKey: getListRidersQueryKey() } });
-  const create = useCreateRider();
   const update = useUpdateRider();
-  const { toast } = useToast();
 
-  const [form, setForm] = useState({ name: "", nameCode: "", email: "", password: "", phone: "", availabilityStatus: "online" as RiderAvailabilityType });
-  const [formOpen, setFormOpen] = useState(false);
+  const [q, setQ] = useState("");
+  const [sortBy, setSortBy] = useState<NameSortKey>("nameAsc");
+  const [quickFilters, setQuickFilters] = useState<Set<RiderQuickFilterKey>>(new Set());
   function invalidate() { qc.invalidateQueries({ queryKey: getListRidersQueryKey() }); }
+
+  function toggleQuickFilter(key: RiderQuickFilterKey) {
+    setQuickFilters((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }
+
+  const filtered = useMemo(() => {
+    const all = riders.data ?? [];
+    const needle = q.trim().toLowerCase();
+    const searched = needle
+      ? all.filter((r) => r.name.toLowerCase().includes(needle) || r.nameCode.toLowerCase().includes(needle) || r.email.toLowerCase().includes(needle))
+      : all;
+    const matching = quickFilters.size === 0 ? searched : searched.filter((r) => matchesRiderQuickFilters(r, quickFilters));
+    return sortByName(matching, sortBy, (r) => r.name);
+  }, [riders.data, q, sortBy, quickFilters]);
 
   return (
     <div className="space-y-4">
       <Card>
-        <CardHeader>
-          <button
-            type="button"
-            className="flex items-center justify-between w-full text-left"
-            onClick={() => setFormOpen((v) => !v)}
-            data-testid="button-toggle-new-rider"
-          >
-            <CardTitle className="text-base flex items-center gap-2"><Plus className="size-4" />{t("admin.newRider")}</CardTitle>
-            <ChevronDown className={cn("size-4 transition-transform", formOpen && "rotate-180")} />
-          </button>
-        </CardHeader>
-        {formOpen ? (
-        <CardContent>
-          <form
-            className="grid grid-cols-1 md:grid-cols-5 gap-3 items-end"
-            onSubmit={(e) => {
-              e.preventDefault();
-              create.mutate(
-                { data: { name: form.name, nameCode: form.nameCode, email: form.email, password: form.password, phone: form.phone || null, availabilityStatus: form.availabilityStatus } },
-                {
-                  onSuccess: () => {
-                    setForm({ name: "", nameCode: "", email: "", password: "", phone: "", availabilityStatus: "online" });
-                    toast({ title: t("admin.newRider") });
-                    invalidate();
-                  },
-                  onError: () => toast({ title: t("errors.generic"), variant: "destructive" }),
-                },
-              );
-            }}
-          >
-            <div><Label className="text-xs">{t("common.name")}</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required data-testid="input-new-rider-name" /></div>
-            <div><Label className="text-xs">{t("admin.nameCode")}</Label><Input value={form.nameCode} onChange={(e) => setForm({ ...form, nameCode: e.target.value })} required data-testid="input-new-rider-name-code" /></div>
-            <div><Label className="text-xs">{t("common.email")}</Label><Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required data-testid="input-new-rider-email" /></div>
-            <div><Label className="text-xs">{t("common.password")}</Label><Input type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required minLength={8} data-testid="input-new-rider-password" /></div>
-            <div><Label className="text-xs">{t("common.phone")}</Label><Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} data-testid="input-new-rider-phone" /></div>
-            <div>
-              <Label className="text-xs">{t("rider.availability")}</Label>
-              <Select value={form.availabilityStatus} onValueChange={(v) => setForm({ ...form, availabilityStatus: v as RiderAvailabilityType })}>
-                <SelectTrigger data-testid="select-new-rider-avail"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {Object.values(RiderAvailability).map((a) => <SelectItem key={a} value={a}>{t(`availability.${a}`)}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <Button type="submit" disabled={create.isPending} data-testid="button-create-rider">{t("common.create")}</Button>
-          </form>
+        <CardContent className="flex flex-wrap items-end gap-3 py-3">
+          <div className="flex-1 min-w-[180px]">
+            <Label className="text-xs text-muted-foreground">{t("common.search")}</Label>
+            <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t("common.search")} data-testid="input-riders-search" />
+          </div>
+          <div>
+            <Label className="text-xs text-muted-foreground">{t("common.sortBy")}</Label>
+            <NameSortSelect value={sortBy} onValueChange={setSortBy} testId="select-riders-sort" />
+          </div>
+          <div>
+            <Label className="text-xs text-muted-foreground block mb-1.5">&nbsp;</Label>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" data-testid="button-riders-quick-filter">
+                  <Filter className="size-3.5 mr-1.5" />
+                  {t("admin.ridersQuickFilter")}
+                  {quickFilters.size > 0 ? ` (${quickFilters.size})` : ""}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start">
+                {RIDER_STATUS_FILTER_KEYS.map((key) => (
+                  <DropdownMenuCheckboxItem
+                    key={key}
+                    checked={quickFilters.has(key)}
+                    onCheckedChange={() => toggleQuickFilter(key)}
+                    onSelect={(e) => e.preventDefault()}
+                    data-testid={`checkbox-riders-quick-filter-${key}`}
+                  >
+                    {t(`availability.${key}`)}
+                  </DropdownMenuCheckboxItem>
+                ))}
+                <DropdownMenuSeparator />
+                {RIDER_WORKLOAD_FILTER_KEYS.map((key) => (
+                  <DropdownMenuCheckboxItem
+                    key={key}
+                    checked={quickFilters.has(key)}
+                    onCheckedChange={() => toggleQuickFilter(key)}
+                    onSelect={(e) => e.preventDefault()}
+                    data-testid={`checkbox-riders-quick-filter-${key}`}
+                  >
+                    {t(`admin.ridersQuickFilter_${key}`)}
+                  </DropdownMenuCheckboxItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </CardContent>
-        ) : null}
       </Card>
 
       <div className="grid gap-3">
-        {(riders.data ?? []).map((r: RiderWithWorkload) => (
+        {filtered.map((r: RiderWithWorkload) => (
           <RiderRow key={r.id} rider={r} onUpdate={update.mutate} onInvalidate={invalidate} />
         ))}
       </div>
@@ -709,6 +703,220 @@ function RiderRow({ rider: r, onUpdate, onInvalidate }: { rider: RiderWithWorklo
           </SelectContent>
         </Select>
       </CardContent>
+    </Card>
+  );
+}
+
+function AddPanel() {
+  return (
+    <div className="space-y-4">
+      <AddUserCard />
+      <AddRestaurantCard />
+      <AddRiderCard />
+    </div>
+  );
+}
+
+function AddUserCard() {
+  const { t } = useTranslation();
+  const qc = useQueryClient();
+  const { toast } = useToast();
+  const restaurants = useListRestaurants({ query: { queryKey: getListRestaurantsQueryKey() } });
+  const create = useCreateUser();
+
+  const [form, setForm] = useState({ email: "", name: "", password: "", role: "coordinator" as UserRoleType, restaurantId: "" });
+  const [formOpen, setFormOpen] = useState(false);
+
+  return (
+    <Card>
+      <CardHeader>
+        <button
+          type="button"
+          className="flex items-center justify-between w-full text-left"
+          onClick={() => setFormOpen((v) => !v)}
+          data-testid="button-toggle-new-user"
+        >
+          <CardTitle className="text-base flex items-center gap-2"><Plus className="size-4" />{t("admin.newUser")}</CardTitle>
+          <ChevronDown className={cn("size-4 transition-transform", formOpen && "rotate-180")} />
+        </button>
+      </CardHeader>
+      {formOpen ? (
+      <CardContent>
+        <form
+          className="grid grid-cols-1 md:grid-cols-5 gap-3 items-end"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (!form.email || !form.password || !form.name) return;
+            create.mutate(
+              {
+                data: {
+                  email: form.email, name: form.name, password: form.password, role: form.role,
+                  restaurantId: form.role === "restaurant_staff" ? form.restaurantId || null : null,
+                },
+              },
+              {
+                onSuccess: () => {
+                  setForm({ email: "", name: "", password: "", role: "coordinator", restaurantId: "" });
+                  toast({ title: t("admin.newUser") });
+                  qc.invalidateQueries({ queryKey: getListUsersQueryKey() });
+                },
+                onError: () => toast({ title: t("errors.generic"), variant: "destructive" }),
+              },
+            );
+          }}
+        >
+          <div><Label className="text-xs">{t("common.name")}</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required data-testid="input-new-user-name" /></div>
+          <div><Label className="text-xs">{t("common.email")}</Label><Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required data-testid="input-new-user-email" /></div>
+          <div><Label className="text-xs">{t("common.password")}</Label><Input type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required minLength={8} data-testid="input-new-user-password" /></div>
+          <div>
+            <Label className="text-xs">{t("common.role")}</Label>
+            <Select value={form.role} onValueChange={(v) => setForm({ ...form, role: v as UserRoleType })}>
+              <SelectTrigger data-testid="select-new-user-role"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {Object.values(UserRole).map((r) => (
+                  <SelectItem key={r} value={r}>{t(`roles.${r}`)}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          {form.role === "restaurant_staff" ? (
+            <div>
+              <Label className="text-xs">{t("nav.restaurant")}</Label>
+              <Select value={form.restaurantId} onValueChange={(v) => setForm({ ...form, restaurantId: v })}>
+                <SelectTrigger data-testid="select-new-user-restaurant"><SelectValue placeholder="—" /></SelectTrigger>
+                <SelectContent>
+                  {(restaurants.data ?? []).map((r) => (<SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>))}
+                </SelectContent>
+              </Select>
+            </div>
+          ) : <div />}
+          <div className="md:col-span-5"><Button type="submit" disabled={create.isPending} data-testid="button-create-user">{t("common.create")}</Button></div>
+        </form>
+      </CardContent>
+      ) : null}
+    </Card>
+  );
+}
+
+function AddRestaurantCard() {
+  const { t } = useTranslation();
+  const qc = useQueryClient();
+  const { toast } = useToast();
+  const create = useCreateRestaurant();
+
+  const [form, setForm] = useState({ name: "", nameCode: "", address: "", phone: "", minDeliveryTime: 30 });
+  const [formOpen, setFormOpen] = useState(false);
+
+  return (
+    <Card>
+      <CardHeader>
+        <button
+          type="button"
+          className="flex items-center justify-between w-full text-left"
+          onClick={() => setFormOpen((v) => !v)}
+          data-testid="button-toggle-new-restaurant"
+        >
+          <CardTitle className="text-base flex items-center gap-2"><Plus className="size-4" />{t("admin.newRestaurant")}</CardTitle>
+          <ChevronDown className={cn("size-4 transition-transform", formOpen && "rotate-180")} />
+        </button>
+      </CardHeader>
+      {formOpen ? (
+      <CardContent>
+        <form
+          className="grid grid-cols-1 md:grid-cols-5 gap-3 items-end"
+          onSubmit={(e) => {
+            e.preventDefault();
+            create.mutate(
+              {
+                data: {
+                  name: form.name, nameCode: form.nameCode, address: form.address,
+                  phone: form.phone || null,
+                  minDeliveryTime: Math.max(1, Number(form.minDeliveryTime) || 30),
+                },
+              },
+              {
+                onSuccess: () => {
+                  setForm({ name: "", nameCode: "", address: "", phone: "", minDeliveryTime: 30 });
+                  toast({ title: t("admin.newRestaurant") });
+                  qc.invalidateQueries({ queryKey: getListRestaurantsQueryKey() });
+                },
+                onError: () => toast({ title: t("errors.generic"), variant: "destructive" }),
+              },
+            );
+          }}
+        >
+          <div className="md:col-span-2"><Label className="text-xs">{t("common.name")}</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required data-testid="input-new-rest-name" /></div>
+          <div><Label className="text-xs">{t("admin.nameCode")}</Label><Input value={form.nameCode} onChange={(e) => setForm({ ...form, nameCode: e.target.value })} required data-testid="input-new-rest-name-code" /></div>
+          <div className="md:col-span-2"><Label className="text-xs">{t("common.address")}</Label><Input value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} required data-testid="input-new-rest-address" /></div>
+          <div><Label className="text-xs">{t("common.phone")}</Label><Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} data-testid="input-new-rest-phone" /></div>
+          <div className="md:col-span-2"><Label className="text-xs">{t("admin.minDeliveryTime")}</Label><Input type="number" min={1} value={form.minDeliveryTime} onChange={(e) => setForm({ ...form, minDeliveryTime: Number(e.target.value) })} data-testid="input-new-rest-min-delivery" /></div>
+          <Button type="submit" disabled={create.isPending} data-testid="button-create-restaurant">{t("common.create")}</Button>
+        </form>
+      </CardContent>
+      ) : null}
+    </Card>
+  );
+}
+
+function AddRiderCard() {
+  const { t } = useTranslation();
+  const qc = useQueryClient();
+  const { toast } = useToast();
+  const create = useCreateRider();
+
+  const [form, setForm] = useState({ name: "", nameCode: "", email: "", password: "", phone: "", availabilityStatus: "online" as RiderAvailabilityType });
+  const [formOpen, setFormOpen] = useState(false);
+
+  return (
+    <Card>
+      <CardHeader>
+        <button
+          type="button"
+          className="flex items-center justify-between w-full text-left"
+          onClick={() => setFormOpen((v) => !v)}
+          data-testid="button-toggle-new-rider"
+        >
+          <CardTitle className="text-base flex items-center gap-2"><Plus className="size-4" />{t("admin.newRider")}</CardTitle>
+          <ChevronDown className={cn("size-4 transition-transform", formOpen && "rotate-180")} />
+        </button>
+      </CardHeader>
+      {formOpen ? (
+      <CardContent>
+        <form
+          className="grid grid-cols-1 md:grid-cols-5 gap-3 items-end"
+          onSubmit={(e) => {
+            e.preventDefault();
+            create.mutate(
+              { data: { name: form.name, nameCode: form.nameCode, email: form.email, password: form.password, phone: form.phone || null, availabilityStatus: form.availabilityStatus } },
+              {
+                onSuccess: () => {
+                  setForm({ name: "", nameCode: "", email: "", password: "", phone: "", availabilityStatus: "online" });
+                  toast({ title: t("admin.newRider") });
+                  qc.invalidateQueries({ queryKey: getListRidersQueryKey() });
+                },
+                onError: () => toast({ title: t("errors.generic"), variant: "destructive" }),
+              },
+            );
+          }}
+        >
+          <div><Label className="text-xs">{t("common.name")}</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required data-testid="input-new-rider-name" /></div>
+          <div><Label className="text-xs">{t("admin.nameCode")}</Label><Input value={form.nameCode} onChange={(e) => setForm({ ...form, nameCode: e.target.value })} required data-testid="input-new-rider-name-code" /></div>
+          <div><Label className="text-xs">{t("common.email")}</Label><Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required data-testid="input-new-rider-email" /></div>
+          <div><Label className="text-xs">{t("common.password")}</Label><Input type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required minLength={8} data-testid="input-new-rider-password" /></div>
+          <div><Label className="text-xs">{t("common.phone")}</Label><Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} data-testid="input-new-rider-phone" /></div>
+          <div>
+            <Label className="text-xs">{t("rider.availability")}</Label>
+            <Select value={form.availabilityStatus} onValueChange={(v) => setForm({ ...form, availabilityStatus: v as RiderAvailabilityType })}>
+              <SelectTrigger data-testid="select-new-rider-avail"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {Object.values(RiderAvailability).map((a) => <SelectItem key={a} value={a}>{t(`availability.${a}`)}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <Button type="submit" disabled={create.isPending} data-testid="button-create-rider">{t("common.create")}</Button>
+        </form>
+      </CardContent>
+      ) : null}
     </Card>
   );
 }
