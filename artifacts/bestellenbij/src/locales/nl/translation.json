@@ -268,6 +268,7 @@
     "passwordChanged": "Wachtwoord bijgewerkt",
     "appearance": "Weergave",
     "darkMode": "Donkere modus",
+    "adminPanel": "Beheer gebruikers, restaurants en systeeminstellingen",
     "logout": "Afmelden"
   },
   "push": {

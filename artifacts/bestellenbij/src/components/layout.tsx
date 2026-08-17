@@ -7,14 +7,11 @@ import {
   Store,
   Settings as SettingsIcon,
   ShieldCheck,
-  LogOut,
 } from "lucide-react";
 import type { UserRole } from "@workspace/api-client-react";
 import { useAuth } from "@/lib/auth";
 import { ROLE_HOMES } from "@/lib/role-homes";
-import { LocaleSwitch } from "./locale-switch";
 import { PushOptInPrompt } from "./push-opt-in";
-import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 const ROLE_NAV: Record<UserRole, Array<{ to: string; key: string; icon: typeof Bike }>> = {
@@ -42,7 +39,7 @@ const ROLE_NAV: Record<UserRole, Array<{ to: string; key: string; icon: typeof B
 
 export function AppShell({ children }: { children: ReactNode }) {
   const { t } = useTranslation();
-  const { user, signOut } = useAuth();
+  const { user } = useAuth();
   const [loc] = useLocation();
   if (!user) return <>{children}</>;
   const items = ROLE_NAV[user.role];
@@ -65,6 +62,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                   href={item.to}
                   className={cn(
                     "inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-sm transition-colors",
+                    item.key === "admin" && "hidden md:inline-flex",
                     active
                       ? "bg-primary/10 text-primary"
                       : "text-muted-foreground hover:text-foreground hover:bg-muted",
@@ -78,20 +76,10 @@ export function AppShell({ children }: { children: ReactNode }) {
             })}
           </nav>
           <div className="ml-auto flex items-center gap-3">
-            <LocaleSwitch />
             <div className="hidden md:block text-right text-xs leading-tight">
               <div className="font-medium" data-testid="text-user-name">{user.name}</div>
               <div className="text-muted-foreground">{t(`roles.${user.role}`)}</div>
             </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={signOut}
-              data-testid="button-logout"
-              aria-label={t("nav.logout")}
-            >
-              <LogOut className="size-4" />
-            </Button>
           </div>
         </div>
       </header>
