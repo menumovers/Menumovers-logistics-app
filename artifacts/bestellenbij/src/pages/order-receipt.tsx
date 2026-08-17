@@ -89,6 +89,7 @@ export default function OrderReceiptPage() {
         className="receipt-sheet mx-auto max-w-[80ch] rounded-lg border border-border bg-card p-6 space-y-5"
         data-testid="receipt-sheet"
       >
+        <img src="/bestellenbij-logo-bw.svg" alt="" className="h-8 w-auto" />
         <ReceiptHeader order={o} restaurantName={restaurant?.name} restaurantAddress={restaurant?.address} lang={lang} />
         <ItemLines order={o} lang={lang} />
         <MoneyBlock order={o} lang={lang} />
