@@ -1,16 +1,19 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useQueryClient } from "@tanstack/react-query";
+import { Link } from "wouter";
 import {
   useListUsers, useCreateUser, useUpdateUser, useDeleteUser,
   useListRestaurants, useCreateRestaurant, useUpdateRestaurant, useDeleteRestaurant,
   useListRiders, useCreateRider, useUpdateRider,
   useGetSettings, useUpdateSettings,
+  useListOrders,
   getListUsersQueryKey, getListRestaurantsQueryKey, getListRidersQueryKey, getGetSettingsQueryKey,
-  UserRole, RiderAvailability, RestaurantAcceptanceMode,
+  getListOrdersQueryKey,
+  UserRole, RiderAvailability, RestaurantAcceptanceMode, OrderStatus,
   type Restaurant, type RiderWithWorkload, type User as ApiUser, type UserRole as UserRoleType,
   type RiderAvailability as RiderAvailabilityType, type Settings as ApiSettings,
-  type RestaurantAcceptanceMode as RestaurantAcceptanceModeType,
+  type RestaurantAcceptanceMode as RestaurantAcceptanceModeType, type OrderListItem,
 } from "@workspace/api-client-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -18,28 +21,316 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/searchable-select";
 import { Switch } from "@/components/ui/switch";
-import { Plus, Trash2, CheckCircle2, AlertCircle } from "lucide-react";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Spinner } from "@/components/ui/spinner";
+import { Plus, Trash2, CheckCircle2, AlertCircle, Filter, SlidersHorizontal, ChevronDown, ChevronRight } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { formatDateTime } from "@/lib/format";
+import { formatDateTime, formatTime, effectivePickup, minutesUntil } from "@/lib/format";
+import { RequestedTimeLabel } from "@/components/delivery-expectation";
+import { cn } from "@/lib/utils";
 
 export default function AdminPage() {
   const { t } = useTranslation();
   return (
     <div className="space-y-5">
       <h1 className="text-2xl font-bold tracking-tight">{t("admin.title")}</h1>
-      <Tabs defaultValue="users">
+      <Tabs defaultValue="orders">
         <TabsList>
-          <TabsTrigger value="users" data-testid="tab-users">{t("admin.users")}</TabsTrigger>
-          <TabsTrigger value="restaurants" data-testid="tab-restaurants">{t("admin.restaurants")}</TabsTrigger>
+          <TabsTrigger value="orders" data-testid="tab-orders">{t("admin.orders")}</TabsTrigger>
           <TabsTrigger value="riders" data-testid="tab-riders">{t("admin.riders")}</TabsTrigger>
+          <TabsTrigger value="restaurants" data-testid="tab-restaurants">{t("admin.restaurants")}</TabsTrigger>
+          <TabsTrigger value="users" data-testid="tab-users">{t("admin.users")}</TabsTrigger>
           <TabsTrigger value="settings" data-testid="tab-settings">{t("admin.settings")}</TabsTrigger>
         </TabsList>
-        <TabsContent value="users" className="mt-4"><UsersPanel /></TabsContent>
-        <TabsContent value="restaurants" className="mt-4"><RestaurantsPanel /></TabsContent>
+        <TabsContent value="orders" className="mt-4"><OrdersPanel /></TabsContent>
         <TabsContent value="riders" className="mt-4"><RidersPanel /></TabsContent>
+        <TabsContent value="restaurants" className="mt-4"><RestaurantsPanel /></TabsContent>
+        <TabsContent value="users" className="mt-4"><UsersPanel /></TabsContent>
         <TabsContent value="settings" className="mt-4"><SettingsPanel /></TabsContent>
       </Tabs>
+    </div>
+  );
+}
+
+const ALL = "__all__";
+
+type SortKey = "pickup" | "delivery" | "createdAsc" | "createdDesc" | "orderNr";
+
+const QUICK_FILTER_KEYS = [
+  "active1h",
+  "active2h",
+  "futureToday",
+  "futureAll",
+  "completedToday",
+  "pastToday",
+  "pastAll",
+] as const;
+type QuickFilterKey = (typeof QUICK_FILTER_KEYS)[number];
+
+function isSameLocalDay(iso: string, reference: Date): boolean {
+  const d = new Date(iso);
+  return (
+    d.getFullYear() === reference.getFullYear() &&
+    d.getMonth() === reference.getMonth() &&
+    d.getDate() === reference.getDate()
+  );
+}
+
+/** Quick filters key off the effective pick-up time — the operational timeline used everywhere else in the app. */
+function matchesQuickFilter(order: OrderListItem, key: QuickFilterKey, now: Date): boolean {
+  const eff = effectivePickup(order);
+  const mins = minutesUntil(eff.iso, now);
+  const active = order.status !== "delivered" && order.status !== "failed";
+  const today = isSameLocalDay(eff.iso, now);
+  switch (key) {
+    case "active1h": return active && mins <= 60;
+    case "active2h": return active && mins <= 120;
+    case "futureToday": return mins > 0 && today;
+    case "futureAll": return mins > 0;
+    case "completedToday": return order.status === "delivered" && today;
+    case "pastToday": return mins < 0 && today;
+    case "pastAll": return mins < 0;
+  }
+}
+
+function OrdersPanel() {
+  const { t, i18n } = useTranslation();
+  const lang = i18n.resolvedLanguage ?? "nl";
+  const [sortBy, setSortBy] = useState<SortKey>("pickup");
+  const [quickFilters, setQuickFilters] = useState<Set<QuickFilterKey>>(new Set());
+  const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [status, setStatus] = useState<string>(ALL);
+  const [restaurantId, setRestaurantId] = useState<string>(ALL);
+  const [riderId, setRiderId] = useState<string>(ALL);
+  const [q, setQ] = useState("");
+
+  const params = useMemo(() => {
+    const p: Record<string, string> = {};
+    if (status !== ALL) p.status = status;
+    if (restaurantId !== ALL) p.restaurantId = restaurantId;
+    if (riderId !== ALL) p.riderId = riderId;
+    if (q.trim()) p.q = q.trim();
+    return p;
+  }, [status, restaurantId, riderId, q]);
+
+  const orders = useListOrders(params, {
+    query: { queryKey: getListOrdersQueryKey(params), refetchInterval: 30_000 },
+  });
+  const restaurants = useListRestaurants({ query: { queryKey: getListRestaurantsQueryKey() } });
+  const riders = useListRiders({ query: { queryKey: getListRidersQueryKey() } });
+
+  function toggleQuickFilter(key: QuickFilterKey) {
+    setQuickFilters((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }
+
+  const sorted = useMemo(() => {
+    const all = orders.data ?? [];
+    const now = new Date();
+    const filtered =
+      quickFilters.size === 0
+        ? all
+        : all.filter((o) => Array.from(quickFilters).some((k) => matchesQuickFilter(o, k, now)));
+
+    const arr = [...filtered];
+    switch (sortBy) {
+      case "pickup":
+        arr.sort((a, b) => new Date(effectivePickup(a).iso).getTime() - new Date(effectivePickup(b).iso).getTime());
+        break;
+      case "delivery":
+        arr.sort((a, b) => new Date(a.requestedDeliveryTime).getTime() - new Date(b.requestedDeliveryTime).getTime());
+        break;
+      case "createdAsc":
+        arr.sort((a, b) => new Date(a.sourceCreatedAt).getTime() - new Date(b.sourceCreatedAt).getTime());
+        break;
+      case "createdDesc":
+        arr.sort((a, b) => new Date(b.sourceCreatedAt).getTime() - new Date(a.sourceCreatedAt).getTime());
+        break;
+      case "orderNr":
+        arr.sort((a, b) => a.externalOrderId.localeCompare(b.externalOrderId, undefined, { numeric: true }));
+        break;
+    }
+    return arr;
+  }, [orders.data, quickFilters, sortBy]);
+
+  return (
+    <div className="space-y-4">
+      <Card>
+        <CardContent className="flex flex-wrap items-end gap-3 py-4">
+          <div>
+            <Label className="text-xs text-muted-foreground">{t("admin.ordersSort")}</Label>
+            <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortKey)}>
+              <SelectTrigger className="w-56" data-testid="select-orders-sort"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="pickup">{t("admin.ordersSort_pickup")}</SelectItem>
+                <SelectItem value="delivery">{t("admin.ordersSort_delivery")}</SelectItem>
+                <SelectItem value="createdAsc">{t("admin.ordersSort_createdAsc")}</SelectItem>
+                <SelectItem value="createdDesc">{t("admin.ordersSort_createdDesc")}</SelectItem>
+                <SelectItem value="orderNr">{t("admin.ordersSort_orderNr")}</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" data-testid="button-orders-quick-filter">
+                <Filter className="size-3.5 mr-1.5" />
+                {t("admin.ordersQuickFilter")}
+                {quickFilters.size > 0 ? ` (${quickFilters.size})` : ""}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start">
+              {QUICK_FILTER_KEYS.map((key) => (
+                <DropdownMenuCheckboxItem
+                  key={key}
+                  checked={quickFilters.has(key)}
+                  onCheckedChange={() => toggleQuickFilter(key)}
+                  onSelect={(e) => e.preventDefault()}
+                  data-testid={`checkbox-quick-filter-${key}`}
+                >
+                  {t(`admin.ordersQuickFilter_${key}`)}
+                </DropdownMenuCheckboxItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          <Button
+            variant="ghost"
+            onClick={() => setAdvancedOpen((v) => !v)}
+            data-testid="button-orders-advanced-filter-toggle"
+          >
+            <SlidersHorizontal className="size-3.5 mr-1.5" />
+            {t("admin.ordersAdvancedFilter")}
+            <ChevronDown className={cn("size-3.5 ml-1 transition-transform", advancedOpen && "rotate-180")} />
+          </Button>
+
+          <div className="ml-auto text-sm text-muted-foreground tabular-nums" data-testid="text-admin-orders-count">
+            {t("coordinator.ordersCount", { count: sorted.length })}
+          </div>
+        </CardContent>
+      </Card>
+
+      {advancedOpen ? (
+        <Card>
+          <CardContent className="grid grid-cols-1 md:grid-cols-4 gap-3 py-4">
+            <div>
+              <Label className="text-xs text-muted-foreground">{t("common.search")}</Label>
+              <Input
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                placeholder={t("coordinator.searchPlaceholder")}
+                data-testid="input-orders-search"
+              />
+            </div>
+            <div>
+              <Label className="text-xs text-muted-foreground">{t("coordinator.filterStatus")}</Label>
+              <Select value={status} onValueChange={setStatus}>
+                <SelectTrigger data-testid="select-orders-filter-status"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={ALL}>{t("common.all")}</SelectItem>
+                  {Object.values(OrderStatus).map((s) => (
+                    <SelectItem key={s} value={s}>{t(`orderStatus.${s}`)}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs text-muted-foreground">{t("coordinator.filterRestaurant")}</Label>
+              <SearchableSelect
+                value={restaurantId}
+                onValueChange={setRestaurantId}
+                options={[
+                  { value: ALL, label: t("common.all") },
+                  ...(restaurants.data ?? []).map((r) => ({ value: r.id, label: r.name })),
+                ]}
+                searchPlaceholder={t("common.search")}
+                emptyText={t("common.noResults")}
+                triggerTestId="select-orders-filter-restaurant"
+                itemTestId={(v) => `option-orders-filter-restaurant-${v}`}
+              />
+            </div>
+            <div>
+              <Label className="text-xs text-muted-foreground">{t("coordinator.filterRider")}</Label>
+              <SearchableSelect
+                value={riderId}
+                onValueChange={setRiderId}
+                options={[
+                  { value: ALL, label: t("common.all") },
+                  ...(riders.data ?? []).map((r) => ({ value: r.id, label: r.name })),
+                ]}
+                searchPlaceholder={t("common.search")}
+                emptyText={t("common.noResults")}
+                triggerTestId="select-orders-filter-rider"
+                itemTestId={(v) => `option-orders-filter-rider-${v}`}
+              />
+            </div>
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {orders.isLoading ? (
+        <div className="grid place-items-center py-20"><Spinner className="size-6 text-primary" /></div>
+      ) : sorted.length === 0 ? (
+        <Card><CardContent className="py-20 text-center text-muted-foreground">{t("coordinator.empty")}</CardContent></Card>
+      ) : (
+        <Card>
+          <CardContent className="p-0">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{t("admin.ordersColumnNumber")}</TableHead>
+                  <TableHead>{t("pickup.label")}</TableHead>
+                  <TableHead>{t("admin.ordersColumnDelivery")}</TableHead>
+                  <TableHead>{t("nav.restaurant")}</TableHead>
+                  <TableHead>{t("common.address")}</TableHead>
+                  <TableHead className="text-right">{t("common.actions")}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {sorted.map((o) => {
+                  const eff = effectivePickup(o);
+                  const otherDay = o.deliveryTimeType === "other_day";
+                  return (
+                    <TableRow key={o.id} data-testid={`row-admin-order-${o.id}`}>
+                      <TableCell className="tabular-nums font-medium whitespace-nowrap">
+                        <Link
+                          href={`/coordinator/orders/${o.id}`}
+                          className="hover:underline underline-offset-2"
+                          data-testid={`link-admin-order-number-${o.id}`}
+                        >
+                          #{o.externalOrderId.slice(-5)}
+                        </Link>
+                      </TableCell>
+                      <TableCell className="tabular-nums whitespace-nowrap">
+                        {otherDay ? formatDateTime(eff.iso, lang) : formatTime(eff.iso, lang)}
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap"><RequestedTimeLabel order={o} lang={lang} /></TableCell>
+                      <TableCell className="truncate max-w-[180px]">{o.restaurantName ?? "—"}</TableCell>
+                      <TableCell className="truncate max-w-[240px]">{o.deliveryAddress}</TableCell>
+                      <TableCell className="text-right">
+                        <Button asChild variant="outline" size="sm" data-testid={`button-admin-order-detail-${o.id}`}>
+                          <Link href={`/coordinator/orders/${o.id}`}>
+                            {t("common.details")} <ChevronRight className="size-3.5 ml-1" />
+                          </Link>
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

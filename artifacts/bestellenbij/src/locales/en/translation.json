@@ -49,7 +49,8 @@
     "previousSlide": "Previous slide",
     "nextSlide": "Next slide",
     "toggleSidebar": "Toggle sidebar",
-    "details": "Details"
+    "details": "Details",
+    "noResults": "No results"
   },
   "address": {
     "street": "Street",
@@ -219,6 +220,24 @@
   },
   "admin": {
     "title": "Admin",
+    "orders": "Orders",
+    "ordersSort": "Sort by",
+    "ordersSort_pickup": "Pick-up time",
+    "ordersSort_delivery": "Estimated delivery time",
+    "ordersSort_createdAsc": "Creation time (old to new)",
+    "ordersSort_createdDesc": "Creation time (new to old)",
+    "ordersSort_orderNr": "Order number",
+    "ordersQuickFilter": "Quick filter",
+    "ordersQuickFilter_active1h": "Currently active (1 hr)",
+    "ordersQuickFilter_active2h": "Currently active (2 hrs)",
+    "ordersQuickFilter_futureToday": "Future orders (today)",
+    "ordersQuickFilter_futureAll": "Future orders (all)",
+    "ordersQuickFilter_completedToday": "Completed orders (today)",
+    "ordersQuickFilter_pastToday": "Past orders (today)",
+    "ordersQuickFilter_pastAll": "Past orders (all)",
+    "ordersAdvancedFilter": "Advanced filter",
+    "ordersColumnNumber": "Order #",
+    "ordersColumnDelivery": "Expected delivery",
     "users": "Users",
     "restaurants": "Restaurants",
     "riders": "Riders",
@@ -371,9 +390,7 @@
     "timeType_other_day": "Another day",
     "requested": "Customer asked for",
     "pickupSection": "Customer pickup ({{count}})",
-    "pickupSectionHelp": "The customer collects these themselves — they are never offered to riders.",
-    "timeType_asap_short": "ASAP",
-    "estimated": "est. {{time}}"
+    "pickupSectionHelp": "The customer collects these themselves — they are never offered to riders."
   },
   "acknowledge": {
     "title": "Confirm this order",

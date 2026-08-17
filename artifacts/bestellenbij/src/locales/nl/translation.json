@@ -49,7 +49,8 @@
     "previousSlide": "Vorige dia",
     "nextSlide": "Volgende dia",
     "toggleSidebar": "Zijbalk wisselen",
-    "details": "Details"
+    "details": "Details",
+    "noResults": "Geen resultaten"
   },
   "address": {
     "street": "Straat",
@@ -219,6 +220,24 @@
   },
   "admin": {
     "title": "Beheer",
+    "orders": "Bestellingen",
+    "ordersSort": "Sorteren op",
+    "ordersSort_pickup": "Ophaaltijd",
+    "ordersSort_delivery": "Verwachte bezorgtijd",
+    "ordersSort_createdAsc": "Aanmaaktijd (oud naar nieuw)",
+    "ordersSort_createdDesc": "Aanmaaktijd (nieuw naar oud)",
+    "ordersSort_orderNr": "Ordernummer",
+    "ordersQuickFilter": "Snelfilter",
+    "ordersQuickFilter_active1h": "Actief (1 uur)",
+    "ordersQuickFilter_active2h": "Actief (2 uur)",
+    "ordersQuickFilter_futureToday": "Toekomstige bestellingen (vandaag)",
+    "ordersQuickFilter_futureAll": "Toekomstige bestellingen (alle)",
+    "ordersQuickFilter_completedToday": "Afgeronde bestellingen (vandaag)",
+    "ordersQuickFilter_pastToday": "Afgelopen bestellingen (vandaag)",
+    "ordersQuickFilter_pastAll": "Afgelopen bestellingen (alle)",
+    "ordersAdvancedFilter": "Geavanceerd filter",
+    "ordersColumnNumber": "Ordernr.",
+    "ordersColumnDelivery": "Verwachte bezorging",
     "users": "Gebruikers",
     "restaurants": "Restaurants",
     "riders": "Rijders",
@@ -371,9 +390,7 @@
     "timeType_other_day": "Andere dag",
     "requested": "Klant vroeg om",
     "pickupSection": "Klant haalt op ({{count}})",
-    "pickupSectionHelp": "De klant haalt deze zelf op — ze worden nooit aan rijders aangeboden.",
-    "timeType_asap_short": "Z.s.m.",
-    "estimated": "ca. {{time}}"
+    "pickupSectionHelp": "De klant haalt deze zelf op — ze worden nooit aan rijders aangeboden."
   },
   "acknowledge": {
     "title": "Bevestig deze bestelling",
