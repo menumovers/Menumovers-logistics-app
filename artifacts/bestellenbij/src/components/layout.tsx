@@ -49,7 +49,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col">
-      <header className="sticky top-0 z-40 border-b border-border bg-card/90 backdrop-blur supports-[backdrop-filter]:bg-card/70">
+      <header className="sticky top-0 z-40 border-b border-border bg-[#ffca00]">
         <div className="mx-auto max-w-[1600px] px-4 h-14 flex items-center gap-4">
           <Link href={ROLE_HOMES[user.role]} className="flex items-center gap-2" data-testid="link-home">
             <img src="/bestellenbij-logo-icon.svg" alt="" className="size-7 sm:hidden" />
