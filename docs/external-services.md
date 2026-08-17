@@ -10,7 +10,7 @@ This document is the single source of truth for every external connection this a
 
 **Direction:** Inbound only — babeldish (the distribution middleware) pushes orders to us.
 
-**Status: planned/stub in production.** Code and schema are fully built and verified locally end-to-end (credentialed ingest, idempotent replay, parked-order fallback, invalid-credential rejection). No source has actually been switched over to it in the live environment yet — see the Bestellenbij integration plan for the current phase status.
+**Status on this app's side: operational.** The endpoint, schema, active Bestellenbij credential, direct `restaurantNameCode` lookup, and unresolved-order fallback are present in the live development database. Credentialed ingest, idempotent replay, unmatched/absent restaurant codes, and invalid-credential rejection are covered by the smoke flow. Whether Babeldish is currently sending live traffic is external state and cannot be inferred from this repository.
 
 ### Endpoint
 
@@ -24,7 +24,7 @@ Callers send their raw per-source secret as the `x-inbound-secret` header. The s
 
 ### What happens to orders
 
-The payload's `restaurantNameCode` is matched directly against `restaurants.nameCode`. If the field is absent or doesn't match any known restaurant, the order is **not rejected** — it's stored against a placeholder "Unmapped" restaurant with `isParked: true` and a `parkedReason` explaining what didn't match, so it's queryable rather than lost.
+The payload's optional `restaurantNameCode` is matched directly and case-sensitively against `restaurants.nameCode`. If the field is absent or doesn't match any known restaurant, the order is **not rejected** — it is stored against the "Unmapped" restaurant with `holdState: "parked"`, a `holdReason`, and `heldAt`. Parked orders are visible to coordinators but excluded from new rider assignment until a coordinator resolves the restaurant.
 
 ### Env vars / provisioning
 

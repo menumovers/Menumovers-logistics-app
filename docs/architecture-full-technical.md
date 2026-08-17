@@ -28,12 +28,12 @@ The business language is Dutch (`nl-NL`); English is supported as a secondary lo
 
 What the system does:
 
-- Ingests orders from the distribution service (idempotent, shared-secret).
+- Ingests orders from the distribution service (idempotent, authenticated by a hashed per-source credential).
 - Tracks every order through a reported status lifecycle. The expected order of events is `pending → driver_assigned → en_route_to_restaurant → picked_up → en_route_to_customer → delivered`, but status is a *report* of where things stand rather than a gate: skipping ahead and correcting a mis-tap are both accepted, and the audit trail records the jump that actually happened. Three invariants remain — `pending` and `driver_assigned` are coupled to `riderId` and written only by `POST /orders/:id/assign`; `delivered` and `failed` are terminal (only `delivered → failed` leaves); and a transition must actually move the order. See `docs/workflow-decisions.md` D1.
 - Lets coordinators bundle multiple orders into a `Trip` so one rider executes them as a single pickup pass; restaurants see a unified bundled pickup time per trip.
 - Lets coordinators and admins assign riders atomically, override pickup times, override delivery contact info, and add or hide items per order.
 - Lets riders self-claim unassigned orders, propose a pickup time, and advance status from their device.
-- Lets restaurant staff see only their own restaurant's orders and adjust the restaurant-side pickup time.
+- Lets restaurant staff see only their own restaurant's orders, acknowledge them according to the restaurant's acceptance mode, adjust the restaurant-side pickup time when applicable, and report that food is ready.
 - Notifies the right audiences via Web Push on every significant event.
 - Reports every assignment, status change, and pickup-time change back to the distribution service via outbound webhooks with persistent retry.
 
@@ -76,7 +76,8 @@ What the system explicitly does not do:
 │   ├── api-server/        Express API. Single deployable.
 │   │   └── src/
 │   │       ├── app.ts             Express setup (CORS, pino-http, rate limits, error handler)
-│   │       ├── index.ts           Boot. Reads PORT. Starts retry loop.
+│   │       ├── index.ts           Boot. Reads PORT. Starts retry loop, token janitor,
+│   │       │                       and daily settings reset.
 │   │       ├── routes/            One file per resource. All mounted at /api.
 │   │       │                       (auth, health, orders, riders, restaurants, users,
 │   │       │                        settings, push, trips)
@@ -116,25 +117,26 @@ What the system explicitly does not do:
 1. Distribution service `POST`s to `/api/inbound/orders` with `x-inbound-secret`.
 2. `inboundLimiter` (60/min) and `requireInboundCredential` gate the request — the secret is matched against a per-source hashed credential in `api_credentials`, and the matched row's source becomes `req.inboundSource`.
 3. The Zod schema `IngestOrderBody` validates the body.
-4. The handler resolves the restaurant by matching `payload.restaurantNameCode` against `restaurants.nameCode` directly. If the field is absent or doesn't match any known restaurant, the order is **not rejected** — it's stored against a placeholder "Unmapped" restaurant with `isParked: true` and a `parkedReason` instead. Either way, the handler computes the ASAP pickup time as `now + restaurant.minDeliveryTime` (defaulting to 30 minutes), and either inserts the order or updates an existing row by `orderId` (idempotent). The original payload is stored in `orders.originalPayload` (jsonb).
-5. `pickup_time_original` is written on insert and never touched afterwards.
-6. `audienceForNewOrder()` resolves to coordinators + admins + the order's restaurant staff. `push.ts` sends a push to each.
-7. `enqueueOutbound("order.created", ...)` writes the event to `webhook_retry_queue` and immediately attempts delivery.
-8. The handler responds 200 with the order id.
+4. The handler resolves the restaurant by matching `payload.restaurantNameCode` against `restaurants.nameCode` directly. If the field is absent or doesn't match any known restaurant, the order is **not rejected** — it is stored against the "Unmapped" placeholder with `holdState: "parked"`, a `holdReason`, and `heldAt`; this blocks new rider assignment until a coordinator resolves the restaurant.
+5. `resolveOriginalPickupTime` computes the immutable original pickup time. ASAP orders use `sourceCreatedAt + pickupWithinMinutes` when that setting is present; every other case uses `requestedDeliveryTime − pickupOffsetMinutes`. The source's `*MinDeliveryTime`, `*MinPickupTime`, `*MinPrepTime`, and `sourceRestaurantReadyTime` fields are audit-only.
+6. The handler inserts a new order or updates mutable fields on an existing row by `orderId` (idempotent). `pickup_time_original`, `source_created_at`, and `delivery_address_original` are written only on insert; `original_payload` is refreshed on replay.
+7. `audienceForNewOrder()` resolves to coordinators + admins + the order's restaurant staff. `push.ts` sends a push to each.
+8. `enqueueOutboundEvent("order.created", ...)` writes the event to `webhook_retry_queue` and immediately attempts delivery when outbound webhooks are enabled.
+9. The handler responds 200 with the serialized order.
 
 ### 5.2 Atomic rider assignment
 
-1. Coordinator (or admin) calls `POST /api/orders/:id/assign` with `riderId`.
-2. The handler runs a single conditional `UPDATE orders SET status='driver_assigned', riderId=:riderId WHERE id=:id AND status='pending'`. If the affected row count is 0 the order was already assigned or is in another status, and we return 409.
+1. A coordinator/admin assigns a rider, or a rider self-claims when `allowRiderSelfClaim` is enabled, by calling `POST /api/orders/:id/assign` with `riderId`. Riders may claim only their own rider record.
+2. The handler runs one conditional update that sets `status='driver_assigned'` and `riderId` only while the order is still pending, unassigned, not held, and rider-deliverable. Customer-pickup orders return `422 NOT_RIDER_DELIVERABLE`; held/parked orders return `409 ORDER_ON_HOLD`; an already-claimed order returns `409 ALREADY_ASSIGNED`.
 3. A `rider_assignments` row is inserted; an `order_status_logs` row is written via `assertValidTransition`.
 4. `audienceForAssignment()` (the assigned rider + the order's restaurant staff) receives a push.
 5. `enqueueOutbound("order.assigned", ...)` fires.
 
 ### 5.3 Status transition
 
-1. Caller hits `POST /api/orders/:id/status` with the target status.
-2. The handler loads the current status and calls `assertValidTransition(from, to)`. Invalid transitions produce a 422 `INVALID_TRANSITION`.
-3. The transition is logged in `order_status_logs` with `userId`, `userRole`, `from`, `to`, `at`.
+1. An authorized caller hits `POST /api/orders/:id/status` with the reported target status. Riders may update only their own assigned orders; restaurant staff cannot use this endpoint.
+2. The handler calls `assertValidTransition(from, to)`. Status is a report rather than a strict linear gate: skipping ahead and corrections are allowed. Same-state changes are rejected; `driver_assigned` must go through `/assign`; terminal-state invariants still apply.
+3. The update is guarded by the previously-read status so concurrent changes return `409 STATE_CONFLICT`. The accepted transition is logged in `order_status_logs` with actor, role, from/to status, timestamp, and any note/failure reason.
 4. `audienceForStatus(to)` resolves the audience (e.g. coordinators+admins for `picked_up`, all coordinators+admins for `failed`); `push.ts` sends.
 5. `enqueueOutbound("order.status_changed", ...)` fires.
 

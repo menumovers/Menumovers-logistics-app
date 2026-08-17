@@ -95,9 +95,9 @@ The structure for each entry: **Name**, **Location**, **What it does**, **Formul
 
 ### Inbound restaurant resolution
 - **Location**: `artifacts/api-server/src/routes/orders.ts` → `resolveRestaurantByNameCode`
-- **What it does**: Matches the inbound payload's `restaurantNameCode` string against `restaurants.nameCode`. Returns the restaurant's internal UUID, or `null` if the field is absent or no row matches.
+- **What it does**: Matches the inbound payload's `restaurantNameCode` string against `restaurants.nameCode`. Returns the restaurant's internal UUID, or `null` if the field is absent or no row matches. A null result is stored against the "Unmapped" restaurant with `holdState: "parked"`, `holdReason`, and `heldAt`.
 - **Callers**: `POST /inbound/orders` handler only.
-- **Do not**: resolve restaurants by any other key (external ID, name string, etc.) in the inbound path. Do not add source-scoping to this lookup — `nameCode` is globally unique in the restaurants table. If the lookup returns `null`, park the order against the "Unmapped" placeholder; do not reject the request.
+- **Do not**: resolve restaurants by any other key (external ID, name string, etc.) in the inbound path. Do not add source-scoping to this lookup — `nameCode` is globally unique in the restaurants table. If the lookup returns `null`, park and hold the order against the "Unmapped" placeholder; do not reject the request or expose it for new rider assignment.
 
 ### Item overrides application
 - **Location**: `artifacts/api-server/src/lib/order-serialize.ts` → `applyItemOverrides`
@@ -264,7 +264,7 @@ All routes are mounted under `/api` (see `artifacts/api-server/src/app.ts` → `
 | --- | --- | --- | --- |
 | Health | `routes/health.ts` | `/api/healthz` | GET healthz |
 | Auth | `routes/auth.ts` | `/api/auth/*` | POST login, POST logout, GET me |
-| Orders | `routes/orders.ts` | `/api/orders/*`, `/api/inbound/orders` | POST inbound (shared-secret), GET list, GET by id, POST assign, POST status, POST pickup-time, POST items hide/add, POST contact, POST rider-notification |
+| Orders | `routes/orders.ts` | `/api/orders/*`, `/api/inbound/orders` | POST inbound (per-source hashed credential), GET list/detail, POST assign/status/pickup-time, restaurant accept/ready, hold/release/resolve-restaurant, item hide/add, contact, rider-notification |
 | Riders | `routes/riders.ts` | `/api/riders/*` | GET list, POST create, PATCH availability, POST suspend |
 | Restaurants | `routes/restaurants.ts` | `/api/restaurants/*` | GET list, POST create, PATCH, DELETE |
 | Users | `routes/users.ts` | `/api/users/*` | GET, POST, PATCH, DELETE |

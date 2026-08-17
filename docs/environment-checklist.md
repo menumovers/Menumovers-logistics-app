@@ -74,17 +74,20 @@ Items 1–4 and 6 add no DDL — their settings are rows in the existing
 
 ## Part 2 — Applying the schema
 
-Nothing is deployed anywhere yet, so there is no data to preserve and no
-migration ceremony. Apply the schema and move on:
+The current development database contains operational data, so schema changes
+must preserve rows unless the owner explicitly authorizes otherwise. Apply
+schema changes, review any destructive prompt, and run both drift checks:
 
 ```
 pnpm --filter @workspace/db run push
 ```
 
-- [x] Push applied — *ran clean against a fresh local database on 2026-08-15:
-      `delivery_address` → `delivery_address_original`, `restaurant_ready_at`
-      created, `trip_stops.completed_at` dropped.*
-- [ ] `pnpm --filter @workspace/db run db:live-drift` reports no delta
+- [x] Schema applied to the live development database — *verified 2026-08-17.
+      Existing order rows were preserved while `delivery_address` was copied to
+      `delivery_address_original`; acceptance, ready, and hold columns/types were
+      added; retired columns were removed.*
+- [x] `pnpm --filter @workspace/db run db:drift` reports no uncommitted schema files
+- [x] `pnpm --filter @workspace/db run db:live-drift` reports no live/schema delta
 
 ### ⚠ The no-ceremony rule expired on 2026-08-14
 

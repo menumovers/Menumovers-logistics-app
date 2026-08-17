@@ -158,23 +158,23 @@ These were listed as out of scope but represent decisions made — not things to
 
 ## Bestellenbij Integration
 
-### Parked-order dispatch/visibility mechanics
+### Parked-order dispatch/visibility mechanics — RESOLVED 2026-08-15
 - **Source**: Bestellenbij data-comparison plan (Phase 1)
 - **In docs/todo-roadmap.md**: No
-- **Kind**: Deferred feature
-- **Notes**: When an inbound order's `restaurantNameCode` is absent or doesn't match any `restaurants.nameCode`, it's stored against a placeholder restaurant with `isParked: true` and a `parkedReason`, instead of being rejected. That's deliberately the minimum — no status/permissions model was designed for who can see or act on parked orders, or how dispatch logic should treat them (currently nothing excludes them from anything). Worth flagging as higher priority than a typical "someday" item: once Babeldish goes live, parked orders will start actually occurring if any nameCode mismatches exist, not just being theoretically possible.
+- **Kind**: Completed feature
+- **Notes**: Implemented through the hold model. An unresolved `restaurantNameCode` stores the order against the "Unmapped" restaurant with `holdState: "parked"`, `holdReason`, and `heldAt`. Parked orders are coordinator-visible and excluded from rider discovery and assignment. Coordinators can resolve the restaurant, which clears the hold. The original deferred gap no longer exists.
 
-### `pickupTimeOriginal` derivation formula
+### `pickupTimeOriginal` derivation formula — RESOLVED 2026-08-15
 - **Source**: Bestellenbij data-comparison plan (Phase 4)
 - **In docs/todo-roadmap.md**: No
-- **Kind**: Deferred feature
-- **Notes**: Phase 4 landed 10 raw time-data columns (`sourceCreatedAt`, `requestedDeliveryTime`, `deliveryTimeType`, `sourceRestaurantReadyTime`, and six `*MinDeliveryTime`/`*MinPickupTime`/`*MinPrepTime` fields split by restaurant vs. delivery team) so the data is available, but `pickupTimeOriginal`'s computation still only reads `restaurants.minDeliveryTime`, untouched. No functional impact today — just no formula yet for using the richer data. Low urgency; the columns can sit unused as long as needed.
+- **Kind**: Completed feature
+- **Notes**: Resolved by D13. ASAP orders use `sourceCreatedAt + pickupWithinMinutes` when the temporary setting is present; all other orders use `requestedDeliveryTime − pickupOffsetMinutes`. The six source minimum fields and `sourceRestaurantReadyTime` are retained as audit-only data and deliberately do not enter the calculation.
 
 ### Scheduled-order UX/logic
 - **Source**: Bestellenbij data-comparison plan (Phase 4)
 - **In docs/todo-roadmap.md**: No
 - **Kind**: Deferred feature
-- **Notes**: The raw fields needed to eventually support scheduled (non-ASAP) orders exist (`deliveryTimeType`, `requestedDeliveryTime`), but no UX or dispatch logic for that mode has been built — this plan only landed the data, not the feature.
+- **Notes**: Scheduled orders now receive a correct original pickup time from `requestedDeliveryTime − pickupOffsetMinutes`. What remains deferred is dedicated scheduled-order presentation/dispatch UX beyond showing and operating on the computed pickup time.
 
 ### Legacy `deliveryAddress` text column
 - **Source**: Bestellenbij data-comparison plan (Phase 2)
