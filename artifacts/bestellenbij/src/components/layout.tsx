@@ -49,10 +49,9 @@ export function AppShell({ children }: { children: ReactNode }) {
       <header className="sticky top-0 z-40 border-b border-border bg-[#ffca00]">
         <div className="mx-auto max-w-[1600px] px-4 h-14 flex items-center gap-4">
           <Link href={ROLE_HOMES[user.role]} className="flex items-center gap-2" data-testid="link-home">
-            <img src="/bestellenbij-logo-icon.svg" alt="" className="size-7 sm:hidden" />
-            <img src="/bestellenbij-logo.svg" alt={t("app.name")} className="hidden sm:block h-7 w-auto" />
+            <img src="/bestellenbij-logo.svg" alt={t("app.name")} className="h-7 w-auto" />
           </Link>
-          <nav className="flex items-center gap-1 ml-2">
+          <nav className="flex items-center gap-1 ml-auto">
             {items.map((item) => {
               const Icon = item.icon;
               const active = loc === item.to || loc.startsWith(`${item.to}/`);
@@ -75,11 +74,9 @@ export function AppShell({ children }: { children: ReactNode }) {
               );
             })}
           </nav>
-          <div className="ml-auto flex items-center gap-3">
-            <div className="hidden md:block text-right text-xs leading-tight">
-              <div className="font-medium" data-testid="text-user-name">{user.name}</div>
-              <div className="text-muted-foreground">{t(`roles.${user.role}`)}</div>
-            </div>
+          <div className="hidden md:block text-right text-xs leading-tight">
+            <div className="font-medium" data-testid="text-user-name">{user.name}</div>
+            <div className="text-muted-foreground">{t(`roles.${user.role}`)}</div>
           </div>
         </div>
       </header>
