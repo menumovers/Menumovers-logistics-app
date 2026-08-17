@@ -21,6 +21,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/searchable-select";
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
@@ -244,27 +245,33 @@ function OrdersPanel() {
             </div>
             <div>
               <Label className="text-xs text-muted-foreground">{t("coordinator.filterRestaurant")}</Label>
-              <Select value={restaurantId} onValueChange={setRestaurantId}>
-                <SelectTrigger data-testid="select-orders-filter-restaurant"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={ALL}>{t("common.all")}</SelectItem>
-                  {(restaurants.data ?? []).map((r) => (
-                    <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                value={restaurantId}
+                onValueChange={setRestaurantId}
+                options={[
+                  { value: ALL, label: t("common.all") },
+                  ...(restaurants.data ?? []).map((r) => ({ value: r.id, label: r.name })),
+                ]}
+                searchPlaceholder={t("common.search")}
+                emptyText={t("common.noResults")}
+                triggerTestId="select-orders-filter-restaurant"
+                itemTestId={(v) => `option-orders-filter-restaurant-${v}`}
+              />
             </div>
             <div>
               <Label className="text-xs text-muted-foreground">{t("coordinator.filterRider")}</Label>
-              <Select value={riderId} onValueChange={setRiderId}>
-                <SelectTrigger data-testid="select-orders-filter-rider"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={ALL}>{t("common.all")}</SelectItem>
-                  {(riders.data ?? []).map((r) => (
-                    <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                value={riderId}
+                onValueChange={setRiderId}
+                options={[
+                  { value: ALL, label: t("common.all") },
+                  ...(riders.data ?? []).map((r) => ({ value: r.id, label: r.name })),
+                ]}
+                searchPlaceholder={t("common.search")}
+                emptyText={t("common.noResults")}
+                triggerTestId="select-orders-filter-rider"
+                itemTestId={(v) => `option-orders-filter-rider-${v}`}
+              />
             </div>
           </CardContent>
         </Card>
