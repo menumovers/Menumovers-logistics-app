@@ -40,13 +40,11 @@ export default function AdminPage() {
     <div className="space-y-5">
       <h1 className="text-2xl font-bold tracking-tight">{t("admin.title")}</h1>
       <Tabs defaultValue="orders">
-        <TabsList className="flex sm:inline-flex w-full sm:w-max justify-between sm:justify-start gap-1 sm:gap-0">
-          <div className="flex overflow-x-auto gap-1 min-w-0 -mx-1 px-1 sm:mx-0 sm:px-0 sm:overflow-visible">
+        <div className="overflow-x-auto -mx-1 px-1">
+          <TabsList className="w-max">
             <TabsTrigger value="orders" data-testid="tab-orders">{t("admin.orders")}</TabsTrigger>
             <TabsTrigger value="riders" data-testid="tab-riders">{t("admin.riders")}</TabsTrigger>
             <TabsTrigger value="restaurants" data-testid="tab-restaurants">{t("admin.restaurants")}</TabsTrigger>
-          </div>
-          <div className="flex gap-1 shrink-0">
             <TabsTrigger value="users" data-testid="tab-users" aria-label={t("admin.users")} className="px-2 sm:px-3">
               <span className="hidden sm:inline">{t("admin.users")}</span>
               <span className="sm:hidden text-base" aria-hidden="true">👤</span>
@@ -59,8 +57,8 @@ export default function AdminPage() {
               <span className="hidden sm:inline">{t("admin.settings")}</span>
               <span className="sm:hidden text-base" aria-hidden="true">🔧</span>
             </TabsTrigger>
-          </div>
-        </TabsList>
+          </TabsList>
+        </div>
         <TabsContent value="orders" className="mt-4"><OrdersPanel /></TabsContent>
         <TabsContent value="riders" className="mt-4"><RidersPanel /></TabsContent>
         <TabsContent value="restaurants" className="mt-4"><RestaurantsPanel /></TabsContent>
