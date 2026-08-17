@@ -16,11 +16,11 @@ import { cn } from "@/lib/utils";
 
 const ROLE_NAV: Record<UserRole, Array<{ to: string; key: string; icon: typeof Bike }>> = {
   admin: [
-    { to: "/admin", key: "admin", icon: ShieldCheck },
     { to: "/coordinator", key: "coordinator", icon: LayoutDashboard },
     { to: "/rider", key: "rider", icon: Bike },
     { to: "/restaurant", key: "restaurant", icon: Store },
     { to: "/settings", key: "settings", icon: SettingsIcon },
+    { to: "/admin", key: "admin", icon: ShieldCheck },
   ],
   coordinator: [
     { to: "/coordinator", key: "coordinator", icon: LayoutDashboard },
