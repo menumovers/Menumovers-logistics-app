@@ -51,11 +51,9 @@ export function AppShell({ children }: { children: ReactNode }) {
     <div className="min-h-screen bg-background text-foreground flex flex-col">
       <header className="sticky top-0 z-40 border-b border-border bg-card/90 backdrop-blur supports-[backdrop-filter]:bg-card/70">
         <div className="mx-auto max-w-[1600px] px-4 h-14 flex items-center gap-4">
-          <Link href={ROLE_HOMES[user.role]} className="flex items-center gap-2 font-semibold tracking-tight" data-testid="link-home">
-            <div className="size-7 rounded-md bg-primary text-primary-foreground grid place-items-center text-sm font-bold">
-              BB
-            </div>
-            <span className="hidden sm:inline">{t("app.name")}</span>
+          <Link href={ROLE_HOMES[user.role]} className="flex items-center gap-2" data-testid="link-home">
+            <img src="/bestellenbij-logo-icon.svg" alt="" className="size-7 sm:hidden" />
+            <img src="/bestellenbij-logo.svg" alt={t("app.name")} className="hidden sm:block h-7 w-auto" />
           </Link>
           <nav className="flex items-center gap-1 ml-2">
             {items.map((item) => {

@@ -36,9 +36,11 @@ export default function LandingPage() {
           className="w-full max-w-md"
         >
           <div className="mb-10 text-center">
-            <div className="mx-auto mb-4 size-14 rounded-2xl bg-primary text-primary-foreground grid place-items-center text-xl font-bold shadow-lg shadow-primary/30">
-              BB
-            </div>
+            <img
+              src="/bestellenbij-logo.svg"
+              alt={t("app.name")}
+              className="mx-auto mb-4 h-14 w-auto"
+            />
             <h1
               className="text-3xl font-bold tracking-tight"
               data-testid="text-landing-heading"
