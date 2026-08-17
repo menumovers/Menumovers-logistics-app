@@ -221,6 +221,7 @@
   "admin": {
     "title": "Beheer",
     "orders": "Bestellingen",
+    "ordersFilters": "Filters & sorteren",
     "ordersSort": "Sorteren op",
     "ordersSort_pickup": "Ophaaltijd",
     "ordersSort_delivery": "Verwachte bezorgtijd",

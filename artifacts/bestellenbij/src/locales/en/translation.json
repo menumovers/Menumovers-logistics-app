@@ -221,6 +221,7 @@
   "admin": {
     "title": "Admin",
     "orders": "Orders",
+    "ordersFilters": "Filters & sort",
     "ordersSort": "Sort by",
     "ordersSort_pickup": "Pick-up time",
     "ordersSort_delivery": "Estimated delivery time",
