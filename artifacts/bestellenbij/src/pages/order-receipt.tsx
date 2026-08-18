@@ -5,12 +5,13 @@ import {
   useListRestaurants,
   getGetOrderQueryKey,
   getListRestaurantsQueryKey,
+  DeliveryTimeType,
   type OrderDetail,
 } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { ArrowLeft, Printer } from "lucide-react";
-import { formatCurrency, formatDateTime, effectivePickup, formatTime } from "@/lib/format";
+import { formatCurrency, effectivePickup, formatTime } from "@/lib/format";
 
 /**
  * The order receipt — primarily a kitchen document.
@@ -32,6 +33,14 @@ import { formatCurrency, formatDateTime, effectivePickup, formatTime } from "@/l
  * rows are still produced by one function, so an item-only receipt is a
  * matter of not rendering it, not a rewrite.
  *
+ * Layout order is deliberate: a short greeting/order/pickup header up top,
+ * the ledger, the kitchen note right under it (kitchen-relevant, read before
+ * anything else), then customer/timing detail, with both addresses and the
+ * delivery instructions pushed to the very bottom — this is a kitchen
+ * document first, not the rider's routing paperwork. Both addresses stay
+ * unconditionally for now; per-restaurant toggles for what prints are a
+ * later addition, not built here.
+ *
  * See docs/workflow-decisions.md D10.
  */
 
@@ -52,6 +61,10 @@ const PRINT_CSS = `
   .receipt-sheet * { color: #000 !important; }
 }
 `;
+
+function deliveryTimeEmoji(type: DeliveryTimeType): string {
+  return type === DeliveryTimeType.asap ? "⚡" : "🕒";
+}
 
 export default function OrderReceiptPage() {
   const { id } = useParams();
@@ -93,8 +106,10 @@ export default function OrderReceiptPage() {
         data-testid="receipt-sheet"
       >
         <img src="/bestellenbij-logo-bw.svg" alt="" className="h-10 w-auto mb-3" />
-        <ReceiptHeader order={o} restaurantName={restaurant?.name} restaurantAddress={restaurant?.address} lang={lang} />
+        <ReceiptHeader order={o} restaurantName={restaurant?.name} lang={lang} />
         <ReceiptLedger order={o} lang={lang} />
+        <KitchenNote order={o} />
+        <ReceiptDetails order={o} restaurantAddress={restaurant?.address} lang={lang} />
         <ReceiptFooter />
       </article>
     </div>
@@ -104,37 +119,25 @@ export default function OrderReceiptPage() {
 function ReceiptHeader({
   order,
   restaurantName,
-  restaurantAddress,
   lang,
 }: {
   order: OrderDetail;
   restaurantName: string | undefined;
-  restaurantAddress: string | undefined;
   lang: string;
 }) {
   const { t } = useTranslation();
   return (
     <header className="space-y-1 pb-3 mb-3 border-b border-border">
-      <h1 className="text-base font-bold" data-testid="text-receipt-order-id">
+      <p className="text-lg">{t("receipt.thankYou")}</p>
+      <p className="text-lg font-bold">{restaurantName ?? "—"}</p>
+
+      <h1 className="text-base font-bold pt-2" data-testid="text-receipt-order-id">
         {t("receipt.orderNumber")}: #{order.externalOrderId}
       </h1>
-      <div>
-        <span className="font-bold">{restaurantName ?? "—"}</span>
-        {restaurantAddress ? <span className="text-muted-foreground"> — {restaurantAddress}</span> : null}
-      </div>
-
-      <Row label={t("receipt.customer")} value={order.customerName} />
-      <Row label={t("common.phone")} value={order.customerPhone} tabular />
-      <Row label={t("common.address")} value={order.deliveryAddress} />
-      <Row label={t("pickup.label")} value={formatTime(effectivePickup(order).iso, lang)} tabular />
-      <Row label={t("receipt.ordered")} value={formatDateTime(order.sourceCreatedAt, lang)} tabular />
-      {order.deliveryInstructions ? <Row label={t("common.notes")} value={order.deliveryInstructions} /> : null}
-
-      {order.kitchenNotes ? (
-        <p className="pt-1" data-testid="text-receipt-kitchen-notes">
-          <span className="font-bold">{t("restaurant.kitchenNotes")}:</span> {order.kitchenNotes}
-        </p>
-      ) : null}
+      <p>
+        {t("pickup.label")}:{" "}
+        <span className="font-bold tabular-nums">{formatTime(effectivePickup(order).iso, lang)}</span>
+      </p>
     </header>
   );
 }
@@ -231,6 +234,52 @@ function ReceiptLedger({ order, lang }: { order: OrderDetail; lang: string }) {
         ) : null}
       </tbody>
     </table>
+  );
+}
+
+/** Order-level kitchen remarks — kept right under the ledger, read before the customer/timing detail below it. */
+function KitchenNote({ order }: { order: OrderDetail }) {
+  const { t } = useTranslation();
+  if (!order.kitchenNotes) return null;
+  return (
+    <p className="pt-3" data-testid="text-receipt-kitchen-notes">
+      <span className="font-bold">{t("restaurant.kitchenNotes")}:</span> {order.kitchenNotes}
+    </p>
+  );
+}
+
+/**
+ * Customer identity and timing, followed by both addresses and the delivery
+ * instructions at the very bottom — this document is read by kitchen staff
+ * first, so what they need (name, phone, when) comes before where anything
+ * goes. Both addresses print unconditionally for now; per-restaurant toggles
+ * for what prints are a later addition, not built here.
+ */
+function ReceiptDetails({
+  order,
+  restaurantAddress,
+  lang,
+}: {
+  order: OrderDetail;
+  restaurantAddress: string | undefined;
+  lang: string;
+}) {
+  const { t } = useTranslation();
+  return (
+    <div className="pt-3 mt-3 border-t border-border space-y-1">
+      <Row label={t("receipt.customer")} value={order.customerName} />
+      <Row label={t("receipt.customerPhone")} value={order.customerPhone} tabular />
+      <Row label={t("receipt.ordered")} value={formatTime(order.sourceCreatedAt, lang)} tabular />
+      <Row
+        label={t("receipt.deliveryEstimate")}
+        value={`${formatTime(order.requestedDeliveryTime, lang)} ${deliveryTimeEmoji(order.deliveryTimeType)}`}
+        tabular
+      />
+
+      {restaurantAddress ? <Row label={t("receipt.restaurantAddress")} value={restaurantAddress} /> : null}
+      <Row label={t("common.address")} value={order.deliveryAddress} />
+      {order.deliveryInstructions ? <Row label={t("common.notes")} value={order.deliveryInstructions} /> : null}
+    </div>
   );
 }
 
