@@ -699,6 +699,70 @@ observer of one event rather than a separate claim (D1).
 
 ---
 
+## D15. Item customizations are a structured array, not a delimited string
+
+**Decided 2026-08-18. Built 2026-08-18.**
+
+`items[].notes` was a single free-text string. The only thing that ever put
+customizations into it was Babeldish joining a customer's selected options
+with `", "` before sending — so "Large" and "Extra kaas" arrived as one
+string, `"Large, Extra kaas"`. The receipt (`order-receipt.tsx`) then
+re-split that string on `,` to show one line per option. An option whose own
+value contains a comma — e.g. `"Creamy Chipotle Mayo | Mild - Niet vegan"`
+doesn't, but plenty legitimately could — makes the split ambiguous: there is
+no way to tell a separator comma from a content comma after the fact.
+
+**The fix is upstream of this app, not a smarter parser here.** Babeldish
+already holds each selected option as a discrete `SelectedOption` before it
+ever joins them into a string — the information was never actually
+unstructured, it was only *serialized* as if it were. So the contract changed
+to carry that structure through instead of encoding and re-decoding it:
+
+- `InboundOrderPayload.items[].options: string[]` — new field, one entry per
+  selected option, added to `openapi.yaml` (and thus the generated Zod
+  schema and the `OrderItem` type in `lib/db`).
+- Babeldish's outbound transform for this destination now sends
+  `itemOptionsArray` (`selectedOptions.map(o => o.value)`) instead of
+  `itemOptionsPlainText` (`selectedOptions.map(o => o.value).join(", ")`).
+- `notes` stays in the contract, nullable, for sources that haven't migrated
+  — it is shown as one unsplit line, never parsed. It is not a fallback
+  serialization of `options`; a source sends one or the other.
+- Every screen that rendered `it.notes` (`order-receipt.tsx`,
+  `coordinator-order.tsx`) now prefers `it.options`, rendering each entry as
+  its own line, and only falls back to a single-line `it.notes` when
+  `options` is absent.
+
+### The rollout gotcha this exposed
+
+`items` is not a passthrough of the validated inbound payload — it is
+hand-built field-by-field in `POST /inbound/orders` (`routes/orders.ts`),
+separately from `originalPayload` (which *is* the validated payload, stored
+verbatim). Adding a field to the OpenAPI contract makes it survive Zod
+validation and land in `originalPayload` automatically; it does **not**
+automatically appear on `items` — that mapping has to be extended by hand,
+same as `notes`, `totalPrice` and `externalId` before it.
+
+This bit a real order during rollout: Babeldish had already switched to
+sending `options` before this app's ingestion mapping was redeployed to read
+it, so the order's `originalPayload` had `options` but its stored `items`
+didn't — confirmed by comparing the two on the same order via the
+coordinator page's "Original payload" card, not assumed. Both the receipt
+and the coordinator page read the same stored `items`, so neither could have
+shown that order's options until the mapping caught up.
+`scripts/src/backfill-item-options.ts` re-derives `items[].options` from
+`originalPayload` for any order caught in that gap; idempotent, safe to
+re-run.
+
+**The lesson, not just the incident:** any field added to the inbound
+contract needs the ingestion mapping in `routes/orders.ts` updated in the
+*same* deploy, not assumed to fall out of the schema change — and a two-repo
+contract change (here, Babeldish + this app) is not atomic across a
+deployment boundary, so a field can legitimately exist in `originalPayload`
+before it exists in `items` for orders ingested mid-rollout. See the new
+"Inbound item field mapping" entry in `architecture-sources-of-truth.md`.
+
+---
+
 # Told once, not to be asked again
 
 The two sections below exist because the decision log above did not stop things

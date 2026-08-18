@@ -1,5 +1,26 @@
 # Changelog
 
+## 2026-08-18 — Item customizations are now structured, not a comma-joined string
+
+The receipt used to split `items[].notes` on `,` to show one line per
+selected option (size, extras, etc.). That broke for any option whose own
+value contained a comma — there was no way to tell a separator comma from
+one that was just part of the text.
+
+**Contract change (coordinated with Babeldish):** `InboundOrderPayload`
+gains `items[].options: string[]`, one entry per selected option, sent by
+Babeldish instead of a `", "`-joined string. `notes` is unchanged and still
+accepted for sources that haven't migrated — shown as a single unsplit line,
+never parsed. The receipt and the coordinator order-detail page both now
+render `options` as one line per entry, falling back to `notes` only when
+`options` is absent. See D15 in `workflow-decisions.md`.
+
+**Rollout note:** a handful of orders landed in the gap between Babeldish
+sending `options` and this app's ingestion redeploying to read it — their
+`originalPayload` had it, their stored `items` didn't. Fixed going forward;
+`scripts/src/backfill-item-options.ts` re-derives `options` from
+`originalPayload` for any order still stuck in that state.
+
 ## 2026-08-18 — Rider page simplification, and a dashboard availability bug fix
 
 Any order a rider can see now opens the detail page — previously only their
