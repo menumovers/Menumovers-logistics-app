@@ -1,5 +1,26 @@
 # Changelog
 
+## 2026-08-18 — Rider page simplification, and a dashboard availability bug fix
+
+Any order a rider can see now opens the detail page — previously only their
+own assigned orders linked through; open/unclaimed orders were plain cards.
+Editing (status transitions, postpone, fail, suggest a pickup time) is gated
+to orders actually assigned to the viewing rider; for anything else the
+detail page shows "Claim this delivery" instead (moved there from the
+overview page's open-order cards). The overview page lost its "My route"
+header and its 3-button availability grid, now a colored status pill
+(online/offline/backup, fixed hex backgrounds) plus a small "Change" button.
+Order cards on the overview page are now one shared compact layout
+(countdown + restaurant, pickup time + address) instead of two different
+card designs for assigned vs. open orders.
+
+**Bug fix:** riders had no way to read their own current availability —
+`GET /riders` (the only place the old UI read it from) is admin/coordinator
+-only, so a rider's own status highlighting always silently failed. Added
+`availabilityStatus` to `GET /auth/me` (role-scoped: rider only, null
+otherwise) — `useSetOwnAvailability`'s success handler already invalidated
+that exact query, so it was clearly the intended read path, just never wired.
+
 ## 2026-08-18 — Admin overhaul (Add tab, expandable entity tables) and original payload viewer
 
 The admin page's Riders/Restaurants/Users tabs were rebuilt as one consistent
