@@ -127,7 +127,11 @@ function ReceiptHeader({
 }) {
   const { t } = useTranslation();
   return (
-    <header className="space-y-1 pb-3 mb-3 border-b border-border">
+    // Not a <header> tag: PRINT_CSS above blanket-hides header/nav/aside to
+    // strip the app shell's own sticky header (components/layout.tsx) from
+    // the printout. A semantic <header> here would be caught by that same
+    // selector and vanish along with it.
+    <div className="space-y-1 pb-3 mb-3 border-b border-border">
       <p className="text-lg">{t("receipt.thankYou")}</p>
       <p className="text-lg font-bold">{restaurantName ?? "—"}</p>
 
@@ -138,7 +142,7 @@ function ReceiptHeader({
         {t("pickup.label")}:{" "}
         <span className="font-bold tabular-nums">{formatTime(effectivePickup(order).iso, lang)}</span>
       </p>
-    </header>
+    </div>
   );
 }
 
