@@ -181,10 +181,17 @@ function ReceiptLedger({ order, lang }: { order: OrderDetail; lang: string }) {
             <td className="py-2 tabular-nums">{it.quantity}×</td>
             <td className="py-2">
               {it.name}
-              {it.notes ? <span className="block text-xs text-muted-foreground">{it.notes}</span> : null}
-              {it.externalId ? (
-                <span className="block text-[10px] font-mono text-muted-foreground">{it.externalId}</span>
-              ) : null}
+              {it.notes
+                ? it.notes
+                    .split(",")
+                    .map((part) => part.trim())
+                    .filter(Boolean)
+                    .map((part, j) => (
+                      <span key={j} className="block text-xs text-muted-foreground">
+                        - {part}
+                      </span>
+                    ))
+                : null}
             </td>
             <td className="py-2 pl-3 text-right tabular-nums">{formatCurrency(it.totalPrice ?? it.price, lang)}</td>
           </tr>
