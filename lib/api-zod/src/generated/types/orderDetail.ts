@@ -6,10 +6,13 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { ItemOverride } from "./itemOverride";
+import type { OrderDetailOriginalPayload } from "./orderDetailOriginalPayload";
 import type { OrderListItem } from "./orderListItem";
 import type { OrderStatusLog } from "./orderStatusLog";
 
 export type OrderDetail = OrderListItem & {
   statusLog: OrderStatusLog[];
   itemOverrides: ItemOverride[];
+  /** The raw upstream order payload, kept as received for forensic/replay use. */
+  originalPayload: OrderDetailOriginalPayload;
 };

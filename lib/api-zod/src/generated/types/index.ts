@@ -34,6 +34,7 @@ export * from "./loginRequest";
 export * from "./order";
 export * from "./orderCashPayment";
 export * from "./orderDetail";
+export * from "./orderDetailOriginalPayload";
 export * from "./orderHoldState";
 export * from "./orderItem";
 export * from "./orderListItem";

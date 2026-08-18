@@ -1735,7 +1735,7 @@ components:
       allOf:
         - $ref: "#/components/schemas/OrderListItem"
         - type: object
-          required: [statusLog, itemOverrides]
+          required: [statusLog, itemOverrides, originalPayload]
           properties:
             statusLog:
               type: array
@@ -1745,6 +1745,10 @@ components:
               type: array
               items:
                 $ref: "#/components/schemas/ItemOverride"
+            originalPayload:
+              type: object
+              description: The raw upstream order payload, kept as received for forensic/replay use.
+              additionalProperties: true
     TransitionStatusRequest:
       type: object
       required: [toStatus]

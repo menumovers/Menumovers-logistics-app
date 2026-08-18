@@ -1,5 +1,29 @@
 # Changelog
 
+## 2026-08-18 — Admin overhaul (Add tab, expandable entity tables) and original payload viewer
+
+The admin page's Riders/Restaurants/Users tabs were rebuilt as one consistent
+pattern: a table (Name [+ Name code, or Type for Users] + Details) whose row
+expands in place into a full edit form, one row open at a time, instead of
+three differently-shaped card layouts. Every field the API actually supports
+is now editable — previously each card exposed only a subset. Action row is
+Save + whatever the entity supports: Restaurants have no `accountStatus`
+field yet (Save + Delete only), Riders have no delete endpoint at all, likely
+deliberate given order history ties to rider id (Save + Disable only), Users
+get all three. The three "Add" forms moved off those tabs onto their own
+dedicated **Add** tab — admin is for overview/editing far more than adding.
+On mobile, Orders/Riders/Restaurants keep text tab labels; Users/Add/System
+switch to icon-only (👤 / +++ / 🔧) to save width, with the tab strip
+scrolling as one unit when it overflows.
+
+**API change:** `OrderDetail` now includes `originalPayload` — the orders
+table has always stored the full raw upstream webhook payload
+(`original_payload`, "kept for forensic/replay use" per its own column
+comment), but nothing ever put it on the wire. Added to the OpenAPI spec and
+`serializeOrderDetail`; the coordinator order-detail page now has a
+collapsed-by-default "Original payload" card at the bottom with
+pretty-printed JSON and a copy button.
+
 ## 2026-08-17 — Admin Orders tab, searchable filters, and a dropdown viewport bug
 
 The admin page gained an **Orders** tab (tabs reordered: Orders, Riders,

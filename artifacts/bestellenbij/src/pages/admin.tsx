@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useQueryClient } from "@tanstack/react-query";
 import { Link } from "wouter";
@@ -40,13 +40,11 @@ export default function AdminPage() {
     <div className="space-y-5">
       <h1 className="text-2xl font-bold tracking-tight">{t("admin.title")}</h1>
       <Tabs defaultValue="orders">
-        <TabsList className="flex sm:inline-flex w-full sm:w-max justify-between sm:justify-start gap-1 sm:gap-0">
-          <div className="flex overflow-x-auto gap-1 min-w-0 -mx-1 px-1 sm:mx-0 sm:px-0 sm:overflow-visible">
+        <div className="overflow-x-auto -mx-1 px-1">
+          <TabsList className="w-max">
             <TabsTrigger value="orders" data-testid="tab-orders">{t("admin.orders")}</TabsTrigger>
             <TabsTrigger value="riders" data-testid="tab-riders">{t("admin.riders")}</TabsTrigger>
             <TabsTrigger value="restaurants" data-testid="tab-restaurants">{t("admin.restaurants")}</TabsTrigger>
-          </div>
-          <div className="flex gap-1 shrink-0">
             <TabsTrigger value="users" data-testid="tab-users" aria-label={t("admin.users")} className="px-2 sm:px-3">
               <span className="hidden sm:inline">{t("admin.users")}</span>
               <span className="sm:hidden text-base" aria-hidden="true">👤</span>
@@ -59,8 +57,8 @@ export default function AdminPage() {
               <span className="hidden sm:inline">{t("admin.settings")}</span>
               <span className="sm:hidden text-base" aria-hidden="true">🔧</span>
             </TabsTrigger>
-          </div>
-        </TabsList>
+          </TabsList>
+        </div>
         <TabsContent value="orders" className="mt-4"><OrdersPanel /></TabsContent>
         <TabsContent value="riders" className="mt-4"><RidersPanel /></TabsContent>
         <TabsContent value="restaurants" className="mt-4"><RestaurantsPanel /></TabsContent>
@@ -408,11 +406,13 @@ function UsersPanel() {
   const { t } = useTranslation();
   const qc = useQueryClient();
   const users = useListUsers({ query: { queryKey: getListUsersQueryKey() } });
+  const restaurants = useListRestaurants({ query: { queryKey: getListRestaurantsQueryKey() } });
   const updateUser = useUpdateUser();
   const del = useDeleteUser();
 
   const [q, setQ] = useState("");
   const [sortBy, setSortBy] = useState<NameSortKey>("nameAsc");
+  const [expandedId, setExpandedId] = useState<string | null>(null);
   function invalidate() { qc.invalidateQueries({ queryKey: getListUsersQueryKey() }); }
 
   const filtered = useMemo(() => {
@@ -439,40 +439,111 @@ function UsersPanel() {
         </CardContent>
       </Card>
 
-      <div className="grid gap-3">
-        {filtered.map((u: ApiUser) => (
-          <Card key={u.id} data-testid={`row-user-${u.id}`}>
-            <CardContent className="py-3 flex flex-wrap items-center gap-3">
-              <div className="flex-1 min-w-[200px]">
-                <div className="font-medium">{u.name}</div>
-                <div className="text-xs text-muted-foreground">{u.email} · {t(`roles.${u.role}`)}</div>
-              </div>
-              <Select
-                value={u.accountStatus}
-                onValueChange={(v) =>
-                  updateUser.mutate(
-                    { id: u.id, data: { accountStatus: v as ApiUser["accountStatus"] } },
-                    { onSuccess: invalidate },
-                  )
-                }
-              >
-                <SelectTrigger className="w-32" data-testid={`select-user-status-${u.id}`}><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="active">{t("common.yes")}</SelectItem>
-                  <SelectItem value="suspended">{t("common.no")}</SelectItem>
-                </SelectContent>
-              </Select>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => del.mutate({ id: u.id }, { onSuccess: invalidate })}
-                data-testid={`button-delete-user-${u.id}`}
-              >
-                <Trash2 className="size-4" />
-              </Button>
-            </CardContent>
-          </Card>
-        ))}
+      <Card>
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>{t("common.name")}</TableHead>
+                <TableHead>{t("common.type")}</TableHead>
+                <TableHead className="text-right">{t("common.actions")}</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filtered.map((u: ApiUser) => (
+                <Fragment key={u.id}>
+                  <TableRow data-testid={`row-user-${u.id}`}>
+                    <TableCell className="font-medium">
+                      {u.name}
+                      {u.accountStatus === "suspended" ? (
+                        <span className="ml-2 text-xs font-normal text-muted-foreground">({t("common.disabled")})</span>
+                      ) : null}
+                    </TableCell>
+                    <TableCell>{t(`roles.${u.role}`)}</TableCell>
+                    <TableCell className="text-right">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setExpandedId((cur) => (cur === u.id ? null : u.id))}
+                        data-testid={`button-toggle-user-${u.id}`}
+                      >
+                        {t("common.details")}
+                        <ChevronDown className={cn("size-3.5 ml-1 transition-transform", expandedId === u.id && "rotate-180")} />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                  {expandedId === u.id ? (
+                    <TableRow>
+                      <TableCell colSpan={3} className="bg-muted/30">
+                        <UserEditForm user={u} restaurants={restaurants.data ?? []} onUpdate={updateUser.mutate} onInvalidate={invalidate} onDelete={() => del.mutate({ id: u.id }, { onSuccess: invalidate })} />
+                      </TableCell>
+                    </TableRow>
+                  ) : null}
+                </Fragment>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function UserEditForm({ user, restaurants, onUpdate, onInvalidate, onDelete }: { user: ApiUser; restaurants: Restaurant[]; onUpdate: ReturnType<typeof useUpdateUser>["mutate"]; onInvalidate: () => void; onDelete: () => void }) {
+  const { t } = useTranslation();
+  const { toast } = useToast();
+  const [name, setName] = useState(user.name);
+  const [email, setEmail] = useState(user.email);
+  const [role, setRole] = useState<UserRoleType>(user.role);
+  const [restaurantId, setRestaurantId] = useState(user.restaurantId ?? "");
+  const isActive = user.accountStatus === "active";
+  const dirty = name !== user.name || email !== user.email || role !== user.role || (role === "restaurant_staff" && restaurantId !== (user.restaurantId ?? ""));
+
+  function save() {
+    onUpdate(
+      { id: user.id, data: { name, email, role, restaurantId: role === "restaurant_staff" ? restaurantId || null : null } },
+      { onSuccess: onInvalidate, onError: () => toast({ title: t("errors.generic"), variant: "destructive" }) },
+    );
+  }
+
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end py-2">
+      <div><Label className="text-xs">{t("common.name")}</Label><Input value={name} onChange={(e) => setName(e.target.value)} data-testid={`input-user-name-${user.id}`} /></div>
+      <div><Label className="text-xs">{t("common.email")}</Label><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} data-testid={`input-user-email-${user.id}`} /></div>
+      <div>
+        <Label className="text-xs">{t("common.role")}</Label>
+        <Select value={role} onValueChange={(v) => setRole(v as UserRoleType)}>
+          <SelectTrigger data-testid={`select-user-role-${user.id}`}><SelectValue /></SelectTrigger>
+          <SelectContent>
+            {Object.values(UserRole).map((r) => (<SelectItem key={r} value={r}>{t(`roles.${r}`)}</SelectItem>))}
+          </SelectContent>
+        </Select>
+      </div>
+      {role === "restaurant_staff" ? (
+        <div>
+          <Label className="text-xs">{t("nav.restaurant")}</Label>
+          <Select value={restaurantId} onValueChange={setRestaurantId}>
+            <SelectTrigger data-testid={`select-user-restaurant-${user.id}`}><SelectValue placeholder="—" /></SelectTrigger>
+            <SelectContent>
+              {restaurants.map((r) => (<SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>))}
+            </SelectContent>
+          </Select>
+        </div>
+      ) : <div />}
+      <div className="md:col-span-4 flex justify-end gap-2">
+        <Button variant="outline" disabled={!dirty} onClick={save} data-testid={`button-save-user-${user.id}`}>
+          {t("common.save")}
+        </Button>
+        <Button
+          variant="outline"
+          onClick={() => onUpdate({ id: user.id, data: { accountStatus: isActive ? "suspended" : "active" } }, { onSuccess: onInvalidate })}
+          data-testid={`button-toggle-status-user-${user.id}`}
+        >
+          {isActive ? t("common.disable") : t("common.enable")}
+        </Button>
+        <Button variant="ghost" size="icon" onClick={onDelete} data-testid={`button-delete-user-${user.id}`}>
+          <Trash2 className="size-4" />
+        </Button>
       </div>
     </div>
   );
@@ -487,10 +558,13 @@ function RestaurantsPanel() {
 
   const [q, setQ] = useState("");
   const [sortBy, setSortBy] = useState<NameSortKey>("nameAsc");
+  const [expandedId, setExpandedId] = useState<string | null>(null);
   function invalidate() { qc.invalidateQueries({ queryKey: getListRestaurantsQueryKey() }); }
 
   const filtered = useMemo(() => {
-    const all = restaurants.data ?? [];
+    // The "unmapped" placeholder isn't a real restaurant to manage — it's what
+    // unresolved orders get attributed to until a coordinator sorts them out.
+    const all = (restaurants.data ?? []).filter((r) => r.nameCode !== "unmapped");
     const needle = q.trim().toLowerCase();
     const matching = needle
       ? all.filter((r) => r.name.toLowerCase().includes(needle) || r.nameCode.toLowerCase().includes(needle) || r.address.toLowerCase().includes(needle))
@@ -512,16 +586,52 @@ function RestaurantsPanel() {
           </div>
         </CardContent>
       </Card>
-      <div className="grid gap-3">
-        {filtered.map((r: Restaurant) => (
-          <RestaurantRow key={r.id} restaurant={r} onUpdate={update.mutate} onInvalidate={invalidate} onDelete={() => del.mutate({ id: r.id }, { onSuccess: invalidate })} />
-        ))}
-      </div>
+      <Card>
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>{t("common.name")}</TableHead>
+                <TableHead>{t("admin.nameCode")}</TableHead>
+                <TableHead className="text-right">{t("common.actions")}</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filtered.map((r: Restaurant) => (
+                <Fragment key={r.id}>
+                  <TableRow data-testid={`row-restaurant-${r.id}`}>
+                    <TableCell className="font-medium">{r.name}</TableCell>
+                    <TableCell>{r.nameCode}</TableCell>
+                    <TableCell className="text-right">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setExpandedId((cur) => (cur === r.id ? null : r.id))}
+                        data-testid={`button-toggle-restaurant-${r.id}`}
+                      >
+                        {t("common.details")}
+                        <ChevronDown className={cn("size-3.5 ml-1 transition-transform", expandedId === r.id && "rotate-180")} />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                  {expandedId === r.id ? (
+                    <TableRow>
+                      <TableCell colSpan={3} className="bg-muted/30">
+                        <RestaurantEditForm restaurant={r} onUpdate={update.mutate} onInvalidate={invalidate} onDelete={() => del.mutate({ id: r.id }, { onSuccess: invalidate })} />
+                      </TableCell>
+                    </TableRow>
+                  ) : null}
+                </Fragment>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
     </div>
   );
 }
 
-function RestaurantRow({ restaurant, onUpdate, onInvalidate, onDelete }: { restaurant: Restaurant; onUpdate: ReturnType<typeof useUpdateRestaurant>["mutate"]; onInvalidate: () => void; onDelete: () => void }) {
+function RestaurantEditForm({ restaurant, onUpdate, onInvalidate, onDelete }: { restaurant: Restaurant; onUpdate: ReturnType<typeof useUpdateRestaurant>["mutate"]; onInvalidate: () => void; onDelete: () => void }) {
   const { t } = useTranslation();
   const { toast } = useToast();
   const [name, setName] = useState(restaurant.name);
@@ -532,42 +642,40 @@ function RestaurantRow({ restaurant, onUpdate, onInvalidate, onDelete }: { resta
   const [mode, setMode] = useState<RestaurantAcceptanceModeType>(restaurant.acceptanceMode);
   const dirty = name !== restaurant.name || nameCode !== restaurant.nameCode || addr !== restaurant.address || phone !== (restaurant.phone ?? "") || mdt !== restaurant.minDeliveryTime || mode !== restaurant.acceptanceMode;
   return (
-    <Card data-testid={`row-restaurant-${restaurant.id}`}>
-      <CardContent className="py-3 grid grid-cols-1 md:grid-cols-6 gap-2 items-end">
-        <div className="md:col-span-2"><Label className="text-xs">{t("common.name")}</Label><Input value={name} onChange={(e) => setName(e.target.value)} /></div>
-        <div><Label className="text-xs">{t("admin.nameCode")}</Label><Input value={nameCode} onChange={(e) => setNameCode(e.target.value)} data-testid={`input-rest-name-code-${restaurant.id}`} /></div>
-        <div className="md:col-span-2"><Label className="text-xs">{t("common.address")}</Label><Input value={addr} onChange={(e) => setAddr(e.target.value)} /></div>
-        <div><Label className="text-xs">{t("common.phone")}</Label><Input value={phone} onChange={(e) => setPhone(e.target.value)} /></div>
-        <div><Label className="text-xs">{t("admin.minDeliveryTime")}</Label><Input type="number" min={1} value={mdt} onChange={(e) => setMdt(Number(e.target.value))} /></div>
-        <div className="md:col-span-2">
-          <Label className="text-xs">{t("admin.acceptanceMode")}</Label>
-          <Select value={mode} onValueChange={(v) => setMode(v as RestaurantAcceptanceModeType)}>
-            <SelectTrigger data-testid={`select-acceptance-mode-${restaurant.id}`}><SelectValue /></SelectTrigger>
-            <SelectContent>
-              {Object.values(RestaurantAcceptanceMode).map((m) => (
-                <SelectItem key={m} value={m}>{t(`admin.acceptanceMode_${m}`)}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="md:col-span-6 text-xs text-muted-foreground -mt-1">
-          {t("admin.acceptanceModeHelp")}
-        </div>
-        <div className="md:col-span-6 flex justify-end gap-2">
-          <Button
-            variant="outline"
-            disabled={!dirty}
-            onClick={() => onUpdate({ id: restaurant.id, data: { name, nameCode, address: addr, phone: phone || null, minDeliveryTime: mdt, acceptanceMode: mode } }, { onSuccess: onInvalidate, onError: () => toast({ title: t("errors.generic"), variant: "destructive" }) })}
-            data-testid={`button-update-restaurant-${restaurant.id}`}
-          >
-            {t("common.save")}
-          </Button>
-          <Button variant="ghost" size="icon" onClick={onDelete} data-testid={`button-delete-restaurant-${restaurant.id}`}>
-            <Trash2 className="size-4" />
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
+    <div className="grid grid-cols-1 md:grid-cols-6 gap-3 items-end py-2">
+      <div className="md:col-span-2"><Label className="text-xs">{t("common.name")}</Label><Input value={name} onChange={(e) => setName(e.target.value)} data-testid={`input-rest-name-${restaurant.id}`} /></div>
+      <div><Label className="text-xs">{t("admin.nameCode")}</Label><Input value={nameCode} onChange={(e) => setNameCode(e.target.value)} data-testid={`input-rest-name-code-${restaurant.id}`} /></div>
+      <div className="md:col-span-2"><Label className="text-xs">{t("common.address")}</Label><Input value={addr} onChange={(e) => setAddr(e.target.value)} data-testid={`input-rest-address-${restaurant.id}`} /></div>
+      <div><Label className="text-xs">{t("common.phone")}</Label><Input value={phone} onChange={(e) => setPhone(e.target.value)} data-testid={`input-rest-phone-${restaurant.id}`} /></div>
+      <div><Label className="text-xs">{t("admin.minDeliveryTime")}</Label><Input type="number" min={1} value={mdt} onChange={(e) => setMdt(Number(e.target.value))} data-testid={`input-rest-min-delivery-${restaurant.id}`} /></div>
+      <div className="md:col-span-2">
+        <Label className="text-xs">{t("admin.acceptanceMode")}</Label>
+        <Select value={mode} onValueChange={(v) => setMode(v as RestaurantAcceptanceModeType)}>
+          <SelectTrigger data-testid={`select-acceptance-mode-${restaurant.id}`}><SelectValue /></SelectTrigger>
+          <SelectContent>
+            {Object.values(RestaurantAcceptanceMode).map((m) => (
+              <SelectItem key={m} value={m}>{t(`admin.acceptanceMode_${m}`)}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="md:col-span-6 text-xs text-muted-foreground -mt-1">
+        {t("admin.acceptanceModeHelp")}
+      </div>
+      <div className="md:col-span-6 flex justify-end gap-2">
+        <Button
+          variant="outline"
+          disabled={!dirty}
+          onClick={() => onUpdate({ id: restaurant.id, data: { name, nameCode, address: addr, phone: phone || null, minDeliveryTime: mdt, acceptanceMode: mode } }, { onSuccess: onInvalidate, onError: () => toast({ title: t("errors.generic"), variant: "destructive" }) })}
+          data-testid={`button-save-restaurant-${restaurant.id}`}
+        >
+          {t("common.save")}
+        </Button>
+        <Button variant="ghost" size="icon" onClick={onDelete} data-testid={`button-delete-restaurant-${restaurant.id}`}>
+          <Trash2 className="size-4" />
+        </Button>
+      </div>
+    </div>
   );
 }
 
@@ -580,6 +688,7 @@ function RidersPanel() {
   const [q, setQ] = useState("");
   const [sortBy, setSortBy] = useState<NameSortKey>("nameAsc");
   const [quickFilters, setQuickFilters] = useState<Set<RiderQuickFilterKey>>(new Set());
+  const [expandedId, setExpandedId] = useState<string | null>(null);
   function invalidate() { qc.invalidateQueries({ queryKey: getListRidersQueryKey() }); }
 
   function toggleQuickFilter(key: RiderQuickFilterKey) {
@@ -653,57 +762,104 @@ function RidersPanel() {
         </CardContent>
       </Card>
 
-      <div className="grid gap-3">
-        {filtered.map((r: RiderWithWorkload) => (
-          <RiderRow key={r.id} rider={r} onUpdate={update.mutate} onInvalidate={invalidate} />
-        ))}
-      </div>
+      <Card>
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>{t("common.name")}</TableHead>
+                <TableHead>{t("admin.nameCode")}</TableHead>
+                <TableHead className="text-right">{t("common.actions")}</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filtered.map((r: RiderWithWorkload) => (
+                <Fragment key={r.id}>
+                  <TableRow data-testid={`row-rider-${r.id}`}>
+                    <TableCell className="font-medium">
+                      {r.name}
+                      {r.accountStatus === "suspended" ? (
+                        <span className="ml-2 text-xs font-normal text-muted-foreground">({t("common.disabled")})</span>
+                      ) : null}
+                    </TableCell>
+                    <TableCell>{r.nameCode}</TableCell>
+                    <TableCell className="text-right">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setExpandedId((cur) => (cur === r.id ? null : r.id))}
+                        data-testid={`button-toggle-rider-${r.id}`}
+                      >
+                        {t("common.details")}
+                        <ChevronDown className={cn("size-3.5 ml-1 transition-transform", expandedId === r.id && "rotate-180")} />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                  {expandedId === r.id ? (
+                    <TableRow>
+                      <TableCell colSpan={3} className="bg-muted/30">
+                        <RiderEditForm rider={r} onUpdate={update.mutate} onInvalidate={invalidate} />
+                      </TableCell>
+                    </TableRow>
+                  ) : null}
+                </Fragment>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
     </div>
   );
 }
 
-function RiderRow({ rider: r, onUpdate, onInvalidate }: { rider: RiderWithWorkload; onUpdate: ReturnType<typeof useUpdateRider>["mutate"]; onInvalidate: () => void }) {
+function RiderEditForm({ rider: r, onUpdate, onInvalidate }: { rider: RiderWithWorkload; onUpdate: ReturnType<typeof useUpdateRider>["mutate"]; onInvalidate: () => void }) {
   const { t } = useTranslation();
+  const { toast } = useToast();
+  const [name, setName] = useState(r.name);
   const [nameCode, setNameCode] = useState(r.nameCode);
-  const nameDirty = nameCode !== r.nameCode;
+  const [phone, setPhone] = useState(r.phone ?? "");
+  const [availability, setAvailability] = useState<RiderAvailabilityType>(r.availabilityStatus);
+  const isActive = r.accountStatus === "active";
+  const dirty = name !== r.name || nameCode !== r.nameCode || phone !== (r.phone ?? "") || availability !== r.availabilityStatus;
+
+  function save() {
+    onUpdate(
+      { id: r.id, data: { name, nameCode, phone: phone || null, availabilityStatus: availability } },
+      { onSuccess: onInvalidate, onError: () => toast({ title: t("errors.generic"), variant: "destructive" }) },
+    );
+  }
+
   return (
-    <Card data-testid={`row-rider-${r.id}`}>
-      <CardContent className="py-3 flex flex-wrap items-center gap-3">
-        <div className="flex-1 min-w-[200px]">
-          <div className="font-medium">{r.name}</div>
-          <div className="text-xs text-muted-foreground">{r.nameCode} · {r.email}{r.phone ? ` · ${r.phone}` : ""} · {r.activeOrderCount}+{r.queuedOrderCount}</div>
-        </div>
-        <div className="flex items-end gap-2">
-          <div>
-            <Label className="text-xs">{t("admin.nameCode")}</Label>
-            <Input value={nameCode} onChange={(e) => setNameCode(e.target.value)} className="w-32" data-testid={`input-rider-name-code-${r.id}`} />
-          </div>
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={!nameDirty}
-            onClick={() => onUpdate({ id: r.id, data: { nameCode } }, { onSuccess: onInvalidate })}
-            data-testid={`button-update-rider-name-code-${r.id}`}
-          >
-            {t("common.save")}
-          </Button>
-        </div>
-        <Select
-          value={r.availabilityStatus}
-          onValueChange={(v) =>
-            onUpdate(
-              { id: r.id, data: { availabilityStatus: v as RiderAvailabilityType } },
-              { onSuccess: onInvalidate },
-            )
-          }
-        >
-          <SelectTrigger className="w-36" data-testid={`select-rider-avail-${r.id}`}><SelectValue /></SelectTrigger>
+    <div className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end py-2">
+      <div><Label className="text-xs">{t("common.name")}</Label><Input value={name} onChange={(e) => setName(e.target.value)} data-testid={`input-rider-name-${r.id}`} /></div>
+      <div><Label className="text-xs">{t("admin.nameCode")}</Label><Input value={nameCode} onChange={(e) => setNameCode(e.target.value)} data-testid={`input-rider-name-code-${r.id}`} /></div>
+      <div><Label className="text-xs">{t("common.email")}</Label><Input value={r.email} disabled data-testid={`input-rider-email-${r.id}`} /></div>
+      <div><Label className="text-xs">{t("common.phone")}</Label><Input value={phone} onChange={(e) => setPhone(e.target.value)} data-testid={`input-rider-phone-${r.id}`} /></div>
+      <div>
+        <Label className="text-xs">{t("rider.availability")}</Label>
+        <Select value={availability} onValueChange={(v) => setAvailability(v as RiderAvailabilityType)}>
+          <SelectTrigger data-testid={`select-rider-avail-${r.id}`}><SelectValue /></SelectTrigger>
           <SelectContent>
             {Object.values(RiderAvailability).map((a) => <SelectItem key={a} value={a}>{t(`availability.${a}`)}</SelectItem>)}
           </SelectContent>
         </Select>
-      </CardContent>
-    </Card>
+      </div>
+      <div className="md:col-span-3 text-xs text-muted-foreground">
+        {t("coordinator.workloadActive")}: {r.activeOrderCount} · {t("coordinator.workloadQueued")}: {r.queuedOrderCount}
+      </div>
+      <div className="md:col-span-4 flex justify-end gap-2">
+        <Button variant="outline" disabled={!dirty} onClick={save} data-testid={`button-save-rider-${r.id}`}>
+          {t("common.save")}
+        </Button>
+        <Button
+          variant="outline"
+          onClick={() => onUpdate({ id: r.id, data: { accountStatus: isActive ? "suspended" : "active" } }, { onSuccess: onInvalidate })}
+          data-testid={`button-toggle-status-rider-${r.id}`}
+        >
+          {isActive ? t("common.disable") : t("common.enable")}
+        </Button>
+      </div>
+    </div>
   );
 }
 

@@ -681,9 +681,16 @@ export interface ItemOverride {
   createdAt: string;
 }
 
+/**
+ * The raw upstream order payload, kept as received for forensic/replay use.
+ */
+export type OrderDetailOriginalPayload = { [key: string]: unknown };
+
 export type OrderDetail = OrderListItem & {
   statusLog: OrderStatusLog[];
   itemOverrides: ItemOverride[];
+  /** The raw upstream order payload, kept as received for forensic/replay use. */
+  originalPayload: OrderDetailOriginalPayload;
 };
 
 export interface TransitionStatusRequest {
