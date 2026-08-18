@@ -72,12 +72,15 @@
     "heading": "Bestellenbij",
     "sub": "Choose how you'll sign in today.",
     "footer": "Tip: install the app on your home screen for the best experience.",
+    "live": {
+      "title": "LIVE - Log in on live app"
+    },
     "rider": {
-      "title": "I'm a rider",
+      "title": "TEST - I'm a rider",
       "sub": "Internal team — riders, coordination, admin"
     },
     "restaurant": {
-      "title": "I'm restaurant staff",
+      "title": "TEST - I'm a restaurant",
       "sub": "Manage pickups for your restaurant"
     }
   },

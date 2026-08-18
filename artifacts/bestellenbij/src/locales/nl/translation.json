@@ -72,12 +72,15 @@
     "heading": "Bestellenbij",
     "sub": "Kies hoe je vandaag inlogt.",
     "footer": "Tip: installeer de app op je beginscherm voor de beste ervaring.",
+    "live": {
+      "title": "LIVE - Log in on live app"
+    },
     "rider": {
-      "title": "Ik ben rijder",
+      "title": "TEST - I'm a rider",
       "sub": "Intern team — rijders, coördinatie, beheer"
     },
     "restaurant": {
-      "title": "Ik werk in het restaurant",
+      "title": "TEST - I'm a restaurant",
       "sub": "Beheer afhalingen voor je restaurant"
     }
   },
