@@ -11,7 +11,7 @@ Bestellenbij is an internal Progressive Web App (PWA) for food-delivery logistic
 - Multi-source pickup-time prioritization; trip (order-bundle) management
 - Outbound webhook delivery of status updates back to babeldish, with database-backed retry
 - Web Push notifications for riders, coordinators, and restaurant staff
-- Role-based UIs: coordinator dispatch view, rider order flow, restaurant pickup view, admin settings
+- Role-based UIs: coordinator view, rider order flow, restaurant pickup view, admin settings
 
 **Explicitly out of scope:**
 - Customer-facing ordering (that is the storefront, Bestellenbij.nl)

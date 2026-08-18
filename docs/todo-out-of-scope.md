@@ -76,6 +76,12 @@ Items that appear in multiple tasks' out-of-scope sections are merged into one e
 - **Kind**: Deferred feature
 - **Notes**: Orders per restaurant per day, average delivery time, rider performance, on-time rates, failed-delivery breakdown. All data exists in `orders`, `order_status_logs`, and `rider_assignments`. A reporting layer does not require schema changes — it is a set of aggregation queries and a new admin page.
 
+### Restaurant disable/active flag
+- **Source**: Admin panel streamline, 2026-08-18 — deciding button sets for the new expandable Riders/Restaurants/Users tables
+- **In docs/todo-roadmap.md**: No
+- **Kind**: Deferred feature
+- **Notes**: Riders and Users both have an `accountStatus` (active/suspended) field with a Disable/Enable action; `Restaurant` has no equivalent — only hard delete. Adding one needs a real schema change (a column + API/OpenAPI update), not just a UI change, so it was explicitly deferred rather than added silently ("option 1 is fine for now" — match each entity's admin actions to what it actually supports today). If added, mirror the `AccountStatus` enum/pattern already used for `User`/`RiderWithWorkload`.
+
 ### Availability scheduling for riders
 - **Source**: Task #3 (Frontend PWA), listed as "Rider shift scheduling view"
 - **In docs/todo-roadmap.md**: Yes — item 10 (Operations & Admin)
@@ -208,6 +214,7 @@ These were listed as out of scope but represent decisions made — not things to
 | Order deletion/duplication | Yes (item 7) | No |
 | Per-restaurant webhooks | Yes (item 8) | No |
 | Admin analytics dashboard | Yes (item 9) | No |
+| Restaurant disable/active flag | No | No |
 | Rider shift scheduling | Yes (item 10) | No |
 | Rider mobile UX | Yes (item 11) | No |
 | Customer-facing status page | Yes (item 12) | No |

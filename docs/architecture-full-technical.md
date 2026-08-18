@@ -96,7 +96,8 @@ What the system explicitly does not do:
 │   │       ├── pages/             landing, login, admin, coordinator,
 │   │       │                       coordinator-order, coordinator-trip,
 │   │       │                       coordinator-trip-builder, rider, rider-order,
-│   │       │                       restaurant, settings, not-found
+│   │       │                       rider-trip, restaurant, order-receipt,
+│   │       │                       settings, not-found
 │   │       ├── components/        layout, status-badge, pickup-countdown,
 │   │       │                       delivery-expectation, acknowledge-card,
 │   │       │                       payment-panel, pickup-time-input,
@@ -221,7 +222,7 @@ What the system explicitly does not do:
 5. **Single global outbound webhook URL.** A natural evolution is per-restaurant or per-brand targets. Today, all outbound events go to one URL pulled from env or `system_settings`.
 6. **Money is a string everywhere.** This is by design (see Hard Policy 2). It means we cannot show "subtotals" without trusting the upstream payload — which is correct, the cooperative is a passthrough.
 7. **No automated tests yet.** This is the highest-priority deferred work (see `docs/todo.md` and `docs/todo-roadmap.md`). Current safety relies on TypeScript, Zod, the centralized utilities, and manual testing.
-8. **`as unknown as` casts are forbidden.** We had to add small data-fetching workarounds (e.g. `AvailabilityCard` reads its own row via `useListRiders.find`) instead of widening models. This is intentional friction.
+8. **`as unknown as` casts are forbidden.** Where a shape mismatch shows up, the fix is to widen the canonical model, not cast around it. Example: `AvailabilityRow` (`rider.tsx`) used to read a rider's own status by fetching the full rider list and filtering (`useListRiders.find`) — which is `admin`/`coordinator`-only server-side, so it silently 403'd for actual riders and the status pill never highlighted correctly. Fixed by adding a role-scoped `availabilityStatus` to `CurrentUser` (`GET /auth/me`, null for non-riders) instead of working around the gap.
 9. **The web client and the API are deployed as separate artifacts behind a path-based proxy.** This is a workspace convention, not a hard architectural choice — a single Express server could serve both in production.
 
 ## 9. Future development areas
