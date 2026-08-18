@@ -6,12 +6,16 @@ import {
   useGetOrder,
   useTransitionOrderStatus,
   useUpdatePickupTime,
+  useAssignOrder,
+  useGetSettingsFlags,
   useGetVapidPublicKey,
   useSubscribePush,
   useUnsubscribePush,
   getGetOrderQueryKey,
+  getGetSettingsFlagsQueryKey,
   getGetVapidPublicKeyQueryKey,
   getListOrdersQueryKey,
+  type OrderDetail,
   type OrderStatus as OrderStatusType,
 } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -25,6 +29,7 @@ import { PickupTimeInput } from "@/components/pickup-time-input";
 import { PaymentPanel } from "@/components/payment-panel";
 import { ArrowLeft, Phone, MapPin, Bell, BellOff, Store, ChevronRight, Clock, Layers, CheckCircle2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/lib/auth";
 import { effectivePickup, formatCurrency, formatTime } from "@/lib/format";
 
 /**
@@ -53,6 +58,8 @@ export default function RiderOrderPage() {
   const updatePickup = useUpdatePickupTime();
   const qc = useQueryClient();
   const { toast } = useToast();
+  const { user } = useAuth();
+  const riderId = user?.riderId ?? undefined;
 
   const [failureReason, setFailureReason] = useState("");
   const [postponeReason, setPostponeReason] = useState("");
@@ -61,6 +68,10 @@ export default function RiderOrderPage() {
     return <div className="grid place-items-center py-20"><Spinner className="size-6 text-primary" /></div>;
   }
   const o = order.data;
+  // The server only ever returns an order to a rider if it's either theirs
+  // or still open for claiming (see orderScopeWhere) — so anything visible
+  // here that isn't assigned to this rider is claimable, not someone else's.
+  const isMine = !!riderId && o.riderId === riderId;
   const allowed = o.allowedTransitions ?? [];
   const happyNext = HAPPY_PATH[o.status];
   // The primary button only appears when the expected next step is genuinely
@@ -163,135 +174,141 @@ export default function RiderOrderPage() {
         </CardContent>
       </Card>
 
-      {next ? (
-        <Button
-          size="lg"
-          className="w-full h-16 text-lg font-semibold"
-          disabled={transition.isPending}
-          onClick={() =>
-            transition.mutate(
-              { id: o.id, data: { toStatus: next } },
-              { onSuccess: () => { toast({ title: t(`orderStatus.${next}`) }); invalidate(); } },
-            )
-          }
-          data-testid="button-rider-advance"
-        >
-          {t("rider.advance")} · {t(`orderStatus.${next}`)} <ChevronRight className="size-5 ml-2" />
-        </Button>
-      ) : null}
-
-      {otherSteps.length > 0 ? (
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-muted-foreground font-medium">
-              {t("rider.otherStep")}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            {otherSteps.map((s) => (
-              <Button
-                key={s}
-                variant="outline"
-                disabled={transition.isPending}
-                onClick={() =>
-                  transition.mutate(
-                    { id: o.id, data: { toStatus: s } },
-                    { onSuccess: () => { toast({ title: t(`orderStatus.${s}`) }); invalidate(); } },
-                  )
-                }
-                data-testid={`button-rider-report-${s}`}
-              >
-                {t(`orderStatus.${s}`)}
-              </Button>
-            ))}
-          </CardContent>
-        </Card>
-      ) : null}
-
-      {allowed.includes("postponed") ? (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
-              <Clock className="size-4" /> {t("postpone.action")}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            <Textarea
-              value={postponeReason}
-              onChange={(e) => setPostponeReason(e.target.value)}
-              rows={2}
-              placeholder={t("postpone.reasonPlaceholder")}
-              data-testid="textarea-postpone-reason"
-            />
+      {isMine ? (
+        <>
+          {next ? (
             <Button
-              variant="outline"
-              className="w-full"
+              size="lg"
+              className="w-full h-16 text-lg font-semibold"
               disabled={transition.isPending}
               onClick={() =>
                 transition.mutate(
-                  { id: o.id, data: { toStatus: "postponed", note: postponeReason || undefined } },
-                  {
-                    onSuccess: () => {
-                      toast({ title: t("postpone.submitted") });
-                      setPostponeReason("");
-                      invalidate();
-                    },
-                  },
+                  { id: o.id, data: { toStatus: next } },
+                  { onSuccess: () => { toast({ title: t(`orderStatus.${next}`) }); invalidate(); } },
                 )
               }
-              data-testid="button-rider-postpone"
+              data-testid="button-rider-advance"
             >
-              {t("postpone.submit")}
+              {t("rider.advance")} · {t(`orderStatus.${next}`)} <ChevronRight className="size-5 ml-2" />
             </Button>
-          </CardContent>
-        </Card>
-      ) : null}
+          ) : null}
 
-      {o.status !== "delivered" && o.status !== "failed" ? (
-        <Card>
-          <CardHeader><CardTitle className="text-base text-destructive">{t("rider.fail")}</CardTitle></CardHeader>
-          <CardContent className="space-y-2">
-            <Textarea
-              value={failureReason}
-              onChange={(e) => setFailureReason(e.target.value)}
-              rows={2}
-              placeholder={t("rider.failureReason")}
-              data-testid="textarea-rider-fail-reason"
-            />
-            <Button
-              variant="destructive"
-              className="w-full"
-              disabled={transition.isPending || failureReason.trim().length === 0}
-              onClick={() =>
-                transition.mutate(
-                  { id: o.id, data: { toStatus: "failed", failureReason } },
-                  { onSuccess: () => { toast({ title: t("orderStatus.failed") }); invalidate(); } },
-                )
-              }
-              data-testid="button-rider-fail"
-            >
-              {t("rider.fail")}
-            </Button>
-          </CardContent>
-        </Card>
-      ) : null}
+          {otherSteps.length > 0 ? (
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm text-muted-foreground font-medium">
+                  {t("rider.otherStep")}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {otherSteps.map((s) => (
+                  <Button
+                    key={s}
+                    variant="outline"
+                    disabled={transition.isPending}
+                    onClick={() =>
+                      transition.mutate(
+                        { id: o.id, data: { toStatus: s } },
+                        { onSuccess: () => { toast({ title: t(`orderStatus.${s}`) }); invalidate(); } },
+                      )
+                    }
+                    data-testid={`button-rider-report-${s}`}
+                  >
+                    {t(`orderStatus.${s}`)}
+                  </Button>
+                ))}
+              </CardContent>
+            </Card>
+          ) : null}
 
-      <Card>
-        <CardHeader><CardTitle className="text-base">{t("rider.suggestPickup")}</CardTitle></CardHeader>
-        <CardContent>
-          <PickupTimeInput
-            currentIso={effectivePickup(o).iso}
-            pending={updatePickup.isPending}
-            submitLabel={t("common.save")}
-            onSubmit={(pickupTime) =>
-              updatePickup.mutate(
-                { id: o.id, data: { source: "rider", pickupTime } },
-                { onSuccess: () => { toast({ title: t("rider.suggestPickup") }); invalidate(); } },
-              )
-            }
-          />
-        </CardContent>
-      </Card>
+          {allowed.includes("postponed") ? (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Clock className="size-4" /> {t("postpone.action")}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <Textarea
+                  value={postponeReason}
+                  onChange={(e) => setPostponeReason(e.target.value)}
+                  rows={2}
+                  placeholder={t("postpone.reasonPlaceholder")}
+                  data-testid="textarea-postpone-reason"
+                />
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  disabled={transition.isPending}
+                  onClick={() =>
+                    transition.mutate(
+                      { id: o.id, data: { toStatus: "postponed", note: postponeReason || undefined } },
+                      {
+                        onSuccess: () => {
+                          toast({ title: t("postpone.submitted") });
+                          setPostponeReason("");
+                          invalidate();
+                        },
+                      },
+                    )
+                  }
+                  data-testid="button-rider-postpone"
+                >
+                  {t("postpone.submit")}
+                </Button>
+              </CardContent>
+            </Card>
+          ) : null}
+
+          {o.status !== "delivered" && o.status !== "failed" ? (
+            <Card>
+              <CardHeader><CardTitle className="text-base text-destructive">{t("rider.fail")}</CardTitle></CardHeader>
+              <CardContent className="space-y-2">
+                <Textarea
+                  value={failureReason}
+                  onChange={(e) => setFailureReason(e.target.value)}
+                  rows={2}
+                  placeholder={t("rider.failureReason")}
+                  data-testid="textarea-rider-fail-reason"
+                />
+                <Button
+                  variant="destructive"
+                  className="w-full"
+                  disabled={transition.isPending || failureReason.trim().length === 0}
+                  onClick={() =>
+                    transition.mutate(
+                      { id: o.id, data: { toStatus: "failed", failureReason } },
+                      { onSuccess: () => { toast({ title: t("orderStatus.failed") }); invalidate(); } },
+                    )
+                  }
+                  data-testid="button-rider-fail"
+                >
+                  {t("rider.fail")}
+                </Button>
+              </CardContent>
+            </Card>
+          ) : null}
+
+          <Card>
+            <CardHeader><CardTitle className="text-base">{t("rider.suggestPickup")}</CardTitle></CardHeader>
+            <CardContent>
+              <PickupTimeInput
+                currentIso={effectivePickup(o).iso}
+                pending={updatePickup.isPending}
+                submitLabel={t("common.save")}
+                onSubmit={(pickupTime) =>
+                  updatePickup.mutate(
+                    { id: o.id, data: { source: "rider", pickupTime } },
+                    { onSuccess: () => { toast({ title: t("rider.suggestPickup") }); invalidate(); } },
+                  )
+                }
+              />
+            </CardContent>
+          </Card>
+        </>
+      ) : (
+        <ClaimCard order={o} riderId={riderId} onClaimed={invalidate} />
+      )}
 
       <PushCard />
     </div>
@@ -305,6 +322,65 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
   const arr = new Uint8Array(raw.length);
   for (let i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
   return arr;
+}
+
+function ClaimCard({ order, riderId, onClaimed }: { order: OrderDetail; riderId: string | undefined; onClaimed: () => void }) {
+  const { t } = useTranslation();
+  const assign = useAssignOrder();
+  const { toast } = useToast();
+  // Server is authoritative; the UI just hides the button when self-claim is
+  // disabled. While loading, default to false so we don't briefly show an
+  // action the server will then refuse.
+  const flags = useGetSettingsFlags({
+    query: { queryKey: getGetSettingsFlagsQueryKey(), staleTime: 60_000 },
+  });
+  const allowSelfClaim = flags.data?.allowRiderSelfClaim ?? false;
+
+  function claim() {
+    if (!riderId) return;
+    assign.mutate(
+      { id: order.id, data: { riderId } },
+      {
+        onSuccess: () => {
+          toast({ title: t("rider.claim") });
+          onClaimed();
+        },
+        onError: (err: unknown) => {
+          const status =
+            typeof err === "object" && err !== null && "status" in err
+              ? (err as { status?: number }).status
+              : undefined;
+          const title = status === 403 ? t("rider.claimUnavailable") : t("errors.generic");
+          toast({ title, variant: "destructive" });
+        },
+      },
+    );
+  }
+
+  return (
+    <Card>
+      <CardContent className="py-4">
+        {allowSelfClaim ? (
+          <Button
+            size="lg"
+            className="w-full h-16 text-lg font-semibold"
+            disabled={!riderId || assign.isPending}
+            onClick={claim}
+            data-testid={`button-claim-${order.id}`}
+          >
+            {assign.isPending ? t("rider.claimPending") : t("rider.claim")}
+          </Button>
+        ) : (
+          <p
+            className="text-sm text-muted-foreground text-center"
+            data-testid={`text-claim-disabled-${order.id}`}
+          >
+            {t("rider.claimDisabled")}
+          </p>
+        )}
+      </CardContent>
+    </Card>
+  );
 }
 
 function PushCard() {

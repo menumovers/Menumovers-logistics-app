@@ -187,6 +187,8 @@
   "rider": {
     "title": "Mijn route",
     "availability": "Beschikbaarheid",
+    "changeAvailability": "Wijzigen",
+    "pickupCompact": "ophalen",
     "myOrders": "Mijn orders",
     "noOrders": "Nog geen orders toegewezen",
     "callRestaurant": "Bel restaurant",
