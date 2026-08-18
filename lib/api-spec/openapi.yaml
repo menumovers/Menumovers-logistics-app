@@ -1248,8 +1248,14 @@ components:
           type: integer
         price:
           type: string
+        options:
+          type: array
+          items:
+            type: string
+          description: Selected item customizations (e.g. size, extras), one entry per option. Structured so an option's own text can safely contain a comma or other punctuation.
         notes:
           type: ["string", "null"]
+          description: Free-text note about the item, distinct from `options`. Legacy sources that have not migrated to `options` may still send customizations folded into this field as a single string.
         totalPrice:
           type: ["string", "null"]
           description: Line total as sent by the source, not computed here. Absent for items added later via the admin add-item flow.

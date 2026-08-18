@@ -417,7 +417,11 @@ function ItemsCard({ order }: { order: OrderDetail }) {
                     <span className="text-muted-foreground tabular-nums">{it.quantity}× </span>
                     {it.name}
                   </div>
-                  {it.notes ? <span className="block text-xs text-muted-foreground">{it.notes}</span> : null}
+                  {it.options && it.options.length > 0 ? (
+                    <span className="block text-xs text-muted-foreground">{it.options.join(", ")}</span>
+                  ) : it.notes ? (
+                    <span className="block text-xs text-muted-foreground">{it.notes}</span>
+                  ) : null}
                   {isHidden ? (
                     <span className="mt-1 inline-flex items-center rounded border border-border bg-background px-1.5 py-0.5 text-[10px] uppercase text-muted-foreground">
                       {t("coordinator.hiddenForOthers")}
@@ -470,7 +474,11 @@ function ItemsCard({ order }: { order: OrderDetail }) {
                 <span className="inline-block rounded bg-accent/15 text-accent-foreground text-[10px] uppercase px-1.5 py-0.5 mr-2">{t("coordinator.extra")}</span>
                 <span className="text-muted-foreground tabular-nums">{it.quantity}× </span>
                 {it.name}
-                {it.notes ? <span className="block text-xs text-muted-foreground">{it.notes}</span> : null}
+                {it.options && it.options.length > 0 ? (
+                  <span className="block text-xs text-muted-foreground">{it.options.join(", ")}</span>
+                ) : it.notes ? (
+                  <span className="block text-xs text-muted-foreground">{it.notes}</span>
+                ) : null}
               </div>
               <span className="tabular-nums text-muted-foreground">{formatCurrency(it.price, lang)}</span>
             </li>

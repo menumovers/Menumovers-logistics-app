@@ -281,7 +281,12 @@ export interface OrderItem {
   name: string;
   quantity: number;
   price: string;
-  /** @nullable */
+  /** Selected item customizations (e.g. size, extras), one entry per option. Structured so an option's own text can safely contain a comma or other punctuation. */
+  options?: string[];
+  /**
+   * Free-text note about the item, distinct from `options`. Legacy sources that have not migrated to `options` may still send customizations folded into this field as a single string.
+   * @nullable
+   */
   notes?: string | null;
   /**
    * Line total as sent by the source, not computed here. Absent for items added later via the admin add-item flow.
