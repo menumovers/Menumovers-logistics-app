@@ -1276,6 +1276,7 @@ components:
         - orderId
         - customer
         - items
+        - subtotal
         - deliveryFee
         - totalAmount
         - tipRider
@@ -1340,6 +1341,12 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/OrderItem"
+        subtotal:
+          type: string
+          description: |
+            Sum of the menu items only — before delivery fee, tips, SUP/statiegeld
+            or administration costs. Sent by the source directly (not computed
+            here); receipt data, like the other charge breakdown fields below.
         deliveryFee:
           type: string
         totalAmount:
@@ -1540,6 +1547,15 @@ components:
           type: ["string", "null"]
         deliveryInstructions:
           type: ["string", "null"]
+        subtotal:
+          type: ["string", "null"]
+          description: |
+            Sum of the menu items only — before delivery fee, tips, SUP/statiegeld
+            or administration costs. Sent by the source directly (not computed
+            here); receipt data, like the other charge breakdown fields below.
+            Nullable only because it postdates orders already in the database —
+            every order ingested going forward has one, since the source always
+            sends it (see `InboundOrderPayload.subtotal`, which is required).
         deliveryFee:
           type: string
         totalAmount:

@@ -157,6 +157,7 @@ function baseOrderFields(
     latitude: order.latitude,
     longitude: order.longitude,
     deliveryInstructions: order.deliveryInstructions,
+    subtotal: order.subtotal,
     deliveryFee: order.deliveryFee,
     totalAmount: order.totalAmount,
     tipRider: order.tipRider,
