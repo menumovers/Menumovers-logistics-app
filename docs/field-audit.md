@@ -153,3 +153,25 @@ D10 was built.
   coordinator screens, B3) were unread and are now shown.
 - `updatedAt` is housekeeping, not payload data.
 - Nothing in this audit warrants dropping a column.
+
+---
+
+## Postscript, 2026-08-18
+
+Not a reopening of the audit above — a caveat on one line in "Also
+established" that a later incident showed was too absolute.
+
+**"Nothing is dropped at ingestion" holds for `originalPayload`, not for
+`items`.** `items[].options` (`workflow-decisions.md` D15) was added to the
+OpenAPI contract and reached `originalPayload` immediately, because that
+column is the validated payload stored verbatim. It did *not* reach `items`
+until the hand-built mapping in `routes/orders.ts` was separately updated to
+read it — a real order was ingested in the gap between the two and had
+`options` in one and not the other. See the "Inbound item field mapping" SSOT
+entry for the mechanism; a backfill script (`scripts/src/backfill-item-options.ts`)
+exists for any row still caught in it.
+
+Doesn't change this audit's scoring — `items[].options` postdates it — but a
+future item-level field audited against this report should know `items` is a
+second, manually-maintained hop past the point where "arrives in the payload"
+is usually assumed to mean "is stored."
