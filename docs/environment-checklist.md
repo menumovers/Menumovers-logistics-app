@@ -306,3 +306,27 @@ than asserted.
   status-as-report now. This entry previously called them "pending sign-off",
   which was both stale and the wrong frame: it treated one decision inside a
   contained process as if it needed its own approval gate.
+
+---
+
+## Postscript, 2026-08-18 — unrelated later work, noted for the live-system lesson
+
+Not part of the workflow-alignment stream above, and not another entry for
+its schema-impact table — `items[].options` (D15) added no DDL. Flagged here
+only because it's the first time this repo's *inter-repo* deploy ordering
+actually mattered against a live system, which nothing in Part 3 anticipates
+(that section verifies this app in isolation).
+
+A field added to the shared Babeldish↔logistics-app contract reached one
+side (Babeldish sending it, and this app's `originalPayload`) before it
+reached the other (this app's `items` mapping, which is hand-built, not
+derived from the schema — see the "Inbound item field mapping" SSOT entry).
+One real order landed in that gap; `scripts/src/backfill-item-options.ts`
+recovered it from `originalPayload`. Nothing here needed the local Postgres
+this file's Part 3 relies on — the gap and the fix were both found and
+verified against live production data.
+
+**Worth carrying forward**, if this checklist's own end-game work is ever
+picked back up: a two-repo contract change isn't atomic across a deploy
+boundary, so verifying "the schema is applied" on one side doesn't mean the
+other side's derived mappings are caught up yet.
