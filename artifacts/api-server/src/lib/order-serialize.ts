@@ -23,6 +23,7 @@ export type SerializedOrderItem = {
   name: string;
   quantity: number;
   price: Numeric;
+  options?: string[];
   notes?: string | null;
   totalPrice?: Numeric | null;
   externalId?: string | null;
@@ -33,6 +34,7 @@ function toSerializedItem(item: OrderItem): SerializedOrderItem {
     name: item.name,
     quantity: item.quantity,
     price: item.price,
+    options: item.options,
     notes: item.notes ?? null,
     totalPrice: item.totalPrice ?? null,
     externalId: item.externalId ?? null,

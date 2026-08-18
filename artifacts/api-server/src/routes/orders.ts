@@ -207,6 +207,7 @@ router.post(
       name: it.name,
       quantity: it.quantity,
       price: it.price,
+      ...(it.options != null ? { options: it.options } : {}),
       ...(it.notes != null ? { notes: it.notes } : {}),
       ...(it.totalPrice != null ? { totalPrice: it.totalPrice } : {}),
       ...(it.externalId != null ? { externalId: it.externalId } : {}),

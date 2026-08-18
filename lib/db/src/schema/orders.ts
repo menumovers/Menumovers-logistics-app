@@ -53,6 +53,10 @@ export type OrderItem = {
   name: string;
   quantity: number;
   price: string; // string to avoid float math
+  // Selected item customizations (size, extras, etc.), one entry per option.
+  options?: string[];
+  // Free-text note about the item, distinct from `options`. Legacy sources
+  // that haven't migrated to `options` may still fold customizations in here.
   notes?: string;
   // Line total (price * quantity, as sent raw by the source — not computed
   // here). Optional because items added later via the admin add-item flow

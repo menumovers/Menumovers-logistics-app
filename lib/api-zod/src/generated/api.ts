@@ -116,7 +116,18 @@ export const IngestOrderBody = zod.object({
       name: zod.string(),
       quantity: zod.number(),
       price: zod.string(),
-      notes: zod.string().nullish(),
+      options: zod
+        .array(zod.string())
+        .optional()
+        .describe(
+          "Selected item customizations (e.g. size, extras), one entry per option. Structured so an option's own text can safely contain a comma or other punctuation.",
+        ),
+      notes: zod
+        .string()
+        .nullish()
+        .describe(
+          "Free-text note about the item, distinct from `options`. Legacy sources that have not migrated to `options` may still send customizations folded into this field as a single string.",
+        ),
       totalPrice: zod
         .string()
         .nullish()
@@ -277,7 +288,18 @@ export const IngestOrderResponse = zod.object({
       name: zod.string(),
       quantity: zod.number(),
       price: zod.string(),
-      notes: zod.string().nullish(),
+      options: zod
+        .array(zod.string())
+        .optional()
+        .describe(
+          "Selected item customizations (e.g. size, extras), one entry per option. Structured so an option's own text can safely contain a comma or other punctuation.",
+        ),
+      notes: zod
+        .string()
+        .nullish()
+        .describe(
+          "Free-text note about the item, distinct from `options`. Legacy sources that have not migrated to `options` may still send customizations folded into this field as a single string.",
+        ),
       totalPrice: zod
         .string()
         .nullish()
@@ -457,7 +479,18 @@ export const ListOrdersResponseItem = zod
         name: zod.string(),
         quantity: zod.number(),
         price: zod.string(),
-        notes: zod.string().nullish(),
+        options: zod
+          .array(zod.string())
+          .optional()
+          .describe(
+            "Selected item customizations (e.g. size, extras), one entry per option. Structured so an option's own text can safely contain a comma or other punctuation.",
+          ),
+        notes: zod
+          .string()
+          .nullish()
+          .describe(
+            "Free-text note about the item, distinct from `options`. Legacy sources that have not migrated to `options` may still send customizations folded into this field as a single string.",
+          ),
         totalPrice: zod
           .string()
           .nullish()
@@ -632,7 +665,18 @@ export const GetOrderResponse = zod
         name: zod.string(),
         quantity: zod.number(),
         price: zod.string(),
-        notes: zod.string().nullish(),
+        options: zod
+          .array(zod.string())
+          .optional()
+          .describe(
+            "Selected item customizations (e.g. size, extras), one entry per option. Structured so an option's own text can safely contain a comma or other punctuation.",
+          ),
+        notes: zod
+          .string()
+          .nullish()
+          .describe(
+            "Free-text note about the item, distinct from `options`. Legacy sources that have not migrated to `options` may still send customizations folded into this field as a single string.",
+          ),
         totalPrice: zod
           .string()
           .nullish()
@@ -785,7 +829,18 @@ export const GetOrderResponse = zod
                 name: zod.string(),
                 quantity: zod.number(),
                 price: zod.string(),
-                notes: zod.string().nullish(),
+                options: zod
+                  .array(zod.string())
+                  .optional()
+                  .describe(
+                    "Selected item customizations (e.g. size, extras), one entry per option. Structured so an option's own text can safely contain a comma or other punctuation.",
+                  ),
+                notes: zod
+                  .string()
+                  .nullish()
+                  .describe(
+                    "Free-text note about the item, distinct from `options`. Legacy sources that have not migrated to `options` may still send customizations folded into this field as a single string.",
+                  ),
                 totalPrice: zod
                   .string()
                   .nullish()
@@ -896,7 +951,18 @@ export const TransitionOrderStatusResponse = zod
         name: zod.string(),
         quantity: zod.number(),
         price: zod.string(),
-        notes: zod.string().nullish(),
+        options: zod
+          .array(zod.string())
+          .optional()
+          .describe(
+            "Selected item customizations (e.g. size, extras), one entry per option. Structured so an option's own text can safely contain a comma or other punctuation.",
+          ),
+        notes: zod
+          .string()
+          .nullish()
+          .describe(
+            "Free-text note about the item, distinct from `options`. Legacy sources that have not migrated to `options` may still send customizations folded into this field as a single string.",
+          ),
         totalPrice: zod
           .string()
           .nullish()
@@ -1049,7 +1115,18 @@ export const TransitionOrderStatusResponse = zod
                 name: zod.string(),
                 quantity: zod.number(),
                 price: zod.string(),
-                notes: zod.string().nullish(),
+                options: zod
+                  .array(zod.string())
+                  .optional()
+                  .describe(
+                    "Selected item customizations (e.g. size, extras), one entry per option. Structured so an option's own text can safely contain a comma or other punctuation.",
+                  ),
+                notes: zod
+                  .string()
+                  .nullish()
+                  .describe(
+                    "Free-text note about the item, distinct from `options`. Legacy sources that have not migrated to `options` may still send customizations folded into this field as a single string.",
+                  ),
                 totalPrice: zod
                   .string()
                   .nullish()
@@ -1149,7 +1226,18 @@ export const AssignOrderResponse = zod
         name: zod.string(),
         quantity: zod.number(),
         price: zod.string(),
-        notes: zod.string().nullish(),
+        options: zod
+          .array(zod.string())
+          .optional()
+          .describe(
+            "Selected item customizations (e.g. size, extras), one entry per option. Structured so an option's own text can safely contain a comma or other punctuation.",
+          ),
+        notes: zod
+          .string()
+          .nullish()
+          .describe(
+            "Free-text note about the item, distinct from `options`. Legacy sources that have not migrated to `options` may still send customizations folded into this field as a single string.",
+          ),
         totalPrice: zod
           .string()
           .nullish()
@@ -1302,7 +1390,18 @@ export const AssignOrderResponse = zod
                 name: zod.string(),
                 quantity: zod.number(),
                 price: zod.string(),
-                notes: zod.string().nullish(),
+                options: zod
+                  .array(zod.string())
+                  .optional()
+                  .describe(
+                    "Selected item customizations (e.g. size, extras), one entry per option. Structured so an option's own text can safely contain a comma or other punctuation.",
+                  ),
+                notes: zod
+                  .string()
+                  .nullish()
+                  .describe(
+                    "Free-text note about the item, distinct from `options`. Legacy sources that have not migrated to `options` may still send customizations folded into this field as a single string.",
+                  ),
                 totalPrice: zod
                   .string()
                   .nullish()
@@ -1403,7 +1502,18 @@ export const UpdatePickupTimeResponse = zod
         name: zod.string(),
         quantity: zod.number(),
         price: zod.string(),
-        notes: zod.string().nullish(),
+        options: zod
+          .array(zod.string())
+          .optional()
+          .describe(
+            "Selected item customizations (e.g. size, extras), one entry per option. Structured so an option's own text can safely contain a comma or other punctuation.",
+          ),
+        notes: zod
+          .string()
+          .nullish()
+          .describe(
+            "Free-text note about the item, distinct from `options`. Legacy sources that have not migrated to `options` may still send customizations folded into this field as a single string.",
+          ),
         totalPrice: zod
           .string()
           .nullish()
@@ -1556,7 +1666,18 @@ export const UpdatePickupTimeResponse = zod
                 name: zod.string(),
                 quantity: zod.number(),
                 price: zod.string(),
-                notes: zod.string().nullish(),
+                options: zod
+                  .array(zod.string())
+                  .optional()
+                  .describe(
+                    "Selected item customizations (e.g. size, extras), one entry per option. Structured so an option's own text can safely contain a comma or other punctuation.",
+                  ),
+                notes: zod
+                  .string()
+                  .nullish()
+                  .describe(
+                    "Free-text note about the item, distinct from `options`. Legacy sources that have not migrated to `options` may still send customizations folded into this field as a single string.",
+                  ),
                 totalPrice: zod
                   .string()
                   .nullish()
@@ -1656,7 +1777,18 @@ export const HideOrderItemResponse = zod
         name: zod.string(),
         quantity: zod.number(),
         price: zod.string(),
-        notes: zod.string().nullish(),
+        options: zod
+          .array(zod.string())
+          .optional()
+          .describe(
+            "Selected item customizations (e.g. size, extras), one entry per option. Structured so an option's own text can safely contain a comma or other punctuation.",
+          ),
+        notes: zod
+          .string()
+          .nullish()
+          .describe(
+            "Free-text note about the item, distinct from `options`. Legacy sources that have not migrated to `options` may still send customizations folded into this field as a single string.",
+          ),
         totalPrice: zod
           .string()
           .nullish()
@@ -1809,7 +1941,18 @@ export const HideOrderItemResponse = zod
                 name: zod.string(),
                 quantity: zod.number(),
                 price: zod.string(),
-                notes: zod.string().nullish(),
+                options: zod
+                  .array(zod.string())
+                  .optional()
+                  .describe(
+                    "Selected item customizations (e.g. size, extras), one entry per option. Structured so an option's own text can safely contain a comma or other punctuation.",
+                  ),
+                notes: zod
+                  .string()
+                  .nullish()
+                  .describe(
+                    "Free-text note about the item, distinct from `options`. Legacy sources that have not migrated to `options` may still send customizations folded into this field as a single string.",
+                  ),
                 totalPrice: zod
                   .string()
                   .nullish()
@@ -1849,7 +1992,18 @@ export const AddOrderItemBody = zod.object({
     name: zod.string(),
     quantity: zod.number(),
     price: zod.string(),
-    notes: zod.string().nullish(),
+    options: zod
+      .array(zod.string())
+      .optional()
+      .describe(
+        "Selected item customizations (e.g. size, extras), one entry per option. Structured so an option's own text can safely contain a comma or other punctuation.",
+      ),
+    notes: zod
+      .string()
+      .nullish()
+      .describe(
+        "Free-text note about the item, distinct from `options`. Legacy sources that have not migrated to `options` may still send customizations folded into this field as a single string.",
+      ),
     totalPrice: zod
       .string()
       .nullish()
@@ -1924,7 +2078,18 @@ export const AddOrderItemResponse = zod
         name: zod.string(),
         quantity: zod.number(),
         price: zod.string(),
-        notes: zod.string().nullish(),
+        options: zod
+          .array(zod.string())
+          .optional()
+          .describe(
+            "Selected item customizations (e.g. size, extras), one entry per option. Structured so an option's own text can safely contain a comma or other punctuation.",
+          ),
+        notes: zod
+          .string()
+          .nullish()
+          .describe(
+            "Free-text note about the item, distinct from `options`. Legacy sources that have not migrated to `options` may still send customizations folded into this field as a single string.",
+          ),
         totalPrice: zod
           .string()
           .nullish()
@@ -2077,7 +2242,18 @@ export const AddOrderItemResponse = zod
                 name: zod.string(),
                 quantity: zod.number(),
                 price: zod.string(),
-                notes: zod.string().nullish(),
+                options: zod
+                  .array(zod.string())
+                  .optional()
+                  .describe(
+                    "Selected item customizations (e.g. size, extras), one entry per option. Structured so an option's own text can safely contain a comma or other punctuation.",
+                  ),
+                notes: zod
+                  .string()
+                  .nullish()
+                  .describe(
+                    "Free-text note about the item, distinct from `options`. Legacy sources that have not migrated to `options` may still send customizations folded into this field as a single string.",
+                  ),
                 totalPrice: zod
                   .string()
                   .nullish()
@@ -2140,7 +2316,18 @@ export const GetOriginalOrderItemsResponse = zod.object({
       name: zod.string(),
       quantity: zod.number(),
       price: zod.string(),
-      notes: zod.string().nullish(),
+      options: zod
+        .array(zod.string())
+        .optional()
+        .describe(
+          "Selected item customizations (e.g. size, extras), one entry per option. Structured so an option's own text can safely contain a comma or other punctuation.",
+        ),
+      notes: zod
+        .string()
+        .nullish()
+        .describe(
+          "Free-text note about the item, distinct from `options`. Legacy sources that have not migrated to `options` may still send customizations folded into this field as a single string.",
+        ),
       totalPrice: zod
         .string()
         .nullish()
@@ -2227,7 +2414,18 @@ export const SetRiderNotificationResponse = zod
         name: zod.string(),
         quantity: zod.number(),
         price: zod.string(),
-        notes: zod.string().nullish(),
+        options: zod
+          .array(zod.string())
+          .optional()
+          .describe(
+            "Selected item customizations (e.g. size, extras), one entry per option. Structured so an option's own text can safely contain a comma or other punctuation.",
+          ),
+        notes: zod
+          .string()
+          .nullish()
+          .describe(
+            "Free-text note about the item, distinct from `options`. Legacy sources that have not migrated to `options` may still send customizations folded into this field as a single string.",
+          ),
         totalPrice: zod
           .string()
           .nullish()
@@ -2380,7 +2578,18 @@ export const SetRiderNotificationResponse = zod
                 name: zod.string(),
                 quantity: zod.number(),
                 price: zod.string(),
-                notes: zod.string().nullish(),
+                options: zod
+                  .array(zod.string())
+                  .optional()
+                  .describe(
+                    "Selected item customizations (e.g. size, extras), one entry per option. Structured so an option's own text can safely contain a comma or other punctuation.",
+                  ),
+                notes: zod
+                  .string()
+                  .nullish()
+                  .describe(
+                    "Free-text note about the item, distinct from `options`. Legacy sources that have not migrated to `options` may still send customizations folded into this field as a single string.",
+                  ),
                 totalPrice: zod
                   .string()
                   .nullish()
@@ -2493,7 +2702,18 @@ export const UpdateOrderContactResponse = zod
         name: zod.string(),
         quantity: zod.number(),
         price: zod.string(),
-        notes: zod.string().nullish(),
+        options: zod
+          .array(zod.string())
+          .optional()
+          .describe(
+            "Selected item customizations (e.g. size, extras), one entry per option. Structured so an option's own text can safely contain a comma or other punctuation.",
+          ),
+        notes: zod
+          .string()
+          .nullish()
+          .describe(
+            "Free-text note about the item, distinct from `options`. Legacy sources that have not migrated to `options` may still send customizations folded into this field as a single string.",
+          ),
         totalPrice: zod
           .string()
           .nullish()
@@ -2646,7 +2866,18 @@ export const UpdateOrderContactResponse = zod
                 name: zod.string(),
                 quantity: zod.number(),
                 price: zod.string(),
-                notes: zod.string().nullish(),
+                options: zod
+                  .array(zod.string())
+                  .optional()
+                  .describe(
+                    "Selected item customizations (e.g. size, extras), one entry per option. Structured so an option's own text can safely contain a comma or other punctuation.",
+                  ),
+                notes: zod
+                  .string()
+                  .nullish()
+                  .describe(
+                    "Free-text note about the item, distinct from `options`. Legacy sources that have not migrated to `options` may still send customizations folded into this field as a single string.",
+                  ),
                 totalPrice: zod
                   .string()
                   .nullish()
@@ -2755,7 +2986,18 @@ export const MarkOrderReadyResponse = zod
         name: zod.string(),
         quantity: zod.number(),
         price: zod.string(),
-        notes: zod.string().nullish(),
+        options: zod
+          .array(zod.string())
+          .optional()
+          .describe(
+            "Selected item customizations (e.g. size, extras), one entry per option. Structured so an option's own text can safely contain a comma or other punctuation.",
+          ),
+        notes: zod
+          .string()
+          .nullish()
+          .describe(
+            "Free-text note about the item, distinct from `options`. Legacy sources that have not migrated to `options` may still send customizations folded into this field as a single string.",
+          ),
         totalPrice: zod
           .string()
           .nullish()
@@ -2908,7 +3150,18 @@ export const MarkOrderReadyResponse = zod
                 name: zod.string(),
                 quantity: zod.number(),
                 price: zod.string(),
-                notes: zod.string().nullish(),
+                options: zod
+                  .array(zod.string())
+                  .optional()
+                  .describe(
+                    "Selected item customizations (e.g. size, extras), one entry per option. Structured so an option's own text can safely contain a comma or other punctuation.",
+                  ),
+                notes: zod
+                  .string()
+                  .nullish()
+                  .describe(
+                    "Free-text note about the item, distinct from `options`. Legacy sources that have not migrated to `options` may still send customizations folded into this field as a single string.",
+                  ),
                 totalPrice: zod
                   .string()
                   .nullish()
@@ -3022,7 +3275,18 @@ export const AcknowledgeOrderResponse = zod
         name: zod.string(),
         quantity: zod.number(),
         price: zod.string(),
-        notes: zod.string().nullish(),
+        options: zod
+          .array(zod.string())
+          .optional()
+          .describe(
+            "Selected item customizations (e.g. size, extras), one entry per option. Structured so an option's own text can safely contain a comma or other punctuation.",
+          ),
+        notes: zod
+          .string()
+          .nullish()
+          .describe(
+            "Free-text note about the item, distinct from `options`. Legacy sources that have not migrated to `options` may still send customizations folded into this field as a single string.",
+          ),
         totalPrice: zod
           .string()
           .nullish()
@@ -3175,7 +3439,18 @@ export const AcknowledgeOrderResponse = zod
                 name: zod.string(),
                 quantity: zod.number(),
                 price: zod.string(),
-                notes: zod.string().nullish(),
+                options: zod
+                  .array(zod.string())
+                  .optional()
+                  .describe(
+                    "Selected item customizations (e.g. size, extras), one entry per option. Structured so an option's own text can safely contain a comma or other punctuation.",
+                  ),
+                notes: zod
+                  .string()
+                  .nullish()
+                  .describe(
+                    "Free-text note about the item, distinct from `options`. Legacy sources that have not migrated to `options` may still send customizations folded into this field as a single string.",
+                  ),
                 totalPrice: zod
                   .string()
                   .nullish()
@@ -3279,7 +3554,18 @@ export const HoldOrderResponse = zod
         name: zod.string(),
         quantity: zod.number(),
         price: zod.string(),
-        notes: zod.string().nullish(),
+        options: zod
+          .array(zod.string())
+          .optional()
+          .describe(
+            "Selected item customizations (e.g. size, extras), one entry per option. Structured so an option's own text can safely contain a comma or other punctuation.",
+          ),
+        notes: zod
+          .string()
+          .nullish()
+          .describe(
+            "Free-text note about the item, distinct from `options`. Legacy sources that have not migrated to `options` may still send customizations folded into this field as a single string.",
+          ),
         totalPrice: zod
           .string()
           .nullish()
@@ -3432,7 +3718,18 @@ export const HoldOrderResponse = zod
                 name: zod.string(),
                 quantity: zod.number(),
                 price: zod.string(),
-                notes: zod.string().nullish(),
+                options: zod
+                  .array(zod.string())
+                  .optional()
+                  .describe(
+                    "Selected item customizations (e.g. size, extras), one entry per option. Structured so an option's own text can safely contain a comma or other punctuation.",
+                  ),
+                notes: zod
+                  .string()
+                  .nullish()
+                  .describe(
+                    "Free-text note about the item, distinct from `options`. Legacy sources that have not migrated to `options` may still send customizations folded into this field as a single string.",
+                  ),
                 totalPrice: zod
                   .string()
                   .nullish()
@@ -3528,7 +3825,18 @@ export const ReleaseOrderResponse = zod
         name: zod.string(),
         quantity: zod.number(),
         price: zod.string(),
-        notes: zod.string().nullish(),
+        options: zod
+          .array(zod.string())
+          .optional()
+          .describe(
+            "Selected item customizations (e.g. size, extras), one entry per option. Structured so an option's own text can safely contain a comma or other punctuation.",
+          ),
+        notes: zod
+          .string()
+          .nullish()
+          .describe(
+            "Free-text note about the item, distinct from `options`. Legacy sources that have not migrated to `options` may still send customizations folded into this field as a single string.",
+          ),
         totalPrice: zod
           .string()
           .nullish()
@@ -3681,7 +3989,18 @@ export const ReleaseOrderResponse = zod
                 name: zod.string(),
                 quantity: zod.number(),
                 price: zod.string(),
-                notes: zod.string().nullish(),
+                options: zod
+                  .array(zod.string())
+                  .optional()
+                  .describe(
+                    "Selected item customizations (e.g. size, extras), one entry per option. Structured so an option's own text can safely contain a comma or other punctuation.",
+                  ),
+                notes: zod
+                  .string()
+                  .nullish()
+                  .describe(
+                    "Free-text note about the item, distinct from `options`. Legacy sources that have not migrated to `options` may still send customizations folded into this field as a single string.",
+                  ),
                 totalPrice: zod
                   .string()
                   .nullish()
@@ -3785,7 +4104,18 @@ export const SetOrderRestaurantResponse = zod
         name: zod.string(),
         quantity: zod.number(),
         price: zod.string(),
-        notes: zod.string().nullish(),
+        options: zod
+          .array(zod.string())
+          .optional()
+          .describe(
+            "Selected item customizations (e.g. size, extras), one entry per option. Structured so an option's own text can safely contain a comma or other punctuation.",
+          ),
+        notes: zod
+          .string()
+          .nullish()
+          .describe(
+            "Free-text note about the item, distinct from `options`. Legacy sources that have not migrated to `options` may still send customizations folded into this field as a single string.",
+          ),
         totalPrice: zod
           .string()
           .nullish()
@@ -3938,7 +4268,18 @@ export const SetOrderRestaurantResponse = zod
                 name: zod.string(),
                 quantity: zod.number(),
                 price: zod.string(),
-                notes: zod.string().nullish(),
+                options: zod
+                  .array(zod.string())
+                  .optional()
+                  .describe(
+                    "Selected item customizations (e.g. size, extras), one entry per option. Structured so an option's own text can safely contain a comma or other punctuation.",
+                  ),
+                notes: zod
+                  .string()
+                  .nullish()
+                  .describe(
+                    "Free-text note about the item, distinct from `options`. Legacy sources that have not migrated to `options` may still send customizations folded into this field as a single string.",
+                  ),
                 totalPrice: zod
                   .string()
                   .nullish()
@@ -4436,7 +4777,18 @@ export const GetTripResponse = zod
                 name: zod.string(),
                 quantity: zod.number(),
                 price: zod.string(),
-                notes: zod.string().nullish(),
+                options: zod
+                  .array(zod.string())
+                  .optional()
+                  .describe(
+                    "Selected item customizations (e.g. size, extras), one entry per option. Structured so an option's own text can safely contain a comma or other punctuation.",
+                  ),
+                notes: zod
+                  .string()
+                  .nullish()
+                  .describe(
+                    "Free-text note about the item, distinct from `options`. Legacy sources that have not migrated to `options` may still send customizations folded into this field as a single string.",
+                  ),
                 totalPrice: zod
                   .string()
                   .nullish()
@@ -4692,7 +5044,18 @@ export const UpdateTripResponse = zod
                 name: zod.string(),
                 quantity: zod.number(),
                 price: zod.string(),
-                notes: zod.string().nullish(),
+                options: zod
+                  .array(zod.string())
+                  .optional()
+                  .describe(
+                    "Selected item customizations (e.g. size, extras), one entry per option. Structured so an option's own text can safely contain a comma or other punctuation.",
+                  ),
+                notes: zod
+                  .string()
+                  .nullish()
+                  .describe(
+                    "Free-text note about the item, distinct from `options`. Legacy sources that have not migrated to `options` may still send customizations folded into this field as a single string.",
+                  ),
                 totalPrice: zod
                   .string()
                   .nullish()
@@ -4948,7 +5311,18 @@ export const ReplaceTripStopsResponse = zod
                 name: zod.string(),
                 quantity: zod.number(),
                 price: zod.string(),
-                notes: zod.string().nullish(),
+                options: zod
+                  .array(zod.string())
+                  .optional()
+                  .describe(
+                    "Selected item customizations (e.g. size, extras), one entry per option. Structured so an option's own text can safely contain a comma or other punctuation.",
+                  ),
+                notes: zod
+                  .string()
+                  .nullish()
+                  .describe(
+                    "Free-text note about the item, distinct from `options`. Legacy sources that have not migrated to `options` may still send customizations folded into this field as a single string.",
+                  ),
                 totalPrice: zod
                   .string()
                   .nullish()
@@ -5193,7 +5567,18 @@ export const DissolveTripResponse = zod
                 name: zod.string(),
                 quantity: zod.number(),
                 price: zod.string(),
-                notes: zod.string().nullish(),
+                options: zod
+                  .array(zod.string())
+                  .optional()
+                  .describe(
+                    "Selected item customizations (e.g. size, extras), one entry per option. Structured so an option's own text can safely contain a comma or other punctuation.",
+                  ),
+                notes: zod
+                  .string()
+                  .nullish()
+                  .describe(
+                    "Free-text note about the item, distinct from `options`. Legacy sources that have not migrated to `options` may still send customizations folded into this field as a single string.",
+                  ),
                 totalPrice: zod
                   .string()
                   .nullish()
