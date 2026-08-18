@@ -43,9 +43,10 @@ import { PickupCountdown, PickupSourceBadge } from "@/components/pickup-countdow
 import { PickupTimeInput } from "@/components/pickup-time-input";
 import { PaymentPanel } from "@/components/payment-panel";
 import { DeliveryMethodBadge, RequestedTimeLabel } from "@/components/delivery-expectation";
-import { ArrowLeft, Bike, MapPin, Phone, Mail, Plus, Eye, EyeOff, Bell, History, PauseCircle, PlayCircle, AlertTriangle, Printer } from "lucide-react";
+import { ArrowLeft, Bike, MapPin, Phone, Mail, Plus, Eye, EyeOff, Bell, History, PauseCircle, PlayCircle, AlertTriangle, Printer, ChevronDown, Braces, Copy } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { effectivePickup, formatCurrency, formatDateTime, formatTime } from "@/lib/format";
+import { cn } from "@/lib/utils";
 
 export default function CoordinatorOrderPage() {
   const { id } = useParams();
@@ -125,6 +126,7 @@ export default function CoordinatorOrderPage() {
           <ContactCard order={o} />
           <NotificationCard order={o} />
           <TimelineCard order={o} />
+          <OriginalPayloadCard order={o} />
         </div>
         <div className="space-y-5">
           <HoldCard order={o} />
@@ -758,6 +760,57 @@ function TimelineCard({ order }: { order: OrderDetail }) {
           ))}
         </ol>
       </CardContent>
+    </Card>
+  );
+}
+
+function OriginalPayloadCard({ order }: { order: OrderDetail }) {
+  const { t } = useTranslation();
+  const { toast } = useToast();
+  const [open, setOpen] = useState(false);
+  const json = JSON.stringify(order.originalPayload, null, 2);
+
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(json);
+      toast({ title: t("coordinator.originalPayloadCopied") });
+    } catch {
+      toast({ title: t("errors.generic"), variant: "destructive" });
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <button
+          type="button"
+          className="flex items-center justify-between w-full text-left"
+          onClick={() => setOpen((v) => !v)}
+          data-testid="button-toggle-original-payload"
+        >
+          <CardTitle className="text-base flex items-center gap-2">
+            <Braces className="size-4" />
+            {t("coordinator.originalPayload")}
+          </CardTitle>
+          <ChevronDown className={cn("size-4 transition-transform", open && "rotate-180")} />
+        </button>
+      </CardHeader>
+      {open ? (
+        <CardContent className="space-y-2">
+          <div className="flex justify-end">
+            <Button variant="outline" size="sm" onClick={copy} data-testid="button-copy-original-payload">
+              <Copy className="size-3.5 mr-1.5" />
+              {t("common.copy")}
+            </Button>
+          </div>
+          <pre
+            className="max-h-96 overflow-auto rounded-md bg-muted p-3 text-xs"
+            data-testid="text-original-payload"
+          >
+            {json}
+          </pre>
+        </CardContent>
+      ) : null}
     </Card>
   );
 }

@@ -491,6 +491,7 @@ export async function serializeOrderDetail(orderId: string) {
         : null,
       createdAt: o.createdAt,
     })),
+    originalPayload: order.originalPayload,
   };
 }
 

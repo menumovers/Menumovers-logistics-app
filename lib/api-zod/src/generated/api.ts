@@ -793,6 +793,11 @@ export const GetOrderResponse = zod
           createdAt: zod.coerce.date(),
         }),
       ),
+      originalPayload: zod
+        .record(zod.string(), zod.unknown())
+        .describe(
+          "The raw upstream order payload, kept as received for forensic\/replay use.",
+        ),
     }),
   );
 
@@ -1052,6 +1057,11 @@ export const TransitionOrderStatusResponse = zod
           createdAt: zod.coerce.date(),
         }),
       ),
+      originalPayload: zod
+        .record(zod.string(), zod.unknown())
+        .describe(
+          "The raw upstream order payload, kept as received for forensic\/replay use.",
+        ),
     }),
   );
 
@@ -1300,6 +1310,11 @@ export const AssignOrderResponse = zod
           createdAt: zod.coerce.date(),
         }),
       ),
+      originalPayload: zod
+        .record(zod.string(), zod.unknown())
+        .describe(
+          "The raw upstream order payload, kept as received for forensic\/replay use.",
+        ),
     }),
   );
 
@@ -1549,6 +1564,11 @@ export const UpdatePickupTimeResponse = zod
           createdAt: zod.coerce.date(),
         }),
       ),
+      originalPayload: zod
+        .record(zod.string(), zod.unknown())
+        .describe(
+          "The raw upstream order payload, kept as received for forensic\/replay use.",
+        ),
     }),
   );
 
@@ -1797,6 +1817,11 @@ export const HideOrderItemResponse = zod
           createdAt: zod.coerce.date(),
         }),
       ),
+      originalPayload: zod
+        .record(zod.string(), zod.unknown())
+        .describe(
+          "The raw upstream order payload, kept as received for forensic\/replay use.",
+        ),
     }),
   );
 
@@ -2060,6 +2085,11 @@ export const AddOrderItemResponse = zod
           createdAt: zod.coerce.date(),
         }),
       ),
+      originalPayload: zod
+        .record(zod.string(), zod.unknown())
+        .describe(
+          "The raw upstream order payload, kept as received for forensic\/replay use.",
+        ),
     }),
   );
 
@@ -2358,6 +2388,11 @@ export const SetRiderNotificationResponse = zod
           createdAt: zod.coerce.date(),
         }),
       ),
+      originalPayload: zod
+        .record(zod.string(), zod.unknown())
+        .describe(
+          "The raw upstream order payload, kept as received for forensic\/replay use.",
+        ),
     }),
   );
 
@@ -2619,6 +2654,11 @@ export const UpdateOrderContactResponse = zod
           createdAt: zod.coerce.date(),
         }),
       ),
+      originalPayload: zod
+        .record(zod.string(), zod.unknown())
+        .describe(
+          "The raw upstream order payload, kept as received for forensic\/replay use.",
+        ),
     }),
   );
 
@@ -2876,6 +2916,11 @@ export const MarkOrderReadyResponse = zod
           createdAt: zod.coerce.date(),
         }),
       ),
+      originalPayload: zod
+        .record(zod.string(), zod.unknown())
+        .describe(
+          "The raw upstream order payload, kept as received for forensic\/replay use.",
+        ),
     }),
   );
 
@@ -3138,6 +3183,11 @@ export const AcknowledgeOrderResponse = zod
           createdAt: zod.coerce.date(),
         }),
       ),
+      originalPayload: zod
+        .record(zod.string(), zod.unknown())
+        .describe(
+          "The raw upstream order payload, kept as received for forensic\/replay use.",
+        ),
     }),
   );
 
@@ -3390,6 +3440,11 @@ export const HoldOrderResponse = zod
           createdAt: zod.coerce.date(),
         }),
       ),
+      originalPayload: zod
+        .record(zod.string(), zod.unknown())
+        .describe(
+          "The raw upstream order payload, kept as received for forensic\/replay use.",
+        ),
     }),
   );
 
@@ -3634,6 +3689,11 @@ export const ReleaseOrderResponse = zod
           createdAt: zod.coerce.date(),
         }),
       ),
+      originalPayload: zod
+        .record(zod.string(), zod.unknown())
+        .describe(
+          "The raw upstream order payload, kept as received for forensic\/replay use.",
+        ),
     }),
   );
 
@@ -3886,6 +3946,11 @@ export const SetOrderRestaurantResponse = zod
           createdAt: zod.coerce.date(),
         }),
       ),
+      originalPayload: zod
+        .record(zod.string(), zod.unknown())
+        .describe(
+          "The raw upstream order payload, kept as received for forensic\/replay use.",
+        ),
     }),
   );
 
