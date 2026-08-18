@@ -50,6 +50,17 @@ reads it; use `deliveryAddress` for anything the app does.
   longitude?: string | null;
   /** @nullable */
   deliveryInstructions?: string | null;
+  /**
+   * Sum of the menu items only — before delivery fee, tips, SUP/statiegeld
+or administration costs. Sent by the source directly (not computed
+here); receipt data, like the other charge breakdown fields below.
+Nullable only because it postdates orders already in the database —
+every order ingested going forward has one, since the source always
+sends it (see `InboundOrderPayload.subtotal`, which is required).
+
+   * @nullable
+   */
+  subtotal?: string | null;
   deliveryFee: string;
   totalAmount: string;
   tipRider: string;

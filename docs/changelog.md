@@ -1,5 +1,25 @@
 # Changelog
 
+## 2026-08-18 — New `subtotal` field (menu items only, receipt data)
+
+`InboundOrderPayload`/`Order` gain `subtotal` — the menu items total,
+before delivery fee, tips, SUP/statiegeld or administration costs. Sent by
+Babeldish directly (not computed here), matching how the rest of the money
+breakdown already works. Threaded through the ingestion mapping in
+`routes/orders.ts` and `order-serialize.ts`, and shown as its own line on
+the receipt, above the delivery/tip/other breakdown — the same "receipt
+data, not operational data" treatment as D10's other breakdown fields.
+
+**Nullable, not required, on `Order`:** unlike the rest of that group,
+`subtotal` is nullable at the DB and API level, because real orders already
+existed when this field was added — a `NOT NULL` column with no default
+would have failed to apply against them. Every order ingested from here on
+has one (the source payload requires it), so this is purely a migration
+accommodation for historical rows, which show "—" on the receipt rather
+than a fabricated number. No backfill script this time — there was nothing
+to backfill from; historical orders' `originalPayload` predates Babeldish
+sending `subtotal` at all, unlike the `options` gap in D15.
+
 ## 2026-08-18 — Item customizations are now structured, not a comma-joined string
 
 The receipt used to split `items[].notes` on `,` to show one line per

@@ -140,6 +140,11 @@ export const IngestOrderBody = zod.object({
         .describe("POS\/kitchen article id, when the source provides one."),
     }),
   ),
+  subtotal: zod
+    .string()
+    .describe(
+      "Sum of the menu items only — before delivery fee, tips, SUP\/statiegeld\nor administration costs. Sent by the source directly (not computed\nhere); receipt data, like the other charge breakdown fields below.\n",
+    ),
   deliveryFee: zod.string(),
   totalAmount: zod.string(),
   tipRider: zod.string(),
@@ -265,6 +270,12 @@ export const IngestOrderResponse = zod.object({
   latitude: zod.string().nullish(),
   longitude: zod.string().nullish(),
   deliveryInstructions: zod.string().nullish(),
+  subtotal: zod
+    .string()
+    .nullish()
+    .describe(
+      "Sum of the menu items only — before delivery fee, tips, SUP\/statiegeld\nor administration costs. Sent by the source directly (not computed\nhere); receipt data, like the other charge breakdown fields below.\nNullable only because it postdates orders already in the database —\nevery order ingested going forward has one, since the source always\nsends it (see `InboundOrderPayload.subtotal`, which is required).\n",
+    ),
   deliveryFee: zod.string(),
   totalAmount: zod.string(),
   tipRider: zod.string(),
@@ -456,6 +467,12 @@ export const ListOrdersResponseItem = zod
     latitude: zod.string().nullish(),
     longitude: zod.string().nullish(),
     deliveryInstructions: zod.string().nullish(),
+    subtotal: zod
+      .string()
+      .nullish()
+      .describe(
+        "Sum of the menu items only — before delivery fee, tips, SUP\/statiegeld\nor administration costs. Sent by the source directly (not computed\nhere); receipt data, like the other charge breakdown fields below.\nNullable only because it postdates orders already in the database —\nevery order ingested going forward has one, since the source always\nsends it (see `InboundOrderPayload.subtotal`, which is required).\n",
+      ),
     deliveryFee: zod.string(),
     totalAmount: zod.string(),
     tipRider: zod.string(),
@@ -642,6 +659,12 @@ export const GetOrderResponse = zod
     latitude: zod.string().nullish(),
     longitude: zod.string().nullish(),
     deliveryInstructions: zod.string().nullish(),
+    subtotal: zod
+      .string()
+      .nullish()
+      .describe(
+        "Sum of the menu items only — before delivery fee, tips, SUP\/statiegeld\nor administration costs. Sent by the source directly (not computed\nhere); receipt data, like the other charge breakdown fields below.\nNullable only because it postdates orders already in the database —\nevery order ingested going forward has one, since the source always\nsends it (see `InboundOrderPayload.subtotal`, which is required).\n",
+      ),
     deliveryFee: zod.string(),
     totalAmount: zod.string(),
     tipRider: zod.string(),
@@ -928,6 +951,12 @@ export const TransitionOrderStatusResponse = zod
     latitude: zod.string().nullish(),
     longitude: zod.string().nullish(),
     deliveryInstructions: zod.string().nullish(),
+    subtotal: zod
+      .string()
+      .nullish()
+      .describe(
+        "Sum of the menu items only — before delivery fee, tips, SUP\/statiegeld\nor administration costs. Sent by the source directly (not computed\nhere); receipt data, like the other charge breakdown fields below.\nNullable only because it postdates orders already in the database —\nevery order ingested going forward has one, since the source always\nsends it (see `InboundOrderPayload.subtotal`, which is required).\n",
+      ),
     deliveryFee: zod.string(),
     totalAmount: zod.string(),
     tipRider: zod.string(),
@@ -1203,6 +1232,12 @@ export const AssignOrderResponse = zod
     latitude: zod.string().nullish(),
     longitude: zod.string().nullish(),
     deliveryInstructions: zod.string().nullish(),
+    subtotal: zod
+      .string()
+      .nullish()
+      .describe(
+        "Sum of the menu items only — before delivery fee, tips, SUP\/statiegeld\nor administration costs. Sent by the source directly (not computed\nhere); receipt data, like the other charge breakdown fields below.\nNullable only because it postdates orders already in the database —\nevery order ingested going forward has one, since the source always\nsends it (see `InboundOrderPayload.subtotal`, which is required).\n",
+      ),
     deliveryFee: zod.string(),
     totalAmount: zod.string(),
     tipRider: zod.string(),
@@ -1479,6 +1514,12 @@ export const UpdatePickupTimeResponse = zod
     latitude: zod.string().nullish(),
     longitude: zod.string().nullish(),
     deliveryInstructions: zod.string().nullish(),
+    subtotal: zod
+      .string()
+      .nullish()
+      .describe(
+        "Sum of the menu items only — before delivery fee, tips, SUP\/statiegeld\nor administration costs. Sent by the source directly (not computed\nhere); receipt data, like the other charge breakdown fields below.\nNullable only because it postdates orders already in the database —\nevery order ingested going forward has one, since the source always\nsends it (see `InboundOrderPayload.subtotal`, which is required).\n",
+      ),
     deliveryFee: zod.string(),
     totalAmount: zod.string(),
     tipRider: zod.string(),
@@ -1754,6 +1795,12 @@ export const HideOrderItemResponse = zod
     latitude: zod.string().nullish(),
     longitude: zod.string().nullish(),
     deliveryInstructions: zod.string().nullish(),
+    subtotal: zod
+      .string()
+      .nullish()
+      .describe(
+        "Sum of the menu items only — before delivery fee, tips, SUP\/statiegeld\nor administration costs. Sent by the source directly (not computed\nhere); receipt data, like the other charge breakdown fields below.\nNullable only because it postdates orders already in the database —\nevery order ingested going forward has one, since the source always\nsends it (see `InboundOrderPayload.subtotal`, which is required).\n",
+      ),
     deliveryFee: zod.string(),
     totalAmount: zod.string(),
     tipRider: zod.string(),
@@ -2055,6 +2102,12 @@ export const AddOrderItemResponse = zod
     latitude: zod.string().nullish(),
     longitude: zod.string().nullish(),
     deliveryInstructions: zod.string().nullish(),
+    subtotal: zod
+      .string()
+      .nullish()
+      .describe(
+        "Sum of the menu items only — before delivery fee, tips, SUP\/statiegeld\nor administration costs. Sent by the source directly (not computed\nhere); receipt data, like the other charge breakdown fields below.\nNullable only because it postdates orders already in the database —\nevery order ingested going forward has one, since the source always\nsends it (see `InboundOrderPayload.subtotal`, which is required).\n",
+      ),
     deliveryFee: zod.string(),
     totalAmount: zod.string(),
     tipRider: zod.string(),
@@ -2391,6 +2444,12 @@ export const SetRiderNotificationResponse = zod
     latitude: zod.string().nullish(),
     longitude: zod.string().nullish(),
     deliveryInstructions: zod.string().nullish(),
+    subtotal: zod
+      .string()
+      .nullish()
+      .describe(
+        "Sum of the menu items only — before delivery fee, tips, SUP\/statiegeld\nor administration costs. Sent by the source directly (not computed\nhere); receipt data, like the other charge breakdown fields below.\nNullable only because it postdates orders already in the database —\nevery order ingested going forward has one, since the source always\nsends it (see `InboundOrderPayload.subtotal`, which is required).\n",
+      ),
     deliveryFee: zod.string(),
     totalAmount: zod.string(),
     tipRider: zod.string(),
@@ -2679,6 +2738,12 @@ export const UpdateOrderContactResponse = zod
     latitude: zod.string().nullish(),
     longitude: zod.string().nullish(),
     deliveryInstructions: zod.string().nullish(),
+    subtotal: zod
+      .string()
+      .nullish()
+      .describe(
+        "Sum of the menu items only — before delivery fee, tips, SUP\/statiegeld\nor administration costs. Sent by the source directly (not computed\nhere); receipt data, like the other charge breakdown fields below.\nNullable only because it postdates orders already in the database —\nevery order ingested going forward has one, since the source always\nsends it (see `InboundOrderPayload.subtotal`, which is required).\n",
+      ),
     deliveryFee: zod.string(),
     totalAmount: zod.string(),
     tipRider: zod.string(),
@@ -2963,6 +3028,12 @@ export const MarkOrderReadyResponse = zod
     latitude: zod.string().nullish(),
     longitude: zod.string().nullish(),
     deliveryInstructions: zod.string().nullish(),
+    subtotal: zod
+      .string()
+      .nullish()
+      .describe(
+        "Sum of the menu items only — before delivery fee, tips, SUP\/statiegeld\nor administration costs. Sent by the source directly (not computed\nhere); receipt data, like the other charge breakdown fields below.\nNullable only because it postdates orders already in the database —\nevery order ingested going forward has one, since the source always\nsends it (see `InboundOrderPayload.subtotal`, which is required).\n",
+      ),
     deliveryFee: zod.string(),
     totalAmount: zod.string(),
     tipRider: zod.string(),
@@ -3252,6 +3323,12 @@ export const AcknowledgeOrderResponse = zod
     latitude: zod.string().nullish(),
     longitude: zod.string().nullish(),
     deliveryInstructions: zod.string().nullish(),
+    subtotal: zod
+      .string()
+      .nullish()
+      .describe(
+        "Sum of the menu items only — before delivery fee, tips, SUP\/statiegeld\nor administration costs. Sent by the source directly (not computed\nhere); receipt data, like the other charge breakdown fields below.\nNullable only because it postdates orders already in the database —\nevery order ingested going forward has one, since the source always\nsends it (see `InboundOrderPayload.subtotal`, which is required).\n",
+      ),
     deliveryFee: zod.string(),
     totalAmount: zod.string(),
     tipRider: zod.string(),
@@ -3531,6 +3608,12 @@ export const HoldOrderResponse = zod
     latitude: zod.string().nullish(),
     longitude: zod.string().nullish(),
     deliveryInstructions: zod.string().nullish(),
+    subtotal: zod
+      .string()
+      .nullish()
+      .describe(
+        "Sum of the menu items only — before delivery fee, tips, SUP\/statiegeld\nor administration costs. Sent by the source directly (not computed\nhere); receipt data, like the other charge breakdown fields below.\nNullable only because it postdates orders already in the database —\nevery order ingested going forward has one, since the source always\nsends it (see `InboundOrderPayload.subtotal`, which is required).\n",
+      ),
     deliveryFee: zod.string(),
     totalAmount: zod.string(),
     tipRider: zod.string(),
@@ -3802,6 +3885,12 @@ export const ReleaseOrderResponse = zod
     latitude: zod.string().nullish(),
     longitude: zod.string().nullish(),
     deliveryInstructions: zod.string().nullish(),
+    subtotal: zod
+      .string()
+      .nullish()
+      .describe(
+        "Sum of the menu items only — before delivery fee, tips, SUP\/statiegeld\nor administration costs. Sent by the source directly (not computed\nhere); receipt data, like the other charge breakdown fields below.\nNullable only because it postdates orders already in the database —\nevery order ingested going forward has one, since the source always\nsends it (see `InboundOrderPayload.subtotal`, which is required).\n",
+      ),
     deliveryFee: zod.string(),
     totalAmount: zod.string(),
     tipRider: zod.string(),
@@ -4081,6 +4170,12 @@ export const SetOrderRestaurantResponse = zod
     latitude: zod.string().nullish(),
     longitude: zod.string().nullish(),
     deliveryInstructions: zod.string().nullish(),
+    subtotal: zod
+      .string()
+      .nullish()
+      .describe(
+        "Sum of the menu items only — before delivery fee, tips, SUP\/statiegeld\nor administration costs. Sent by the source directly (not computed\nhere); receipt data, like the other charge breakdown fields below.\nNullable only because it postdates orders already in the database —\nevery order ingested going forward has one, since the source always\nsends it (see `InboundOrderPayload.subtotal`, which is required).\n",
+      ),
     deliveryFee: zod.string(),
     totalAmount: zod.string(),
     tipRider: zod.string(),
@@ -4754,6 +4849,12 @@ export const GetTripResponse = zod
             latitude: zod.string().nullish(),
             longitude: zod.string().nullish(),
             deliveryInstructions: zod.string().nullish(),
+            subtotal: zod
+              .string()
+              .nullish()
+              .describe(
+                "Sum of the menu items only — before delivery fee, tips, SUP\/statiegeld\nor administration costs. Sent by the source directly (not computed\nhere); receipt data, like the other charge breakdown fields below.\nNullable only because it postdates orders already in the database —\nevery order ingested going forward has one, since the source always\nsends it (see `InboundOrderPayload.subtotal`, which is required).\n",
+              ),
             deliveryFee: zod.string(),
             totalAmount: zod.string(),
             tipRider: zod.string(),
@@ -5021,6 +5122,12 @@ export const UpdateTripResponse = zod
             latitude: zod.string().nullish(),
             longitude: zod.string().nullish(),
             deliveryInstructions: zod.string().nullish(),
+            subtotal: zod
+              .string()
+              .nullish()
+              .describe(
+                "Sum of the menu items only — before delivery fee, tips, SUP\/statiegeld\nor administration costs. Sent by the source directly (not computed\nhere); receipt data, like the other charge breakdown fields below.\nNullable only because it postdates orders already in the database —\nevery order ingested going forward has one, since the source always\nsends it (see `InboundOrderPayload.subtotal`, which is required).\n",
+              ),
             deliveryFee: zod.string(),
             totalAmount: zod.string(),
             tipRider: zod.string(),
@@ -5288,6 +5395,12 @@ export const ReplaceTripStopsResponse = zod
             latitude: zod.string().nullish(),
             longitude: zod.string().nullish(),
             deliveryInstructions: zod.string().nullish(),
+            subtotal: zod
+              .string()
+              .nullish()
+              .describe(
+                "Sum of the menu items only — before delivery fee, tips, SUP\/statiegeld\nor administration costs. Sent by the source directly (not computed\nhere); receipt data, like the other charge breakdown fields below.\nNullable only because it postdates orders already in the database —\nevery order ingested going forward has one, since the source always\nsends it (see `InboundOrderPayload.subtotal`, which is required).\n",
+              ),
             deliveryFee: zod.string(),
             totalAmount: zod.string(),
             tipRider: zod.string(),
@@ -5544,6 +5657,12 @@ export const DissolveTripResponse = zod
             latitude: zod.string().nullish(),
             longitude: zod.string().nullish(),
             deliveryInstructions: zod.string().nullish(),
+            subtotal: zod
+              .string()
+              .nullish()
+              .describe(
+                "Sum of the menu items only — before delivery fee, tips, SUP\/statiegeld\nor administration costs. Sent by the source directly (not computed\nhere); receipt data, like the other charge breakdown fields below.\nNullable only because it postdates orders already in the database —\nevery order ingested going forward has one, since the source always\nsends it (see `InboundOrderPayload.subtotal`, which is required).\n",
+              ),
             deliveryFee: zod.string(),
             totalAmount: zod.string(),
             tipRider: zod.string(),

@@ -114,6 +114,12 @@ export const ordersTable = pgTable(
     deliveryInstructions: text("delivery_instructions"),
     deliveryFee: numeric("delivery_fee").notNull().default("0"),
     totalAmount: numeric("total_amount").notNull().default("0"),
+    // Nullable, unlike the rest of this raw-capture group: added after orders
+    // already existed in the live database, so historical rows predate it.
+    // Every order ingested from here on always has one — the source payload
+    // requires it — this is purely a migration-safety accommodation, not an
+    // ongoing "might be absent" case.
+    subtotal: text("subtotal"),
     // Raw captures from the source — no computation logic, stored as-sent.
     tipRider: text("tip_rider").notNull(),
     tipRestaurant: text("tip_restaurant").notNull(),

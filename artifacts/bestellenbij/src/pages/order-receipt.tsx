@@ -200,6 +200,12 @@ function ReceiptLedger({ order, lang }: { order: OrderDetail; lang: string }) {
           </tr>
         ))}
 
+        <tr className="border-t border-border text-muted-foreground" data-testid="text-receipt-subtotal">
+          <td className="py-1" />
+          <td className="py-1">{t("receipt.subtotal")}</td>
+          <td className="py-1 pl-3 text-right tabular-nums">{formatCurrency(order.subtotal, lang)}</td>
+        </tr>
+
         {moneyLines.map(([label, value]) => (
           <tr key={label} className="border-t border-border text-muted-foreground">
             <td className="py-1" />
