@@ -562,7 +562,9 @@ function RestaurantsPanel() {
   function invalidate() { qc.invalidateQueries({ queryKey: getListRestaurantsQueryKey() }); }
 
   const filtered = useMemo(() => {
-    const all = restaurants.data ?? [];
+    // The "unmapped" placeholder isn't a real restaurant to manage — it's what
+    // unresolved orders get attributed to until a coordinator sorts them out.
+    const all = (restaurants.data ?? []).filter((r) => r.nameCode !== "unmapped");
     const needle = q.trim().toLowerCase();
     const matching = needle
       ? all.filter((r) => r.name.toLowerCase().includes(needle) || r.nameCode.toLowerCase().includes(needle) || r.address.toLowerCase().includes(needle))
