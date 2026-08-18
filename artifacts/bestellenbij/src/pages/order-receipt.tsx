@@ -184,17 +184,13 @@ function ReceiptLedger({ order, lang }: { order: OrderDetail; lang: string }) {
             <td className="py-2 tabular-nums">{it.quantity}×</td>
             <td className="py-2">
               {it.name}
-              {it.notes
-                ? it.notes
-                    .split(",")
-                    .map((part) => part.trim())
-                    .filter(Boolean)
-                    .map((part, j) => (
-                      <span key={j} className="block text-xs text-muted-foreground">
-                        - {part}
-                      </span>
-                    ))
-                : null}
+              {it.notes ? (
+                // Not split into separate lines: the real delimiter this field
+                // uses for multiple adjustments isn't confirmed yet (neither
+                // comma nor <br> hold up — see PR discussion). Shown as one
+                // line until that's known, rather than guessing again.
+                <span className="block text-xs text-muted-foreground">{it.notes}</span>
+              ) : null}
             </td>
             <td className="py-2 pl-3 text-right tabular-nums">{formatCurrency(it.totalPrice ?? it.price, lang)}</td>
           </tr>
