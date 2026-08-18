@@ -32,6 +32,12 @@ export const LoginResponse = zod.object({
     accountStatus: zod.enum(["active", "suspended"]),
     restaurantId: zod.string().nullish(),
     riderId: zod.string().nullish(),
+    availabilityStatus: zod
+      .union([zod.enum(["offline", "online", "backup"]), zod.null()])
+      .optional()
+      .describe(
+        'Only present when role is \"rider\" — the rider\'s own current availability, otherwise null.',
+      ),
     preferredLocale: zod
       .union([zod.literal("nl"), zod.literal("en"), zod.literal(null)])
       .nullish(),
@@ -49,6 +55,12 @@ export const GetCurrentUserResponse = zod.object({
   accountStatus: zod.enum(["active", "suspended"]),
   restaurantId: zod.string().nullish(),
   riderId: zod.string().nullish(),
+  availabilityStatus: zod
+    .union([zod.enum(["offline", "online", "backup"]), zod.null()])
+    .optional()
+    .describe(
+      'Only present when role is \"rider\" — the rider\'s own current availability, otherwise null.',
+    ),
   preferredLocale: zod
     .union([zod.literal("nl"), zod.literal("en"), zod.literal(null)])
     .nullish(),

@@ -187,6 +187,8 @@
   "rider": {
     "title": "My route",
     "availability": "Availability",
+    "changeAvailability": "Change",
+    "pickupCompact": "pick-up",
     "myOrders": "My orders",
     "noOrders": "No orders assigned yet",
     "callRestaurant": "Call restaurant",

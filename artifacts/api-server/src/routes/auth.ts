@@ -94,12 +94,14 @@ router.post("/auth/logout", requireAuth, async (req, res): Promise<void> => {
 router.get("/auth/me", requireAuth, async (req, res): Promise<void> => {
   const user = req.user!;
   let riderId: string | null = null;
+  let availabilityStatus: (typeof ridersTable.$inferSelect)["availabilityStatus"] | null = null;
   if (user.role === "rider") {
     const [rider] = await db
-      .select({ id: ridersTable.id })
+      .select({ id: ridersTable.id, availabilityStatus: ridersTable.availabilityStatus })
       .from(ridersTable)
       .where(eq(ridersTable.userId, user.id));
     riderId = rider?.id ?? null;
+    availabilityStatus = rider?.availabilityStatus ?? null;
   }
   res.json(
     GetCurrentUserResponse.parse({
@@ -110,6 +112,7 @@ router.get("/auth/me", requireAuth, async (req, res): Promise<void> => {
       accountStatus: user.accountStatus,
       restaurantId: user.restaurantId,
       riderId,
+      availabilityStatus,
       preferredLocale: normalizeLocale(user.preferredLocale),
     }),
   );

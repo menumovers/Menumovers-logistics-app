@@ -7,6 +7,7 @@
  */
 import type { AccountStatus } from "./accountStatus";
 import type { CurrentUserPreferredLocale } from "./currentUserPreferredLocale";
+import type { RiderAvailability } from "./riderAvailability";
 import type { UserRole } from "./userRole";
 
 export interface CurrentUser {
@@ -19,6 +20,8 @@ export interface CurrentUser {
   restaurantId?: string | null;
   /** @nullable */
   riderId?: string | null;
+  /** Only present when role is "rider" — the rider's own current availability, otherwise null. */
+  availabilityStatus?: RiderAvailability | null;
   /** @nullable */
   preferredLocale?: CurrentUserPreferredLocale;
 }

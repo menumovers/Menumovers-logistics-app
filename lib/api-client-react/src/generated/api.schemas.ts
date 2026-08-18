@@ -167,6 +167,8 @@ export interface CurrentUser {
   restaurantId?: string | null;
   /** @nullable */
   riderId?: string | null;
+  /** Only present when role is "rider" — the rider's own current availability, otherwise null. */
+  availabilityStatus?: RiderAvailability | null;
   /** @nullable */
   preferredLocale?: CurrentUserPreferredLocale;
 }

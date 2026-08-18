@@ -1113,6 +1113,11 @@ components:
           type: ["string", "null"]
         riderId:
           type: ["string", "null"]
+        availabilityStatus:
+          description: Only present when role is "rider" — the rider's own current availability, otherwise null.
+          oneOf:
+            - $ref: "#/components/schemas/RiderAvailability"
+            - type: "null"
         preferredLocale:
           type: ["string", "null"]
           enum: [nl, en, null]
