@@ -9,6 +9,7 @@ import {
   getGetOrderQueryKey,
   getListOrdersQueryKey,
   getListRestaurantsQueryKey,
+  type OrderItem,
 } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -22,6 +23,7 @@ import { PickupTimeInput } from "@/components/pickup-time-input";
 import { useAuth } from "@/lib/auth";
 import { effectivePickup, formatTime } from "@/lib/format";
 import { useToast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
 import { ArrowLeft, CheckCircle2, ChefHat, Layers, Printer } from "lucide-react";
 
 export default function RestaurantOrderPage() {
@@ -128,7 +130,72 @@ export default function RestaurantOrderPage() {
             </Link>
           </Button>
 
+          <ul className="text-sm space-y-1.5">
+            {o.items.map((it, i) => {
+              const isHidden = hidden.has(i);
+              return (
+                <li key={i} data-testid={`row-rest-item-${o.id}-${i}`}>
+                  <div
+                    className={cn("flex justify-between gap-2", isHidden && "line-through text-muted-foreground")}
+                  >
+                    <span>
+                      <span className="text-muted-foreground tabular-nums">{it.quantity}× </span>
+                      {it.name}
+                      {isHidden ? (
+                        <span className="ml-2 text-[10px] uppercase tracking-wide text-muted-foreground italic">
+                          {t("restaurant.hiddenItem")}
+                        </span>
+                      ) : null}
+                    </span>
+                  </div>
+                  <ItemOptions item={it} />
+                </li>
+              );
+            })}
+            {extras.map((it, i) => (
+              <li key={`x${i}`} data-testid={`row-rest-extra-${o.id}-${i}`}>
+                <div className="flex justify-between gap-2">
+                  <span>
+                    <span className="inline-block rounded bg-accent/15 text-accent-foreground text-[10px] uppercase px-1.5 py-0.5 mr-2">
+                      {t("restaurant.extraItem")}
+                    </span>
+                    <span className="text-muted-foreground tabular-nums">{it.quantity}× </span>
+                    {it.name}
+                  </span>
+                </div>
+                <ItemOptions item={it} />
+              </li>
+            ))}
+          </ul>
+
+          {/* Notes the source addressed to the kitchen. They arrived on every
+              order and were shown on no screen at all — least of all this one. */}
+          {o.kitchenNotes ? (
+            <div
+              className="flex items-start gap-2 rounded-md border border-accent/40 bg-accent/10 px-2.5 py-2 text-sm"
+              data-testid={`text-kitchen-notes-${o.id}`}
+            >
+              <ChefHat className="size-4 mt-0.5 shrink-0" />
+              <div>
+                <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                  {t("restaurant.kitchenNotes")}
+                </div>
+                <div>{o.kitchenNotes}</div>
+              </div>
+            </div>
+          ) : null}
+
           <AcknowledgeCard order={o} mode={acceptanceMode} lang={lang} onDone={invalidate} />
+
+          <div className="border-t border-border pt-3 space-y-2">
+            <Label className="text-xs">{t("restaurant.suggestPickup")}</Label>
+            <PickupTimeInput
+              currentIso={eff.iso}
+              pending={update.isPending}
+              submitLabel={t("common.save")}
+              onSubmit={submitPickup}
+            />
+          </div>
 
           {/* Once reported, the button becomes the record of it. A status that
               can only be written and never read is how failure reasons went
@@ -153,73 +220,29 @@ export default function RestaurantOrderPage() {
               {t("restaurant.readyForPickup")}
             </Button>
           )}
-
-          {/* Notes the source addressed to the kitchen. They arrived on every
-              order and were shown on no screen at all — least of all this one. */}
-          {o.kitchenNotes ? (
-            <div
-              className="flex items-start gap-2 rounded-md border border-accent/40 bg-accent/10 px-2.5 py-2 text-sm"
-              data-testid={`text-kitchen-notes-${o.id}`}
-            >
-              <ChefHat className="size-4 mt-0.5 shrink-0" />
-              <div>
-                <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
-                  {t("restaurant.kitchenNotes")}
-                </div>
-                <div>{o.kitchenNotes}</div>
-              </div>
-            </div>
-          ) : null}
-
-          <ul className="text-sm space-y-1">
-            {o.items.map((it, i) => {
-              const isHidden = hidden.has(i);
-              return (
-                <li
-                  key={i}
-                  className="flex justify-between gap-2"
-                  data-testid={`row-rest-item-${o.id}-${i}`}
-                >
-                  <span className={isHidden ? "line-through text-muted-foreground" : ""}>
-                    <span className="text-muted-foreground tabular-nums">{it.quantity}× </span>
-                    {it.name}
-                    {isHidden ? (
-                      <span className="ml-2 text-[10px] uppercase tracking-wide text-muted-foreground italic">
-                        {t("restaurant.hiddenItem")}
-                      </span>
-                    ) : null}
-                  </span>
-                </li>
-              );
-            })}
-            {extras.map((it, i) => (
-              <li
-                key={`x${i}`}
-                className="flex justify-between gap-2"
-                data-testid={`row-rest-extra-${o.id}-${i}`}
-              >
-                <span>
-                  <span className="inline-block rounded bg-accent/15 text-accent-foreground text-[10px] uppercase px-1.5 py-0.5 mr-2">
-                    {t("restaurant.extraItem")}
-                  </span>
-                  <span className="text-muted-foreground tabular-nums">{it.quantity}× </span>
-                  {it.name}
-                </span>
-              </li>
-            ))}
-          </ul>
-
-          <div className="border-t border-border pt-3 space-y-2">
-            <Label className="text-xs">{t("restaurant.suggestPickup")}</Label>
-            <PickupTimeInput
-              currentIso={eff.iso}
-              pending={update.isPending}
-              submitLabel={t("common.save")}
-              onSubmit={submitPickup}
-            />
-          </div>
         </CardContent>
       </Card>
     </div>
   );
+}
+
+/** Selected customizations, one per row — same formatting as the receipt.
+ * Falls back to the free-text note only for legacy sources without
+ * structured options. */
+function ItemOptions({ item }: { item: OrderItem }) {
+  if (item.options && item.options.length > 0) {
+    return (
+      <>
+        {item.options.map((option, i) => (
+          <div key={i} className="text-xs text-muted-foreground">
+            - {option}
+          </div>
+        ))}
+      </>
+    );
+  }
+  if (item.notes) {
+    return <div className="text-xs text-muted-foreground">- {item.notes}</div>;
+  }
+  return null;
 }

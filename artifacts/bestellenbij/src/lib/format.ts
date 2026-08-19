@@ -170,7 +170,7 @@ export function urgencyFor(iso: string, now: Date = new Date()): Urgency {
 }
 
 /**
- * Within ±30 min show relative phrasing (in / ago / now).
+ * Within ±60 min show relative phrasing (in / ago / now) — a countdown.
  * Outside that window show the absolute clock time HH:mm in the active locale.
  * Returns the i18n key + interpolation values so the consumer can call t().
  */
@@ -186,7 +186,7 @@ export function pickupCountdownLabel(
 ): PickupLabelDescriptor {
   const m = minutesUntil(iso, now);
   const absM = Math.abs(m);
-  if (absM > 30) return { kind: "literal", text: formatTime(iso, lang) };
+  if (absM >= 60) return { kind: "literal", text: formatTime(iso, lang) };
   if (m === 0) return { kind: "key", key: "common.now" };
   if (m < 0) return { kind: "key", key: "pickup.late", values: { minutes: absM } };
   return { kind: "key", key: "pickup.in", values: { minutes: m } };
