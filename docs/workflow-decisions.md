@@ -78,6 +78,14 @@ parked orders appeared in every rider's open-orders list and could be
 self-claimed. Rider discovery now excludes held orders at the SQL level, and
 `/assign` refuses them inside the same guarded UPDATE.
 
+**Update 2026-08-19 — restaurant-side exposure closed.** The "Not restaurants"
+visibility rule above was decided but never implemented: `orderScopeWhere`'s
+`restaurant_staff` clause was a bare `restaurantId` match with no hold filter,
+so a restaurant could see and open an order a coordinator had just put on
+hold. That clause now ANDs `notHeld()` too, so held orders drop out of both
+`GET /orders` and `GET /orders/:id` for restaurant_staff — matching what
+already held for rider discovery.
+
 ---
 
 ## D3. Restaurant acceptance is an acknowledgement, not a gate
@@ -861,10 +869,14 @@ The audit also turned up three things worth recording:
   record when something happened, which is what `now` is for. Webhook retry,
   JWT expiry and the janitor are infrastructure.
 
-Two related items stay open and are tracked elsewhere: `todo-bugs.md` **B8**
-(the client countdown runs on the browser clock, with nothing reconciling it)
-and the "Ready for pickup" button still writing `pickupTimeRestaurant = now` in
-`pages/restaurant.tsx`, which D3 decided it should stop doing.
+One related item stays open and is tracked elsewhere: `todo-bugs.md` **B8**
+(the client countdown runs on the browser clock, with nothing reconciling it).
+The other item this paragraph used to list — the "Ready for pickup" button
+writing `pickupTimeRestaurant = now`, which D3 decided it should stop doing —
+was fixed the next day by D14 below; this note just never got updated to say
+so. That button now lives in `pages/restaurant-order.tsx` (the order detail
+page split out of `pages/restaurant.tsx` on 2026-08-19) and writes
+`orders.restaurantReadyAt` only.
 
 ## Open questions
 

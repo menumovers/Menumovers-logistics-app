@@ -1,5 +1,52 @@
 # Changelog
 
+## 2026-08-19 — Restaurant order scope stops leaking held orders
+
+**Bug fix:** `orderScopeWhere`'s `restaurant_staff` clause was a bare
+`restaurantId` match with no hold filter, so an order a coordinator put on
+hold still appeared — and could still be opened — on that restaurant's order
+overview. D2 says holds are admin/coordinator triage and explicitly not
+restaurant-facing; only the rider-discovery branch was actually enforcing
+that. The restaurant clause now ANDs `notHeld()`, so held orders drop out of
+both `GET /orders` and `GET /orders/:id` for restaurant_staff.
+
+## 2026-08-19 — Restaurant order detail: item options, note placement, wider countdown window
+
+`pages/restaurant-order.tsx` now renders each item's selected `options` (or
+the legacy `notes` fallback) one per row under the item name, matching
+`order-receipt.tsx`'s formatting — previously only the item name and quantity
+showed. The kitchen note moved below the items list, and the
+acknowledge/suggest-pickup-time/ready-for-pickup block moved below the
+kitchen note, in that order.
+
+The pickup countdown pill's switch point from a relative countdown ("in 12
+min") to the plain clock time moved from ±30 to ±60 minutes
+(`pickupCountdownLabel` in `lib/format.ts`). This is shared formatting logic,
+so it applies everywhere the pill renders — rider and restaurant, list and
+detail — not just the restaurant screens this session touched.
+
+## 2026-08-19 — Restaurant page gets the same list/detail split as rider, plus an acceptance status pill
+
+`pages/restaurant.tsx` showed every order's full detail inline; `pages/rider.tsx`
+only ever showed a compact list and sent riders to `pages/rider-order.tsx` to
+act on an order. Restaurant now follows the same pattern: the overview is
+compact cards (pickup countdown, pickup time, order # + customer name) that
+link to a new `pages/restaurant-order.tsx`, which took over every action —
+acknowledge, ready-for-pickup, kitchen note, item overrides, the receipt
+link, suggest-pickup-time. Bundle grouping stays on the overview as a
+summary header only (trip icon, order count, bundle pickup time, rider
+context); no bulk actions live there any more, and each bundled order is
+still an individually-linking card.
+
+New component `components/acceptance-status-badge.tsx` adds a restaurant-only
+pill — "New order" (`#A0CFD7`) vs "Accepted" (`#E2F0D9`) — driven by
+`restaurantAcceptedAt`. It is deliberately separate from the existing
+`StatusBadge`, which tracks the unrelated delivery-lifecycle `order.status`.
+
+Side effect: the old overview issued a `useGetOrder` fetch per card just to
+read `itemOverrides`. The detail page's single per-order fetch already has
+everything, so that N+1 query pattern is gone.
+
 ## 2026-08-19 — Account login identifiers renamed from email to username
 
 Account authentication now uses the unique `users.username` field. The API,
