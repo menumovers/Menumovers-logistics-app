@@ -10,7 +10,7 @@ import { ApiError } from "@workspace/api-client-react";
 import { useLocation } from "wouter";
 import { setToken, getToken } from "./api";
 import { applyProfileLocale } from "./i18n";
-import { ROLE_HOMES } from "./role-homes";
+import { getHomeForRoles } from "./role-homes";
 import { getContextForPath, getLoginPath } from "./app-context";
 import { Spinner } from "@/components/ui/spinner";
 
@@ -116,12 +116,12 @@ export function RequireRole({
       navigate(getLoginPath(ctx));
       return;
     }
-    if (!roles.includes(user.role)) {
-      navigate(ROLE_HOMES[user.role]);
+    if (!roles.some((r) => user.roles.includes(r))) {
+      navigate(getHomeForRoles(user.roles, getContextForPath(window.location.pathname)));
     }
   }, [isLoading, user, roles, navigate]);
 
-  if (isLoading || !user || !roles.includes(user.role)) {
+  if (isLoading || !user || !roles.some((r) => user.roles.includes(r))) {
     return <FullScreenLoader />;
   }
   return <>{children}</>;

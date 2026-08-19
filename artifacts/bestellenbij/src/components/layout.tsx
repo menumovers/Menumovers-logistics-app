@@ -10,7 +10,8 @@ import {
 } from "lucide-react";
 import type { UserRole } from "@workspace/api-client-react";
 import { useAuth } from "@/lib/auth";
-import { ROLE_HOMES } from "@/lib/role-homes";
+import { getHomeForRoles } from "@/lib/role-homes";
+import { getContextForPath } from "@/lib/app-context";
 import { PushOptInPrompt } from "./push-opt-in";
 import { cn } from "@/lib/utils";
 
@@ -42,13 +43,16 @@ export function AppShell({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const [loc] = useLocation();
   if (!user) return <>{children}</>;
-  const items = ROLE_NAV[user.role];
+  const items = Array.from(
+    new Map(user.roles.flatMap((r) => ROLE_NAV[r]).map((item) => [item.to, item])).values(),
+  );
+  const home = getHomeForRoles(user.roles, getContextForPath(loc));
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col">
       <header className="sticky top-0 z-40 border-b border-border bg-[#ffca00]">
         <div className="mx-auto max-w-[1600px] px-4 h-14 flex items-center gap-4">
-          <Link href={ROLE_HOMES[user.role]} className="flex items-center gap-2" data-testid="link-home">
+          <Link href={home} className="flex items-center gap-2" data-testid="link-home">
             <img src="/bestellenbij-logo.svg" alt={t("app.name")} className="h-7 w-auto" />
           </Link>
           <nav className="flex items-center gap-1 ml-auto">
@@ -76,7 +80,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           </nav>
           <div className="hidden md:block text-right text-xs leading-tight">
             <div className="font-medium" data-testid="text-user-name">{user.name}</div>
-            <div className="text-muted-foreground">{t(`roles.${user.role}`)}</div>
+            <div className="text-muted-foreground">{user.roles.map((r) => t(`roles.${r}`)).join(", ")}</div>
           </div>
         </div>
       </header>

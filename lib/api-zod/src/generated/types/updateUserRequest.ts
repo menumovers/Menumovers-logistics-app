@@ -6,14 +6,18 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { AccountStatus } from "./accountStatus";
+import type { RiderProfile } from "./riderProfile";
 import type { UserRole } from "./userRole";
 
 export interface UpdateUserRequest {
   email?: string;
   name?: string;
   password?: string;
-  role?: UserRole;
+  /** @minItems 1 */
+  roles?: UserRole[];
   accountStatus?: AccountStatus;
   /** @nullable */
   restaurantId?: string | null;
+  /** Required when roles includes "rider" and the user has no rider profile yet. */
+  riderProfile?: RiderProfile | null;
 }

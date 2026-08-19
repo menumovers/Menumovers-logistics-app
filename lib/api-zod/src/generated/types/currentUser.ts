@@ -14,13 +14,14 @@ export interface CurrentUser {
   id: string;
   email: string;
   name: string;
-  role: UserRole;
+  /** @minItems 1 */
+  roles: UserRole[];
   accountStatus: AccountStatus;
   /** @nullable */
   restaurantId?: string | null;
   /** @nullable */
   riderId?: string | null;
-  /** Only present when role is "rider" — the rider's own current availability, otherwise null. */
+  /** Only present when roles includes "rider" — the rider's own current availability, otherwise null. */
   availabilityStatus?: RiderAvailability | null;
   /** @nullable */
   preferredLocale?: CurrentUserPreferredLocale;

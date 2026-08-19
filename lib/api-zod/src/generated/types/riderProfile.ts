@@ -7,12 +7,14 @@
  */
 import type { RiderAvailability } from "./riderAvailability";
 
-export interface CreateRiderRequest {
-  email: string;
-  name: string;
+/**
+ * Rider-specific profile fields. Required when creating/updating a user
+whose roles include "rider" and no rider profile exists for them yet.
+
+ */
+export interface RiderProfile {
   /** @minLength 1 */
   nameCode: string;
-  password: string;
   /** @nullable */
   phone?: string | null;
   availabilityStatus?: RiderAvailability;

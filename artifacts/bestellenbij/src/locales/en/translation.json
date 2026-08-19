@@ -266,6 +266,7 @@
     "newRestaurant": "Add restaurant",
     "newRider": "Add rider",
     "nameCode": "Name code",
+    "riderProfileInRidersTab": "Rider profile fields (name code, phone, availability) are edited in the Riders tab.",
     "minDeliveryTime": "Min prep time (minutes)",
     "outboundWebhook": "Outbound webhook URL",
     "outboundWebhookPlaceholder": "https://example.com/webhook",

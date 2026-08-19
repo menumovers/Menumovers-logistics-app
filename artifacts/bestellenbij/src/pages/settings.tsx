@@ -56,7 +56,7 @@ export default function SettingsPage() {
         <h1 className="text-2xl font-bold tracking-tight">{t("settings.title")}</h1>
       </div>
 
-      {user.role === "admin" ? (
+      {user.roles.includes("admin") ? (
         <Card className="md:hidden">
           <CardContent className="flex items-center justify-between pt-6">
             <div className="flex items-center gap-2 text-sm">
@@ -100,7 +100,7 @@ export default function SettingsPage() {
           <div className="text-sm space-y-1">
             <div><span className="text-muted-foreground">{t("common.name")}: </span><span data-testid="text-account-name">{user.name}</span></div>
             <div><span className="text-muted-foreground">{t("common.email")}: </span><span data-testid="text-account-email">{user.email}</span></div>
-            <div><span className="text-muted-foreground">{t("common.role")}: </span><span>{t(`roles.${user.role}`)}</span></div>
+            <div><span className="text-muted-foreground">{t("common.role")}: </span><span>{user.roles.map((r) => t(`roles.${r}`)).join(", ")}</span></div>
           </div>
           <form onSubmit={changePassword} className="space-y-2 pt-2 border-t border-border">
             <Label htmlFor="pwd">{t("settings.newPassword")}</Label>

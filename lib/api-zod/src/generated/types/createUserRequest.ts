@@ -5,13 +5,20 @@
  * Bestellenbij logistics platform API
  * OpenAPI spec version: 0.1.0
  */
+import type { RiderProfile } from "./riderProfile";
 import type { UserRole } from "./userRole";
 
 export interface CreateUserRequest {
   email: string;
   name: string;
   password: string;
-  role: UserRole;
-  /** @nullable */
+  /** @minItems 1 */
+  roles: UserRole[];
+  /**
+   * Required (non-null) when roles includes "restaurant_staff".
+   * @nullable
+   */
   restaurantId?: string | null;
+  /** Required when roles includes "rider". */
+  riderProfile?: RiderProfile | null;
 }

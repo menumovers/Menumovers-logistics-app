@@ -14,13 +14,13 @@ app.use(
     logger,
     customProps(req, _res) {
       const r = req as typeof req & {
-        auth?: { sub?: string; role?: string };
+        auth?: { sub?: string; roles?: string[] };
         id?: unknown;
       };
       return {
         requestId: r.id != null ? String(r.id) : undefined,
         userId: r.auth?.sub,
-        role: r.auth?.role,
+        roles: r.auth?.roles,
       };
     },
     serializers: {

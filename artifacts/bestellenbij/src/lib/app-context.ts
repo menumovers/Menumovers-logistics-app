@@ -11,10 +11,6 @@ export type AppContext = "rider" | "restaurant";
 export const RIDER_ROLES: UserRole[] = ["admin", "coordinator", "rider"];
 export const RESTAURANT_ROLES: UserRole[] = ["restaurant_staff"];
 
-export function getContextForRole(role: UserRole): AppContext {
-  return role === "restaurant_staff" ? "restaurant" : "rider";
-}
-
 export function getContextForPath(pathname: string): AppContext {
   // Restaurant scope is the only narrow one; everything else is rider scope.
   return pathname === "/restaurant" || pathname.startsWith("/restaurant/")

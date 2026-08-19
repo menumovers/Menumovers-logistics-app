@@ -564,28 +564,11 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/RiderWithWorkload"
-    post:
-      operationId: createRider
-      tags: [riders]
-      summary: Create a new rider account
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/CreateRiderRequest"
-      responses:
-        "201":
-          description: Created
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/RiderWithWorkload"
   /riders/{id}:
     patch:
       operationId: updateRider
       tags: [riders]
-      summary: Update rider account or availability
+      summary: Update rider-specific profile fields (nameCode, phone, availability). Account-level fields (email, password, roles) are managed via /users/{id}.
       parameters:
         - in: path
           name: id
@@ -1015,6 +998,20 @@ components:
     UserRole:
       type: string
       enum: [admin, coordinator, rider, restaurant_staff]
+    RiderProfile:
+      type: object
+      required: [nameCode]
+      description: |
+        Rider-specific profile fields. Required when creating/updating a user
+        whose roles include "rider" and no rider profile exists for them yet.
+      properties:
+        nameCode:
+          type: string
+          minLength: 1
+        phone:
+          type: ["string", "null"]
+        availabilityStatus:
+          $ref: "#/components/schemas/RiderAvailability"
     AccountStatus:
       type: string
       enum: [active, suspended]
@@ -1097,7 +1094,7 @@ components:
           $ref: "#/components/schemas/CurrentUser"
     CurrentUser:
       type: object
-      required: [id, email, name, role, accountStatus]
+      required: [id, email, name, roles, accountStatus]
       properties:
         id:
           type: string
@@ -1105,8 +1102,11 @@ components:
           type: string
         name:
           type: string
-        role:
-          $ref: "#/components/schemas/UserRole"
+        roles:
+          type: array
+          items:
+            $ref: "#/components/schemas/UserRole"
+          minItems: 1
         accountStatus:
           $ref: "#/components/schemas/AccountStatus"
         restaurantId:
@@ -1114,7 +1114,7 @@ components:
         riderId:
           type: ["string", "null"]
         availabilityStatus:
-          description: Only present when role is "rider" — the rider's own current availability, otherwise null.
+          description: Only present when roles includes "rider" — the rider's own current availability, otherwise null.
           oneOf:
             - $ref: "#/components/schemas/RiderAvailability"
             - type: "null"
@@ -1137,7 +1137,7 @@ components:
           enum: [nl, en, null]
     User:
       type: object
-      required: [id, email, name, role, accountStatus, createdAt]
+      required: [id, email, name, roles, accountStatus, createdAt]
       properties:
         id:
           type: string
@@ -1145,8 +1145,11 @@ components:
           type: string
         name:
           type: string
-        role:
-          $ref: "#/components/schemas/UserRole"
+        roles:
+          type: array
+          items:
+            $ref: "#/components/schemas/UserRole"
+          minItems: 1
         accountStatus:
           $ref: "#/components/schemas/AccountStatus"
         restaurantId:
@@ -1156,7 +1159,7 @@ components:
           format: date-time
     CreateUserRequest:
       type: object
-      required: [email, name, password, role]
+      required: [email, name, password, roles]
       properties:
         email:
           type: string
@@ -1164,10 +1167,19 @@ components:
           type: string
         password:
           type: string
-        role:
-          $ref: "#/components/schemas/UserRole"
+        roles:
+          type: array
+          items:
+            $ref: "#/components/schemas/UserRole"
+          minItems: 1
         restaurantId:
           type: ["string", "null"]
+          description: Required (non-null) when roles includes "restaurant_staff".
+        riderProfile:
+          oneOf:
+            - $ref: "#/components/schemas/RiderProfile"
+            - type: "null"
+          description: Required when roles includes "rider".
     UpdateUserRequest:
       type: object
       properties:
@@ -1177,12 +1189,20 @@ components:
           type: string
         password:
           type: string
-        role:
-          $ref: "#/components/schemas/UserRole"
+        roles:
+          type: array
+          items:
+            $ref: "#/components/schemas/UserRole"
+          minItems: 1
         accountStatus:
           $ref: "#/components/schemas/AccountStatus"
         restaurantId:
           type: ["string", "null"]
+        riderProfile:
+          oneOf:
+            - $ref: "#/components/schemas/RiderProfile"
+            - type: "null"
+          description: Required when roles includes "rider" and the user has no rider profile yet.
     Restaurant:
       type: object
       required: [id, name, nameCode, address, minDeliveryTime, acceptanceMode, createdAt]
@@ -1886,28 +1906,9 @@ components:
           type: integer
         queuedOrderCount:
           type: integer
-    CreateRiderRequest:
-      type: object
-      required: [email, name, nameCode, password]
-      properties:
-        email:
-          type: string
-        name:
-          type: string
-        nameCode:
-          type: string
-          minLength: 1
-        password:
-          type: string
-        phone:
-          type: ["string", "null"]
-        availabilityStatus:
-          $ref: "#/components/schemas/RiderAvailability"
     UpdateRiderRequest:
       type: object
       properties:
-        name:
-          type: string
         nameCode:
           type: string
           minLength: 1

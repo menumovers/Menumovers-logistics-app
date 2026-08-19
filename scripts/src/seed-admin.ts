@@ -6,7 +6,7 @@
 //     pnpm --filter @workspace/scripts exec tsx src/seed-admin.ts
 import bcrypt from "bcryptjs";
 import { eq } from "drizzle-orm";
-import { db, usersTable } from "@workspace/db";
+import { db, usersTable, userRolesTable } from "@workspace/db";
 
 async function main(): Promise<void> {
   const email = process.env["ADMIN_EMAIL"]?.toLowerCase();
@@ -21,19 +21,24 @@ async function main(): Promise<void> {
   const passwordHash = await bcrypt.hash(password, 10);
   const [existing] = await db.select().from(usersTable).where(eq(usersTable.email, email));
 
+  let userId: string;
   if (existing) {
     await db
       .update(usersTable)
-      .set({ passwordHash, accountStatus: "active", role: "admin", name })
+      .set({ passwordHash, accountStatus: "active", name })
       .where(eq(usersTable.id, existing.id));
+    userId = existing.id;
     console.log(`Updated admin user ${email}`);
   } else {
     const [created] = await db
       .insert(usersTable)
-      .values({ email, passwordHash, name, role: "admin", accountStatus: "active" })
+      .values({ email, passwordHash, name, accountStatus: "active" })
       .returning();
-    console.log(`Created admin user ${email} (id: ${created!.id})`);
+    userId = created!.id;
+    console.log(`Created admin user ${email} (id: ${userId})`);
   }
+
+  await db.insert(userRolesTable).values({ userId, role: "admin" }).onConflictDoNothing();
   process.exit(0);
 }
 

@@ -266,6 +266,7 @@
     "newRestaurant": "Restaurant toevoegen",
     "newRider": "Rijder toevoegen",
     "nameCode": "Naamcode",
+    "riderProfileInRidersTab": "Rijderprofielvelden (naamcode, telefoon, beschikbaarheid) worden bewerkt in het tabblad Rijders.",
     "minDeliveryTime": "Minimale bereidingstijd (minuten)",
     "outboundWebhook": "Uitgaande webhook URL",
     "outboundWebhookPlaceholder": "https://voorbeeld.nl/webhook",

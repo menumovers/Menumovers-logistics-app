@@ -5,76 +5,69 @@
 //   pnpm --filter @workspace/scripts exec tsx src/seed-demo-accounts.ts
 import bcrypt from "bcryptjs";
 import { eq } from "drizzle-orm";
-import { db, usersTable, ridersTable, restaurantsTable } from "@workspace/db";
+import {
+  db,
+  usersTable,
+  userRolesTable,
+  ridersTable,
+  restaurantsTable,
+  type UserRole,
+} from "@workspace/db";
 
-async function upsertUser(fields: typeof usersTable.$inferInsert) {
+async function upsertUser(fields: typeof usersTable.$inferInsert, roles: UserRole[]) {
   const [existing] = await db
     .select()
     .from(usersTable)
     .where(eq(usersTable.email, fields.email));
+  let userId: string;
   if (existing) {
     await db.update(usersTable).set(fields).where(eq(usersTable.id, existing.id));
-    console.log(`Updated  ${fields.role.padEnd(16)} ${fields.email}`);
-    return existing.id;
+    userId = existing.id;
+    console.log(`Updated  ${roles.join("+").padEnd(24)} ${fields.email}`);
+  } else {
+    const [created] = await db.insert(usersTable).values(fields).returning();
+    userId = created!.id;
+    console.log(`Created  ${roles.join("+").padEnd(24)} ${fields.email}  (id: ${userId})`);
   }
-  const [created] = await db.insert(usersTable).values(fields).returning();
-  console.log(`Created  ${fields.role.padEnd(16)} ${fields.email}  (id: ${created!.id})`);
-  return created!.id;
+  await db
+    .insert(userRolesTable)
+    .values(roles.map((role) => ({ userId, role })))
+    .onConflictDoNothing();
+  return userId;
 }
 
 async function main(): Promise<void> {
   const hash = await bcrypt.hash("password", 10);
 
-  // Admin
-  await upsertUser({
-    email: "admin@bestellenbij.nl",
-    passwordHash: hash,
-    name: "Beheerder1",
-    role: "admin",
-    accountStatus: "active",
-  });
+  // Admin — also granted coordinator + rider, since on the logistics side an
+  // admin routinely needs to act in those capacities too.
+  await upsertUser(
+    { email: "admin@bestellenbij.nl", passwordHash: hash, name: "Beheerder1", accountStatus: "active" },
+    ["admin", "coordinator"],
+  );
 
   // Coordinator
-  await upsertUser({
-    email: "coordinator@bestellenbij.nl",
-    passwordHash: hash,
-    name: "Coördinator1",
-    role: "coordinator",
-    accountStatus: "active",
-  });
+  await upsertUser(
+    { email: "coordinator@bestellenbij.nl", passwordHash: hash, name: "Coördinator1", accountStatus: "active" },
+    ["coordinator"],
+  );
 
-  // Rider — needs a riders row first
+  // Rider — needs a riders row
   const [existingRider] = await db
     .select()
     .from(ridersTable)
     .where(eq(ridersTable.nameCode, "rijder1"));
-  // Run for its side effect only — the created row isn't needed here, and the
-  // linking step below keys off `existingRider`. Was an IIFE assigned to an
-  // unused binding.
+
+  const riderUserId = await upsertUser(
+    { email: "rider1@bestellenbij.nl", passwordHash: hash, name: "Rijder1", accountStatus: "active" },
+    ["rider"],
+  );
   if (!existingRider) {
-    const placeholderUserId = await upsertUser({
-      email: "rider1@bestellenbij.nl",
-      passwordHash: hash,
-      name: "Rijder1",
-      role: "rider",
-      accountStatus: "active",
-    });
     const [r] = await db
       .insert(ridersTable)
-      .values({ userId: placeholderUserId, nameCode: "rijder1", availabilityStatus: "offline" })
+      .values({ userId: riderUserId, nameCode: "rijder1", availabilityStatus: "offline" })
       .returning();
     console.log(`Created  rider record              (id: ${r!.id})`);
-  }
-
-  // Ensure the rider user exists and is linked (idempotent path)
-  if (existingRider) {
-    await upsertUser({
-      email: "rider1@bestellenbij.nl",
-      passwordHash: hash,
-      name: "Rijder1",
-      role: "rider",
-      accountStatus: "active",
-    });
   }
 
   // Restaurant staff — needs a restaurants row
@@ -97,14 +90,16 @@ async function main(): Promise<void> {
       return r!;
     })());
 
-  await upsertUser({
-    email: "restaurant1@bestellenbij.nl",
-    passwordHash: hash,
-    name: "Restaurant1",
-    role: "restaurant_staff",
-    restaurantId: restaurant.id,
-    accountStatus: "active",
-  });
+  await upsertUser(
+    {
+      email: "restaurant1@bestellenbij.nl",
+      passwordHash: hash,
+      name: "Restaurant1",
+      restaurantId: restaurant.id,
+      accountStatus: "active",
+    },
+    ["restaurant_staff"],
+  );
 
   console.log("\nAll demo accounts ready.");
   process.exit(0);
