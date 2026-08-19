@@ -23,6 +23,10 @@ type AuthContextValue = {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
+function hasUsableRoles(user: CurrentUser | undefined): user is CurrentUser {
+  return Array.isArray(user?.roles) && user.roles.length > 0;
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
   const hasToken = !!getToken();
@@ -37,6 +41,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       refetchOnWindowFocus: false,
     },
   });
+
+  // Sessions issued before the multi-role migration do not contain `roles`.
+  // Treat them as signed out instead of passing an incomplete user into role
+  // checks, which would otherwise crash the protected route and landing page.
+  useEffect(() => {
+    if (meQuery.data && !hasUsableRoles(meQuery.data)) {
+      setToken(null);
+      queryClient.clear();
+    }
+  }, [meQuery.data, queryClient]);
 
   useEffect(() => {
     if (meQuery.isError && (meQuery.error as ApiError | undefined)?.status === 401) {
@@ -74,7 +88,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<AuthContextValue>(
     () => ({
-      user: meQuery.data ?? null,
+      user: hasUsableRoles(meQuery.data) ? meQuery.data : null,
       isLoading: hasToken && meQuery.isLoading,
       signOut,
       applyToken,

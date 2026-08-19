@@ -1,1 +1,2 @@
 - [DB schema sync requirement](db-schema-sync.md) — after any schema change, db:live-drift must be run and drift must be pushed; db:drift alone is not sufficient.
+- [Drizzle temporary-table safety](drizzle-temporary-table-safety.md) — tables not represented in the Drizzle schema can be removed by push; do not rely on them for migration backups.
