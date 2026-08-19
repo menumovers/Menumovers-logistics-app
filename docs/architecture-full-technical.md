@@ -196,6 +196,10 @@ What the system explicitly does not do:
 ### Authentication
 
 - Single login API, `POST /api/auth/login`. Body validated by Zod (`AuthSession` body schema).
+- Login accepts `username` and `password`. `users.username` is unique and is
+  normalized to lowercase when accounts are created, edited, or authenticated;
+  the account identifier is not required to be email-shaped. Order contact
+  addresses may still carry a separate `customerEmail` field.
 - The frontend exposes two distinct login pages backed by the same API: `/rider/login` (rider PWA — admin, coordinator, rider) and `/restaurant/login` (restaurant PWA — restaurant_staff). Each login refuses cross-app role mismatches client-side (token discarded, "wrong app" message shown) and offers a link to the other login. The legacy `/login` URL is preserved as a rider-variant alias. Role partitioning, the path → context map, and the login target for each context are centralized in `src/lib/app-context.ts`.
 - bcryptjs at 10 rounds verifies the password.
 - On success a JWT is signed with `JWT_SECRET` (HS256, 7-day TTL, includes `sub`, `roles`, `restaurantId`, `jti`, `exp`). Login requires at least one current role assignment. The token is returned in the response body and also set as a `auth_token` HttpOnly cookie. The web client stores the token in `localStorage.bb_token`.

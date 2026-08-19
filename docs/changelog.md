@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-08-19 — Account login identifiers renamed from email to username
+
+Account authentication now uses the unique `users.username` field. The API,
+OpenAPI contract, generated clients, login pages, admin account management,
+settings, rider views, seed scripts, and smoke checks all use `username`.
+Values are normalized to lowercase, but they do not need to be email-shaped.
+
+This does not change customer contact data: order payloads and stored orders
+continue to use `customerEmail` where an end customer's email is relevant.
+
 ## 2026-08-19 — Legacy role bridge removed from the codebase
 
 The codebase is now post-cleanup: `user_roles` is the only authorization

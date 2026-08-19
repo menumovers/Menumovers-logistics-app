@@ -251,20 +251,23 @@ migration panel left in the app. This source state is safe to publish only
 when production already has at least one canonical role row for every account.
 
 1. Before Publish, record evidence that this query returns **zero rows** on the
-   production database. It is read-only; do not repair role data with an ad-hoc
-   production write.
+   production database. This uses the pre-Publish `users.email` column; after
+   the rename, the equivalent account field is `users.username`. It is
+   read-only; do not repair role data with an ad-hoc production write.
 
    ```sql
-   SELECT u.id, u.username
+   SELECT u.id, u.email
    FROM users AS u
    LEFT JOIN user_roles AS ur ON ur.user_id = u.id
-   GROUP BY u.id, u.username
+   GROUP BY u.id, u.email
    HAVING count(ur.id) = 0;
    ```
 
 2. Publish the development schema normally. Do **not** select **overwrite data**.
-3. Review the production schema diff. It must drop only `users.role`; it must
-   not remove, recreate, or overwrite `users`, `user_roles`, or their data.
+3. Review the production schema diff. For a database that still has the
+   pre-username account schema, it should rename `users.email` to
+   `users.username` and drop only the legacy `users.role` column. It must not
+   remove, recreate, or overwrite `users`, `user_roles`, or their data.
 4. After Publish, verify login and role-protected access for an admin,
    coordinator, rider, and restaurant-staff account. Also verify a multi-role
    account can use every app context granted by its `roles[]` set.

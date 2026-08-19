@@ -138,6 +138,12 @@ The structure for each entry: **Name**, **Location**, **What it does**, **Formul
 - **Callers**: `routes/auth.ts`, `requireAuth` middleware.
 - **Do not**: call `jsonwebtoken` from anywhere else.
 
+### Account username
+- **Location**: `lib/db/src/schema/users.ts` → `usersTable.username`; account API handling in `artifacts/api-server/src/routes/auth.ts` and `routes/users.ts`.
+- **What it does**: Stores the unique account identifier used for login. The API normalizes it to lowercase on login, account creation, and account edits. It is a username and is not validated as an email address.
+- **Callers**: login form and auth hook in `artifacts/bestellenbij`, admin account management, seed scripts, and the generated OpenAPI client.
+- **Do not**: use `users.email` or an email-shaped field for account identity. `orders.customerEmail` is separate customer contact data and remains email-specific.
+
 ### Account roles and role assignment
 - **Location**: canonical rows in `lib/db/src/schema/user-roles.ts` (`userRolesTable`); request-time reads in `artifacts/api-server/src/lib/auth.ts` → `loadUserRoles`; account writes in `artifacts/api-server/src/routes/users.ts`.
 - **What it does**: An account has a set of `UserRole` rows (`admin`, `coordinator`, `rider`, `restaurant_staff`). `user_roles` is the only authorization source; the `users` row has no role column. Login rejects an account with no rows and returns `roles[]`. `requireAuth` reloads this set for every request, so database assignments supersede roles present in an already-issued JWT.

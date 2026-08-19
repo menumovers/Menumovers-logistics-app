@@ -23,8 +23,13 @@ guards are navigation aids, not authorization.
 
 ## Accounts and authorization
 
+Accounts authenticate with a unique `users.username`, not an email address.
+The API normalizes usernames to lowercase on login and account writes. A
+customer email may still exist on an order as `customerEmail`, but it is not an
+account identity field.
+
 Accounts have a set of roles, not one role. `user_roles` is the canonical and
-only authorization source; `users` holds account identity, status, optional
+only authorization source; `users` holds the username, account status, optional
 restaurant membership, and locale, but no role field. The supported roles are
 `admin`, `coordinator`, `rider`, and `restaurant_staff`.
 
