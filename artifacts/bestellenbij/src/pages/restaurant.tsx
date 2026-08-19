@@ -1,30 +1,19 @@
 import { useTranslation } from "react-i18next";
-import { useQueryClient } from "@tanstack/react-query";
+import { Link } from "wouter";
 import {
   useListOrders,
-  useUpdatePickupTime,
-  useMarkOrderReady,
   useListRestaurants,
-  useGetOrder,
   getListOrdersQueryKey,
   getListRestaurantsQueryKey,
-  getGetOrderQueryKey,
   type OrderListItem,
-  type OrderDetail,
-  type RestaurantAcceptanceMode,
 } from "@workspace/api-client-react";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
-import { StatusBadge } from "@/components/status-badge";
-import { PickupCountdown, PickupSourceBadge } from "@/components/pickup-countdown";
-import { AcknowledgeCard } from "@/components/acknowledge-card";
-import { PickupTimeInput } from "@/components/pickup-time-input";
+import { Card, CardContent } from "@/components/ui/card";
+import { PickupCountdown } from "@/components/pickup-countdown";
+import { AcceptanceStatusBadge } from "@/components/acceptance-status-badge";
 import { useAuth } from "@/lib/auth";
-import { Link } from "wouter";
+import { Bike, Layers } from "lucide-react";
+import { motion } from "framer-motion";
 import { effectivePickup, formatTime } from "@/lib/format";
-import { useToast } from "@/hooks/use-toast";
-import { CheckCircle2, Layers, Clock, Info, Bike, ChefHat, Printer } from "lucide-react";
 
 export default function RestaurantPage() {
   const { t, i18n } = useTranslation();
@@ -38,9 +27,6 @@ export default function RestaurantPage() {
   );
   const restaurants = useListRestaurants({ query: { queryKey: getListRestaurantsQueryKey() } });
   const myRestaurant = restaurants.data?.find((r) => r.id === restId);
-  // How this restaurant is asked to confirm — an operator setting, not a
-  // per-order one. Defaults to the simple confirm until the record loads.
-  const acceptanceMode = myRestaurant?.acceptanceMode ?? "accept";
 
   const active = (orders.data ?? []).filter((o) => !["delivered", "failed"].includes(o.status));
 
@@ -89,19 +75,14 @@ export default function RestaurantPage() {
       ) : (
         <div className="space-y-5">
           {bundleGroups.map((g) => (
-            <BundleCard key={g.tripId} orders={g.orders} lang={lang} acceptanceMode={acceptanceMode} />
+            <BundleSection key={g.tripId} orders={g.orders} lang={lang} />
           ))}
           {solos.length > 0 ? (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            <Grid>
               {solos.map((o) => (
-                <RestaurantOrderCard
-                  key={o.id}
-                  order={o}
-                  lang={lang}
-                  acceptanceMode={acceptanceMode}
-                />
+                <RestaurantOrderCard key={o.id} order={o} lang={lang} />
               ))}
-            </div>
+            </Grid>
           ) : null}
         </div>
       )}
@@ -109,322 +90,84 @@ export default function RestaurantPage() {
   );
 }
 
-function BundleCard({
-  orders,
-  lang,
-  acceptanceMode,
-}: {
-  orders: OrderListItem[];
-  lang: string;
-  acceptanceMode: RestaurantAcceptanceMode;
-}) {
-  const { t } = useTranslation();
-  const queryClient = useQueryClient();
-  const update = useUpdatePickupTime();
-  const markReady = useMarkOrderReady();
-  const { toast } = useToast();
-  const bundleTime =
-    orders[0]?.bundlePickupTime ?? effectivePickup(orders[0]!).iso;
-  const tripNumber = orders[0]?.tripNumber ?? "";
-  // Find any order whose original pickup differs from the bundle time.
-  const adjusted = orders.filter((o) => {
-    const own = effectivePickup(o).iso;
-    return own && bundleTime && new Date(own).getTime() !== new Date(bundleTime).getTime();
-  });
-
-  // Reports a status for each order in the bundle. Deliberately does NOT write
-  // a pickup time: the pickup times are a negotiation and "the food is done" is
-  // not a bid in it. See D14.
-  function markAllReady() {
-    Promise.all(
-      orders.map(
-        (o) =>
-          new Promise<void>((resolve) => {
-            markReady.mutate(
-              { id: o.id },
-              {
-                onSuccess: () => resolve(),
-                onError: () => resolve(),
-              },
-            );
-          }),
-      ),
-    ).then(() => {
-      toast({ title: t("restaurant.readyForPickupSent") });
-      queryClient.invalidateQueries({
-        queryKey: getListOrdersQueryKey({ restaurantId: orders[0]?.restaurantId }),
-      });
-    });
-  }
-
+function Grid({ children }: { children: React.ReactNode }) {
   return (
-    <Card
-      className="border-2 border-primary/40 bg-primary/[0.04]"
-      data-testid={`card-bundle-${tripNumber}`}
+    <motion.div
+      initial="hidden"
+      animate="show"
+      variants={{ show: { transition: { staggerChildren: 0.04 } } }}
+      className="grid gap-4 md:grid-cols-2 lg:grid-cols-3"
     >
-      <CardHeader className="pb-3">
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <span className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-primary-foreground">
-              <Layers className="size-4" />
-            </span>
-            <div>
-              <div className="text-sm font-bold">
-                {t("bundle.title")} ·{" "}
-                {t("bundle.ordersCount", { count: orders.length })}
-              </div>
-              <div className="text-xs text-muted-foreground">
-                {t("bundle.subtitle")}
-              </div>
-            </div>
-          </div>
-          <div className="flex items-center gap-2 rounded-md bg-card border border-border px-3 py-1.5">
-            <Clock className="size-4 text-primary" />
-            <span className="text-sm font-bold tabular-nums">
-              {formatTime(bundleTime, lang)}
-            </span>
-          </div>
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        {adjusted.length > 0 ? (
-          <div className="flex items-start gap-2 rounded-md bg-accent/15 border border-accent/40 px-3 py-2 text-xs text-accent-foreground">
-            <Info className="size-3.5 mt-0.5 shrink-0" />
-            <span>
-              {t("bundle.earliestPickup")}{" "}
-              {adjusted.map((o) => (
-                <span key={o.id} className="font-semibold">
-                  #{o.externalOrderId} {t("bundle.wasOriginally", { time: formatTime(effectivePickup(o).iso, lang) })}.{" "}
-                </span>
-              ))}
-            </span>
-          </div>
-        ) : null}
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          {orders.map((o) => (
-            <RestaurantOrderCard
-              key={o.id}
-              order={o}
-              lang={lang}
-              acceptanceMode={acceptanceMode}
-              compact
-            />
-          ))}
-        </div>
-
-        <div className="flex items-center justify-between text-xs text-muted-foreground pt-2 border-t border-border">
-          <span className="inline-flex items-center gap-1.5">
-            <Bike className="size-3" />{" "}
-            {orders[0]?.riderName
-              ? t("bundle.tripContext", {
-                  number: tripNumber,
-                  rider: orders[0].riderName,
-                })
-              : t("bundle.tripContextOpen", { number: tripNumber })}
-          </span>
-          <Button
-            size="sm"
-            disabled={update.isPending}
-            onClick={markAllReady}
-            data-testid={`button-bundle-ready-${tripNumber}`}
-          >
-            <CheckCircle2 className="size-3.5 mr-1" /> {t("bundle.markAllReady")}
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
+      {children}
+    </motion.div>
   );
 }
 
-function RestaurantOrderCard({
-  order,
-  lang,
-  acceptanceMode,
-  compact = false,
-}: {
-  order: OrderListItem;
-  lang: string;
-  acceptanceMode: RestaurantAcceptanceMode;
-  compact?: boolean;
-}) {
+/** Groups a bundled pickup's orders under a shared trip header — purely a
+ * summary, same role as the rider dashboard's trip row. Each order still
+ * links out to its own detail page. */
+function BundleSection({ orders, lang }: { orders: OrderListItem[]; lang: string }) {
   const { t } = useTranslation();
-  const { toast } = useToast();
-  const queryClient = useQueryClient();
-  const update = useUpdatePickupTime();
-  const markReady = useMarkOrderReady();
-
-  // Detail fetch supplies item overrides (hidden + extras) for this card.
-  const detail = useGetOrder(order.id, {
-    query: {
-      queryKey: getGetOrderQueryKey(order.id),
-      refetchInterval: 30_000,
-      staleTime: 15_000,
-    },
-  });
-  const overrides = (detail.data as OrderDetail | undefined)?.itemOverrides ?? [];
-  const hidden = new Set(
-    overrides
-      .filter((o) => o.type === "hide" && o.itemIndex != null)
-      .map((o) => o.itemIndex as number),
-  );
-  const extras = overrides.filter((o) => o.type === "add").map((o) => o.addedItem!).filter(Boolean);
-
-  const eff = effectivePickup(order);
-
-  function invalidate() {
-    queryClient.invalidateQueries({ queryKey: getListOrdersQueryKey({ restaurantId: order.restaurantId }) });
-    queryClient.invalidateQueries({ queryKey: getGetOrderQueryKey(order.id) });
-  }
-
-  function submit(pickupTime: string) {
-    update.mutate(
-      { id: order.id, data: { source: "restaurant", pickupTime } },
-      {
-        onSuccess: () => {
-          toast({ title: t("common.save") });
-          invalidate();
-        },
-        onError: () => toast({ title: t("errors.generic"), variant: "destructive" }),
-      },
-    );
-  }
-
-  // A status report, not a pickup time. This used to write
-  // `pickupTimeRestaurant = now`, so pressing it discarded whatever time the
-  // restaurant had negotiated. See D14.
-  function readyForPickup() {
-    markReady.mutate(
-      { id: order.id },
-      {
-        onSuccess: () => {
-          toast({ title: t("restaurant.readyForPickupSent") });
-          invalidate();
-        },
-        onError: () => toast({ title: t("errors.generic"), variant: "destructive" }),
-      },
-    );
-  }
+  const bundleTime = orders[0]?.bundlePickupTime ?? effectivePickup(orders[0]!).iso;
+  const tripNumber = orders[0]?.tripNumber ?? "";
 
   return (
-    <Card data-testid={`card-restaurant-order-${order.id}`}>
-      <CardHeader className="flex flex-row items-start justify-between space-y-0 gap-2 pb-3">
-        <div>
-          <div className="text-xs text-muted-foreground">#{order.externalOrderId}</div>
-          <div className="font-semibold">{order.customerName}</div>
-        </div>
-        <StatusBadge status={order.status} />
-      </CardHeader>
-      <CardContent className="space-y-3">
-        <div className="flex items-center justify-between">
-          <PickupCountdown order={order} />
-          <PickupSourceBadge source={eff.source} />
-        </div>
-
-        <Button asChild variant="outline" size="sm" className="w-full" data-testid={`button-receipt-${order.id}`}>
-          <Link href={`/orders/${order.id}/receipt`}>
-            <Printer className="size-3.5 mr-1.5" /> {t("receipt.title")}
-          </Link>
-        </Button>
-
-        <AcknowledgeCard
-          order={order}
-          mode={acceptanceMode}
-          lang={lang}
-          onDone={invalidate}
-        />
-
-        {/* Once reported, the button becomes the record of it. A status that
-            can only be written and never read is how failure reasons went
-            missing (todo-bugs B3). */}
-        {order.restaurantReadyAt ? (
-          <div
-            className="flex items-center justify-center gap-2 rounded-md border border-chart-5/40 bg-chart-5/10 py-3 text-sm font-medium text-chart-5"
-            data-testid={`text-ready-${order.id}`}
-          >
-            <CheckCircle2 className="size-4" />
-            {t("restaurant.readyAt", { time: formatTime(order.restaurantReadyAt, lang) })}
-          </div>
-        ) : (
-          <Button
-            type="button"
-            className="w-full h-12 text-base font-semibold"
-            disabled={markReady.isPending}
-            onClick={readyForPickup}
-            data-testid={`button-ready-${order.id}`}
-          >
-            <CheckCircle2 className="size-4 mr-2" />
-            {t("restaurant.readyForPickup")}
-          </Button>
-        )}
-
-        {/* Notes the source addressed to the kitchen. They arrived on every
-            order and were shown on no screen at all — least of all this one. */}
-        {order.kitchenNotes ? (
-          <div
-            className="flex items-start gap-2 rounded-md border border-accent/40 bg-accent/10 px-2.5 py-2 text-sm"
-            data-testid={`text-kitchen-notes-${order.id}`}
-          >
-            <ChefHat className="size-4 mt-0.5 shrink-0" />
-            <div>
-              <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
-                {t("restaurant.kitchenNotes")}
-              </div>
-              <div>{order.kitchenNotes}</div>
+    <section
+      className="rounded-lg border-2 border-primary/40 bg-primary/[0.04] p-4 space-y-3"
+      data-testid={`section-bundle-${tripNumber}`}
+    >
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <span className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-primary-foreground">
+            <Layers className="size-4" />
+          </span>
+          <div>
+            <div className="text-sm font-bold">
+              {t("bundle.title")} · {t("bundle.ordersCount", { count: orders.length })}
+            </div>
+            <div className="text-xs text-muted-foreground flex items-center gap-1.5">
+              <Bike className="size-3" />
+              {orders[0]?.riderName
+                ? t("bundle.tripContext", { number: tripNumber, rider: orders[0].riderName })
+                : t("bundle.tripContextOpen", { number: tripNumber })}
             </div>
           </div>
-        ) : null}
+        </div>
+        <span className="text-sm font-bold tabular-nums">{formatTime(bundleTime, lang)}</span>
+      </div>
+      <Grid>
+        {orders.map((o) => (
+          <RestaurantOrderCard key={o.id} order={o} lang={lang} />
+        ))}
+      </Grid>
+    </section>
+  );
+}
 
-        <ul className="text-sm space-y-1">
-          {order.items.map((it, i) => {
-            const isHidden = hidden.has(i);
-            return (
-              <li
-                key={i}
-                className="flex justify-between gap-2"
-                data-testid={`row-rest-item-${order.id}-${i}`}
-              >
-                <span className={isHidden ? "line-through text-muted-foreground" : ""}>
-                  <span className="text-muted-foreground tabular-nums">{it.quantity}× </span>
-                  {it.name}
-                  {isHidden ? (
-                    <span className="ml-2 text-[10px] uppercase tracking-wide text-muted-foreground italic">
-                      {t("restaurant.hiddenItem")}
-                    </span>
-                  ) : null}
-                </span>
-              </li>
-            );
-          })}
-          {extras.map((it, i) => (
-            <li
-              key={`x${i}`}
-              className="flex justify-between gap-2"
-              data-testid={`row-rest-extra-${order.id}-${i}`}
-            >
-              <span>
-                <span className="inline-block rounded bg-accent/15 text-accent-foreground text-[10px] uppercase px-1.5 py-0.5 mr-2">
-                  {t("restaurant.extraItem")}
-                </span>
-                <span className="text-muted-foreground tabular-nums">{it.quantity}× </span>
-                {it.name}
+function RestaurantOrderCard({ order, lang }: { order: OrderListItem; lang: string }) {
+  const { t } = useTranslation();
+  const eff = effectivePickup(order);
+  return (
+    <motion.div variants={{ hidden: { opacity: 0, y: 8 }, show: { opacity: 1, y: 0 } }}>
+      <Link href={`/restaurant/orders/${order.id}`}>
+        <Card
+          className="hover:border-primary/40 hover:shadow-md transition cursor-pointer"
+          data-testid={`card-restaurant-order-${order.id}`}
+        >
+          <CardContent className="py-4 space-y-1.5">
+            <div className="flex items-center justify-between gap-3">
+              <PickupCountdown order={order} size="lg" />
+              <AcceptanceStatusBadge acceptedAt={order.restaurantAcceptedAt} />
+            </div>
+            <div className="flex items-center justify-between gap-3 text-sm text-muted-foreground">
+              <span>{t("rider.pickupCompact")} {formatTime(eff.iso, lang)}</span>
+              <span className="text-right">
+                #{order.externalOrderId} · {order.customerName}
               </span>
-            </li>
-          ))}
-        </ul>
-
-        {compact ? null : (
-          <div className="border-t border-border pt-3 space-y-2">
-            <Label className="text-xs">{t("restaurant.suggestPickup")}</Label>
-            <PickupTimeInput
-              currentIso={eff.iso}
-              pending={update.isPending}
-              submitLabel={t("common.save")}
-              onSubmit={submit}
-            />
-          </div>
-        )}
-      </CardContent>
-    </Card>
+            </div>
+          </CardContent>
+        </Card>
+      </Link>
+    </motion.div>
   );
 }
