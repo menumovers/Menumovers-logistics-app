@@ -243,18 +243,31 @@ as `todo.md` M6.
 
 ## Part 5 — Schema work that is coming
 
-### Multi-role accounts — final cleanup Publish
+### Multi-role accounts — post-cleanup production Publish
 
-`user_roles` is the sole source of authorization. Complete this cleanup only
-after the prior release has been published, **Admin → Users** has reported that
-every account has canonical role assignments, and representative role logins
-have been checked.
+The current code has completed the compatibility cleanup: `user_roles` is the
+sole source of authorization, and there is no `users.role` fallback or admin
+migration panel left in the app. This source state is safe to publish only
+when production already has at least one canonical role row for every account.
 
-1. Publish the development schema normally. Do **not** select **overwrite data**.
-2. Review the production schema diff. It must drop only `users.role`; it must
+1. Before Publish, record evidence that this query returns **zero rows** on the
+   production database. It is read-only; do not repair role data with an ad-hoc
+   production write.
+
+   ```sql
+   SELECT u.id, u.email
+   FROM users AS u
+   LEFT JOIN user_roles AS ur ON ur.user_id = u.id
+   GROUP BY u.id, u.email
+   HAVING count(ur.id) = 0;
+   ```
+
+2. Publish the development schema normally. Do **not** select **overwrite data**.
+3. Review the production schema diff. It must drop only `users.role`; it must
    not remove, recreate, or overwrite `users`, `user_roles`, or their data.
-3. After Publish, verify login and role-protected access for an admin,
-   coordinator, rider, and restaurant-staff account.
+4. After Publish, verify login and role-protected access for an admin,
+   coordinator, rider, and restaurant-staff account. Also verify a multi-role
+   account can use every app context granted by its `roles[]` set.
 
 ---
 

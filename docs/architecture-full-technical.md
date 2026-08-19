@@ -198,14 +198,15 @@ What the system explicitly does not do:
 - Single login API, `POST /api/auth/login`. Body validated by Zod (`AuthSession` body schema).
 - The frontend exposes two distinct login pages backed by the same API: `/rider/login` (rider PWA — admin, coordinator, rider) and `/restaurant/login` (restaurant PWA — restaurant_staff). Each login refuses cross-app role mismatches client-side (token discarded, "wrong app" message shown) and offers a link to the other login. The legacy `/login` URL is preserved as a rider-variant alias. Role partitioning, the path → context map, and the login target for each context are centralized in `src/lib/app-context.ts`.
 - bcryptjs at 10 rounds verifies the password.
-- On success a JWT is signed with `JWT_SECRET` (HS256, 7-day TTL, includes `sub`, `role`, `restaurantId`, `jti`, `exp`). The token is returned in the response body and also set as a `auth_token` HttpOnly cookie. The web client stores the token in `localStorage.bb_token`.
-- `requireAuth` extracts the token from `Authorization: Bearer ...` first, then from the cookie. It verifies the JWT, checks JTI revocation, loads the user, ensures `accountStatus === 'active'`, and resolves `riderId` for rider users.
+- On success a JWT is signed with `JWT_SECRET` (HS256, 7-day TTL, includes `sub`, `roles`, `restaurantId`, `jti`, `exp`). Login requires at least one current role assignment. The token is returned in the response body and also set as a `auth_token` HttpOnly cookie. The web client stores the token in `localStorage.bb_token`.
+- `requireAuth` extracts the token from `Authorization: Bearer ...` first, then from the cookie. It verifies the JWT, checks JTI revocation, loads the user, ensures `accountStatus === 'active'`, then reloads the account's current role rows from the database and resolves `riderId` when `rider` is among them. The request-time database read, rather than the signed role claim, is authoritative after an account is edited.
 - Logout writes the JTI into `revoked_tokens`.
 
 ### Authorization
 
-- `requireRole(...roles)` gates by role.
-- Admin > coordinator > rider > restaurant_staff is roughly the visibility hierarchy.
+- `user_roles` is the only role source. Each row grants one of `admin`, `coordinator`, `rider`, or `restaurant_staff`, and an account may hold several rows. The legacy `users.role` column and all compatibility fallback were removed from the codebase.
+- `requireRole(...roles)` gates by intersection: it allows a request when any current account role appears in the route's explicit allowlist. There is no inherited role hierarchy in this helper; routes include `admin` explicitly wherever an admin is allowed.
+- `POST /users` creates the account and its role rows in one transaction. `PATCH /users/:id` locks that account row before reading and replacing role rows, so concurrent edits cannot calculate a role diff from stale assignments. The API exposes `roles[]`, never a legacy or singular role field.
 - Restaurant staff queries are scoped by `req.auth.restaurantId` in the SQL `WHERE` clause. Riders are scoped by `req.auth.riderId`. The filtering happens at the database layer, not in JS.
 - Frontend has a `RequireRole` guard component in `App.tsx` for direct-URL navigation safety, but the server is the only authority.
 

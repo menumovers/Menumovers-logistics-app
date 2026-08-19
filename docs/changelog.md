@@ -1,5 +1,18 @@
 # Changelog
 
+## 2026-08-19 — Legacy role bridge removed from the codebase
+
+The codebase is now post-cleanup: `user_roles` is the only authorization
+source, the singular `users.role` mapping and fallback are gone, and the
+temporary migration status/initialization API and Admin → Users panel have
+been removed. JWTs carry `roles[]`, while request authentication reloads the
+current role rows so edits take effect on the next request.
+
+The production Publish remains deliberately gated: do not deploy this cleanup
+until a read-only production check proves every account has at least one
+`user_roles` row, and confirm the schema plan drops only the legacy
+`users.role` column without overwriting data.
+
 ## 2026-08-19 — Multi-role accounts get a non-destructive production bridge
 
 The production rollout is now explicitly two-stage. Stage one retains the
