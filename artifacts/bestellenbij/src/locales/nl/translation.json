@@ -231,7 +231,11 @@
     "readyAt": "Eten klaar sinds {{time}}",
     "hiddenItem": "Verborgen door coördinator",
     "extraItem": "Toegevoegd door coördinator",
-    "kitchenNotes": "Notitie voor de keuken"
+    "kitchenNotes": "Notitie voor de keuken",
+    "status": {
+      "new": "Nieuwe order",
+      "accepted": "Geaccepteerd"
+    }
   },
   "admin": {
     "title": "Beheer",

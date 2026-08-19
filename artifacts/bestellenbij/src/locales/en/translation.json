@@ -231,7 +231,11 @@
     "readyAt": "Food ready since {{time}}",
     "hiddenItem": "Hidden by coordinator",
     "extraItem": "Added by coordinator",
-    "kitchenNotes": "Note for the kitchen"
+    "kitchenNotes": "Note for the kitchen",
+    "status": {
+      "new": "New order",
+      "accepted": "Accepted"
+    }
   },
   "admin": {
     "title": "Admin",
