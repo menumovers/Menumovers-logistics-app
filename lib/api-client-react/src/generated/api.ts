@@ -22,7 +22,6 @@ import type {
   AssignOrderRequest,
   AuthSession,
   CreateRestaurantRequest,
-  CreateRiderRequest,
   CreateTripRequest,
   CreateUserRequest,
   CurrentUser,
@@ -1994,93 +1993,7 @@ export function useListRiders<
 }
 
 /**
- * @summary Create a new rider account
- */
-export const getCreateRiderUrl = () => {
-  return `/api/riders`;
-};
-
-export const createRider = async (
-  createRiderRequest: CreateRiderRequest,
-  options?: RequestInit,
-): Promise<RiderWithWorkload> => {
-  return customFetch<RiderWithWorkload>(getCreateRiderUrl(), {
-    ...options,
-    method: "POST",
-    headers: { "Content-Type": "application/json", ...options?.headers },
-    body: JSON.stringify(createRiderRequest),
-  });
-};
-
-export const getCreateRiderMutationOptions = <
-  TError = ErrorType<unknown>,
-  TContext = unknown,
->(options?: {
-  mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof createRider>>,
-    TError,
-    { data: BodyType<CreateRiderRequest> },
-    TContext
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}): UseMutationOptions<
-  Awaited<ReturnType<typeof createRider>>,
-  TError,
-  { data: BodyType<CreateRiderRequest> },
-  TContext
-> => {
-  const mutationKey = ["createRider"];
-  const { mutation: mutationOptions, request: requestOptions } = options
-    ? options.mutation &&
-      "mutationKey" in options.mutation &&
-      options.mutation.mutationKey
-      ? options
-      : { ...options, mutation: { ...options.mutation, mutationKey } }
-    : { mutation: { mutationKey }, request: undefined };
-
-  const mutationFn: MutationFunction<
-    Awaited<ReturnType<typeof createRider>>,
-    { data: BodyType<CreateRiderRequest> }
-  > = (props) => {
-    const { data } = props ?? {};
-
-    return createRider(data, requestOptions);
-  };
-
-  return { mutationFn, ...mutationOptions };
-};
-
-export type CreateRiderMutationResult = NonNullable<
-  Awaited<ReturnType<typeof createRider>>
->;
-export type CreateRiderMutationBody = BodyType<CreateRiderRequest>;
-export type CreateRiderMutationError = ErrorType<unknown>;
-
-/**
- * @summary Create a new rider account
- */
-export const useCreateRider = <
-  TError = ErrorType<unknown>,
-  TContext = unknown,
->(options?: {
-  mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof createRider>>,
-    TError,
-    { data: BodyType<CreateRiderRequest> },
-    TContext
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}): UseMutationResult<
-  Awaited<ReturnType<typeof createRider>>,
-  TError,
-  { data: BodyType<CreateRiderRequest> },
-  TContext
-> => {
-  return useMutation(getCreateRiderMutationOptions(options));
-};
-
-/**
- * @summary Update rider account or availability
+ * @summary Update rider-specific profile fields (nameCode, phone, availability). Account-level fields (email, password, roles) are managed via /users/{id}.
  */
 export const getUpdateRiderUrl = (id: string) => {
   return `/api/riders/${id}`;
@@ -2144,7 +2057,7 @@ export type UpdateRiderMutationBody = BodyType<UpdateRiderRequest>;
 export type UpdateRiderMutationError = ErrorType<unknown>;
 
 /**
- * @summary Update rider account or availability
+ * @summary Update rider-specific profile fields (nameCode, phone, availability). Account-level fields (email, password, roles) are managed via /users/{id}.
  */
 export const useUpdateRider = <
   TError = ErrorType<unknown>,

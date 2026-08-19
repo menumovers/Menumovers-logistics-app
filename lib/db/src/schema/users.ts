@@ -19,7 +19,6 @@ export const usersTable = pgTable(
     email: text("email").notNull(),
     passwordHash: text("password_hash").notNull(),
     name: text("name").notNull(),
-    role: userRoleEnum("role").notNull(),
     restaurantId: uuid("restaurant_id").references(() => restaurantsTable.id, {
       onDelete: "set null",
     }),

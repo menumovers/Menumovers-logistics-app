@@ -5,6 +5,7 @@ import {
   pushSubscriptionsTable,
   ridersTable,
   usersTable,
+  userRolesTable,
   type UserRole,
 } from "@workspace/db";
 import { logger } from "./logger";
@@ -72,9 +73,10 @@ export async function sendPushToRoles(
 ): Promise<void> {
   if (roles.length === 0) return;
   const users = await db
-    .select({ id: usersTable.id })
+    .selectDistinct({ id: usersTable.id })
     .from(usersTable)
-    .where(inArray(usersTable.role, roles as UserRole[]));
+    .innerJoin(userRolesTable, eq(userRolesTable.userId, usersTable.id))
+    .where(inArray(userRolesTable.role, roles as UserRole[]));
   await sendToUsers(
     users.map((u) => u.id),
     payload,

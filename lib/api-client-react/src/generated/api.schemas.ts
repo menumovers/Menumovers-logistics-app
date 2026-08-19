@@ -25,6 +25,28 @@ export const UserRole = {
   restaurant_staff: "restaurant_staff",
 } as const;
 
+export type RiderAvailability =
+  (typeof RiderAvailability)[keyof typeof RiderAvailability];
+
+export const RiderAvailability = {
+  offline: "offline",
+  online: "online",
+  backup: "backup",
+} as const;
+
+/**
+ * Rider-specific profile fields. Required when creating/updating a user
+whose roles include "rider" and no rider profile exists for them yet.
+
+ */
+export interface RiderProfile {
+  /** @minLength 1 */
+  nameCode: string;
+  /** @nullable */
+  phone?: string | null;
+  availabilityStatus?: RiderAvailability;
+}
+
 export type AccountStatus = (typeof AccountStatus)[keyof typeof AccountStatus];
 
 export const AccountStatus = {
@@ -59,15 +81,6 @@ export type TripStopKind = (typeof TripStopKind)[keyof typeof TripStopKind];
 export const TripStopKind = {
   pickup: "pickup",
   dropoff: "dropoff",
-} as const;
-
-export type RiderAvailability =
-  (typeof RiderAvailability)[keyof typeof RiderAvailability];
-
-export const RiderAvailability = {
-  offline: "offline",
-  online: "online",
-  backup: "backup",
 } as const;
 
 export type PickupTimeSource =
@@ -161,13 +174,14 @@ export interface CurrentUser {
   id: string;
   email: string;
   name: string;
-  role: UserRole;
+  /** @minItems 1 */
+  roles: UserRole[];
   accountStatus: AccountStatus;
   /** @nullable */
   restaurantId?: string | null;
   /** @nullable */
   riderId?: string | null;
-  /** Only present when role is "rider" — the rider's own current availability, otherwise null. */
+  /** Only present when roles includes "rider" — the rider's own current availability, otherwise null. */
   availabilityStatus?: RiderAvailability | null;
   /** @nullable */
   preferredLocale?: CurrentUserPreferredLocale;
@@ -216,7 +230,8 @@ export interface User {
   id: string;
   email: string;
   name: string;
-  role: UserRole;
+  /** @minItems 1 */
+  roles: UserRole[];
   accountStatus: AccountStatus;
   /** @nullable */
   restaurantId?: string | null;
@@ -227,19 +242,28 @@ export interface CreateUserRequest {
   email: string;
   name: string;
   password: string;
-  role: UserRole;
-  /** @nullable */
+  /** @minItems 1 */
+  roles: UserRole[];
+  /**
+   * Required (non-null) when roles includes "restaurant_staff".
+   * @nullable
+   */
   restaurantId?: string | null;
+  /** Required when roles includes "rider". */
+  riderProfile?: RiderProfile | null;
 }
 
 export interface UpdateUserRequest {
   email?: string;
   name?: string;
   password?: string;
-  role?: UserRole;
+  /** @minItems 1 */
+  roles?: UserRole[];
   accountStatus?: AccountStatus;
   /** @nullable */
   restaurantId?: string | null;
+  /** Required when roles includes "rider" and the user has no rider profile yet. */
+  riderProfile?: RiderProfile | null;
 }
 
 export interface Restaurant {
@@ -789,19 +813,7 @@ export interface RiderWithWorkload {
   queuedOrderCount: number;
 }
 
-export interface CreateRiderRequest {
-  email: string;
-  name: string;
-  /** @minLength 1 */
-  nameCode: string;
-  password: string;
-  /** @nullable */
-  phone?: string | null;
-  availabilityStatus?: RiderAvailability;
-}
-
 export interface UpdateRiderRequest {
-  name?: string;
   /** @minLength 1 */
   nameCode?: string;
   /** @nullable */

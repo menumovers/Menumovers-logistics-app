@@ -9,7 +9,6 @@ import type { AccountStatus } from "./accountStatus";
 import type { RiderAvailability } from "./riderAvailability";
 
 export interface UpdateRiderRequest {
-  name?: string;
   /** @minLength 1 */
   nameCode?: string;
   /** @nullable */

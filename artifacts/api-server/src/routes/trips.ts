@@ -22,7 +22,7 @@ import {
   type Order,
   type OrderStatus,
 } from "@workspace/db";
-import { requireAuth, requireRole } from "../lib/auth";
+import { requireAuth, requireRole, primaryRoleLabel } from "../lib/auth";
 import { httpError } from "../lib/errors";
 import {
   serializeOrderListItems,
@@ -233,18 +233,19 @@ router.get(
     if (status) filters.push(eq(tripsTable.status, status));
     if (riderId) filters.push(eq(tripsTable.riderId, riderId));
 
-    // Restaurant staff have no read access to trips.
-    if (auth.role === "restaurant_staff") {
-      res.json([]);
-      return;
-    }
-    // Riders see only their own trips.
-    if (auth.role === "rider") {
+    // Admin/coordinator unrestricted. Riders see only their own trips.
+    // Everyone else (e.g. restaurant_staff-only) has no read access to trips.
+    if (auth.roles.includes("admin") || auth.roles.includes("coordinator")) {
+      // unrestricted
+    } else if (auth.roles.includes("rider")) {
       if (!auth.riderId) {
         res.json([]);
         return;
       }
       filters.push(eq(tripsTable.riderId, auth.riderId));
+    } else {
+      res.json([]);
+      return;
     }
 
     const where = filters.length ? and(...filters) : undefined;
@@ -306,15 +307,16 @@ router.get(
     const detail = await loadTripDetail(id);
     if (!detail) throw httpError(404, "TRIP_NOT_FOUND", "Trip not found");
 
-    // Authorization: riders can only read their own trips. Restaurant_staff
-    // are blocked. Admin/coordinator unrestricted.
-    if (auth.role === "restaurant_staff") {
-      throw httpError(403, "FORBIDDEN", "Forbidden");
-    }
-    if (auth.role === "rider") {
+    // Authorization: riders can only read their own trips. Admin/coordinator
+    // unrestricted. Everyone else (e.g. restaurant_staff-only) is blocked.
+    if (auth.roles.includes("admin") || auth.roles.includes("coordinator")) {
+      // unrestricted
+    } else if (auth.roles.includes("rider")) {
       if (!auth.riderId || detail.riderId !== auth.riderId) {
         throw httpError(404, "TRIP_NOT_FOUND", "Trip not found");
       }
+    } else {
+      throw httpError(403, "FORBIDDEN", "Forbidden");
     }
     res.json(detail);
   }),
@@ -427,7 +429,7 @@ router.post(
             fromStatus: "pending",
             toStatus: "driver_assigned",
             actorUserId: auth.sub,
-            actorRole: auth.role,
+            actorRole: primaryRoleLabel(auth.roles),
             note: `Bundled into trip #${createdTrip.tripNumber}`,
           });
           await tx.insert(riderAssignmentsTable).values({
@@ -599,7 +601,7 @@ router.patch(
                 fromStatus: o.status,
                 toStatus: o.status,
                 actorUserId: auth.sub,
-                actorRole: auth.role,
+                actorRole: primaryRoleLabel(auth.roles),
                 note: `Trip #${trip.tripNumber} rider reassigned mid-flight (status preserved)`,
               });
               await tx.insert(riderAssignmentsTable).values({
@@ -630,7 +632,7 @@ router.patch(
               fromStatus: o.status,
               toStatus: "pending",
               actorUserId: auth.sub,
-              actorRole: auth.role,
+              actorRole: primaryRoleLabel(auth.roles),
               note: `Trip #${trip.tripNumber} unassigned`,
             });
             await tx.insert(riderAssignmentsTable).values({
@@ -658,7 +660,7 @@ router.patch(
                 fromStatus: o.status,
                 toStatus: "driver_assigned",
                 actorUserId: auth.sub,
-                actorRole: auth.role,
+                actorRole: primaryRoleLabel(auth.roles),
                 note: `Trip #${trip.tripNumber} reassigned`,
               });
             }
@@ -777,8 +779,9 @@ router.post(
       if (trip.status === "dissolved" || trip.status === "completed") {
         throw httpError(422, "TRIP_TERMINAL", "Trip already terminal");
       }
-      // Riders may only dissolve their own trip.
-      if (auth.role === "rider") {
+      // Riders may only dissolve their own trip; admin/coordinator unrestricted.
+      const hasBroadAccess = auth.roles.includes("admin") || auth.roles.includes("coordinator");
+      if (!hasBroadAccess && auth.roles.includes("rider")) {
         if (!auth.riderId || trip.riderId !== auth.riderId) {
           throw httpError(403, "FORBIDDEN", "Forbidden");
         }
@@ -823,7 +826,7 @@ router.post(
               fromStatus: o.status,
               toStatus: "pending",
               actorUserId: auth.sub,
-              actorRole: auth.role,
+              actorRole: primaryRoleLabel(auth.roles),
               note: `Trip #${trip.tripNumber} dissolved`,
             });
           }

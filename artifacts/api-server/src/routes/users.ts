@@ -1,13 +1,16 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
-import { eq } from "drizzle-orm";
-import { db, usersTable } from "@workspace/db";
-import { CreateUserBody, UpdateUserBody, UpdateMyLocaleBody } from "@workspace/api-zod";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import {
-  hashPassword,
-  requireAuth,
-  requireRole,
-  sanitizeUser,
-} from "../lib/auth";
+  db,
+  usersTable,
+  userRolesTable,
+  ridersTable,
+  type User,
+  type UserRole,
+  type RiderAvailability,
+} from "@workspace/db";
+import { CreateUserBody, UpdateUserBody, UpdateMyLocaleBody } from "@workspace/api-zod";
+import { hashPassword, requireAuth, requireRole } from "../lib/auth";
 import { httpError } from "../lib/errors";
 
 const router: IRouter = Router();
@@ -17,6 +20,32 @@ const wrap =
   (req: Request, res: Response, next: NextFunction): void => {
     fn(req, res).catch(next);
   };
+
+async function loadRolesMap(userIds: string[]): Promise<Map<string, UserRole[]>> {
+  const rows = await db
+    .select({ userId: userRolesTable.userId, role: userRolesTable.role })
+    .from(userRolesTable)
+    .where(userIds.length > 0 ? inArray(userRolesTable.userId, userIds) : sql`TRUE`);
+  const map = new Map<string, UserRole[]>();
+  for (const row of rows) {
+    const arr = map.get(row.userId) ?? [];
+    arr.push(row.role);
+    map.set(row.userId, arr);
+  }
+  return map;
+}
+
+function toUserView(user: Omit<User, "passwordHash">, roles: UserRole[]) {
+  return { ...user, roles };
+}
+
+async function userView(id: string) {
+  const [user] = await db.select().from(usersTable).where(eq(usersTable.id, id));
+  if (!user) return null;
+  const rolesMap = await loadRolesMap([id]);
+  const { passwordHash: _ph, ...safe } = user;
+  return toUserView(safe, rolesMap.get(id) ?? []);
+}
 
 // PATCH /users/me/locale — any authenticated user can set their own locale.
 // Defined BEFORE /users/:id so the literal "me" doesn't get parsed as a uuid id.
@@ -44,7 +73,13 @@ router.get(
   requireRole("admin"),
   wrap(async (_req, res) => {
     const users = await db.select().from(usersTable);
-    res.json(users.map(sanitizeUser));
+    const rolesMap = await loadRolesMap(users.map((u) => u.id));
+    res.json(
+      users.map((u) => {
+        const { passwordHash: _ph, ...safe } = u;
+        return toUserView(safe, rolesMap.get(u.id) ?? []);
+      }),
+    );
   }),
 );
 
@@ -55,20 +90,56 @@ router.post(
   wrap(async (req, res) => {
     const parsed = CreateUserBody.safeParse(req.body);
     if (!parsed.success) throw httpError(400, "VALIDATION_ERROR", parsed.error.message);
-    const { email, name, password, role, restaurantId } = parsed.data;
+    const { email, name, password, roles, restaurantId, riderProfile } = parsed.data;
+    const wantsRestaurantStaff = roles.includes("restaurant_staff");
+    const wantsRider = roles.includes("rider");
+
+    if (wantsRestaurantStaff && !restaurantId) {
+      throw httpError(400, "RESTAURANT_REQUIRED", "restaurantId is required for restaurant_staff");
+    }
+    if (wantsRider && !riderProfile?.nameCode) {
+      throw httpError(400, "RIDER_PROFILE_REQUIRED", "riderProfile.nameCode is required for rider");
+    }
+
     const passwordHash = await hashPassword(password);
-    const [row] = await db
-      .insert(usersTable)
-      .values({
-        email: email.toLowerCase(),
-        name,
-        passwordHash,
-        role,
-        restaurantId: restaurantId ?? null,
-      })
-      .returning();
-    if (!row) throw httpError(500, "DB_ERROR", "Failed to create user");
-    res.status(201).json(sanitizeUser(row));
+
+    let userId: string;
+    try {
+      userId = await db.transaction(async (tx) => {
+        const [user] = await tx
+          .insert(usersTable)
+          .values({
+            email: email.toLowerCase(),
+            name,
+            passwordHash,
+            restaurantId: wantsRestaurantStaff ? (restaurantId ?? null) : null,
+          })
+          .returning();
+        if (!user) throw httpError(500, "DB_ERROR", "Failed to create user");
+
+        await tx.insert(userRolesTable).values(roles.map((role) => ({ userId: user.id, role })));
+
+        if (wantsRider && riderProfile) {
+          await tx.insert(ridersTable).values({
+            userId: user.id,
+            nameCode: riderProfile.nameCode,
+            phone: riderProfile.phone ?? null,
+            availabilityStatus: (riderProfile.availabilityStatus as RiderAvailability) ?? "offline",
+          });
+        }
+
+        return user.id;
+      });
+    } catch (err: unknown) {
+      if (err instanceof Error && err.message.includes("riders_name_code_unique")) {
+        throw httpError(400, "NAME_CODE_CONFLICT", "A rider with that name code already exists");
+      }
+      throw err;
+    }
+
+    const view = await userView(userId);
+    if (!view) throw httpError(500, "DB_ERROR", "Failed to load created user");
+    res.status(201).json(view);
   }),
 );
 
@@ -80,30 +151,95 @@ router.patch(
     const id = req.params["id"] as string;
     const parsed = UpdateUserBody.safeParse(req.body);
     if (!parsed.success) throw httpError(400, "VALIDATION_ERROR", parsed.error.message);
-    const updates: Partial<typeof usersTable.$inferInsert> = {};
-    if (parsed.data.email !== undefined) updates.email = parsed.data.email.toLowerCase();
-    if (parsed.data.name !== undefined) updates.name = parsed.data.name;
-    if (parsed.data.role !== undefined) updates.role = parsed.data.role;
-    if (parsed.data.accountStatus !== undefined) updates.accountStatus = parsed.data.accountStatus;
-    if (parsed.data.restaurantId !== undefined) updates.restaurantId = parsed.data.restaurantId ?? null;
-    if (parsed.data.password !== undefined) {
-      updates.passwordHash = await hashPassword(parsed.data.password);
+    const data = parsed.data;
+
+    const [existing] = await db.select().from(usersTable).where(eq(usersTable.id, id));
+    if (!existing) throw httpError(404, "USER_NOT_FOUND", "User not found");
+
+    const currentRoleRows = await db
+      .select({ role: userRolesTable.role })
+      .from(userRolesTable)
+      .where(eq(userRolesTable.userId, id));
+    const currentRoles = currentRoleRows.map((r) => r.role);
+    const nextRoles = data.roles ?? currentRoles;
+    const wantsRestaurantStaff = nextRoles.includes("restaurant_staff");
+    const wantsRider = nextRoles.includes("rider");
+
+    if (wantsRestaurantStaff) {
+      const nextRestaurantId = data.restaurantId !== undefined ? data.restaurantId : existing.restaurantId;
+      if (!nextRestaurantId) {
+        throw httpError(400, "RESTAURANT_REQUIRED", "restaurantId is required for restaurant_staff");
+      }
     }
 
-    if (Object.keys(updates).length === 0) {
-      const [existing] = await db.select().from(usersTable).where(eq(usersTable.id, id));
-      if (!existing) throw httpError(404, "USER_NOT_FOUND", "User not found");
-      res.json(sanitizeUser(existing));
-      return;
+    const [existingRider] = await db.select().from(ridersTable).where(eq(ridersTable.userId, id));
+    if (wantsRider && !existingRider && !data.riderProfile?.nameCode) {
+      throw httpError(400, "RIDER_PROFILE_REQUIRED", "riderProfile.nameCode is required for rider");
     }
 
-    const [row] = await db
-      .update(usersTable)
-      .set(updates)
-      .where(eq(usersTable.id, id))
-      .returning();
-    if (!row) throw httpError(404, "USER_NOT_FOUND", "User not found");
-    res.json(sanitizeUser(row));
+    const userUpdates: Partial<typeof usersTable.$inferInsert> = {};
+    if (data.email !== undefined) userUpdates.email = data.email.toLowerCase();
+    if (data.name !== undefined) userUpdates.name = data.name;
+    if (data.accountStatus !== undefined) userUpdates.accountStatus = data.accountStatus;
+    if (data.password !== undefined) userUpdates.passwordHash = await hashPassword(data.password);
+    // restaurantId only ever meaningful when restaurant_staff is among the final roles.
+    userUpdates.restaurantId = wantsRestaurantStaff
+      ? (data.restaurantId !== undefined ? data.restaurantId : existing.restaurantId)
+      : null;
+
+    try {
+      await db.transaction(async (tx) => {
+        if (Object.keys(userUpdates).length > 0) {
+          await tx.update(usersTable).set(userUpdates).where(eq(usersTable.id, id));
+        }
+
+        if (data.roles !== undefined) {
+          const added = nextRoles.filter((r) => !currentRoles.includes(r));
+          const removed = currentRoles.filter((r) => !nextRoles.includes(r));
+          if (removed.length > 0) {
+            await tx
+              .delete(userRolesTable)
+              .where(and(eq(userRolesTable.userId, id), inArray(userRolesTable.role, removed)));
+          }
+          if (added.length > 0) {
+            await tx
+              .insert(userRolesTable)
+              .values(added.map((role) => ({ userId: id, role })))
+              .onConflictDoNothing();
+          }
+        }
+
+        if (wantsRider) {
+          if (existingRider) {
+            const riderUpdates: Partial<typeof ridersTable.$inferInsert> = {};
+            if (data.riderProfile?.nameCode !== undefined) riderUpdates.nameCode = data.riderProfile.nameCode;
+            if (data.riderProfile?.phone !== undefined) riderUpdates.phone = data.riderProfile.phone ?? null;
+            if (data.riderProfile?.availabilityStatus !== undefined) {
+              riderUpdates.availabilityStatus = data.riderProfile.availabilityStatus as RiderAvailability;
+            }
+            if (Object.keys(riderUpdates).length > 0) {
+              await tx.update(ridersTable).set(riderUpdates).where(eq(ridersTable.id, existingRider.id));
+            }
+          } else if (data.riderProfile) {
+            await tx.insert(ridersTable).values({
+              userId: id,
+              nameCode: data.riderProfile.nameCode,
+              phone: data.riderProfile.phone ?? null,
+              availabilityStatus: (data.riderProfile.availabilityStatus as RiderAvailability) ?? "offline",
+            });
+          }
+        }
+      });
+    } catch (err: unknown) {
+      if (err instanceof Error && err.message.includes("riders_name_code_unique")) {
+        throw httpError(400, "NAME_CODE_CONFLICT", "A rider with that name code already exists");
+      }
+      throw err;
+    }
+
+    const view = await userView(id);
+    if (!view) throw httpError(404, "USER_NOT_FOUND", "User not found");
+    res.json(view);
   }),
 );
 

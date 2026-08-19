@@ -28,7 +28,9 @@ export const LoginResponse = zod.object({
     id: zod.string(),
     email: zod.string(),
     name: zod.string(),
-    role: zod.enum(["admin", "coordinator", "rider", "restaurant_staff"]),
+    roles: zod
+      .array(zod.enum(["admin", "coordinator", "rider", "restaurant_staff"]))
+      .min(1),
     accountStatus: zod.enum(["active", "suspended"]),
     restaurantId: zod.string().nullish(),
     riderId: zod.string().nullish(),
@@ -36,7 +38,7 @@ export const LoginResponse = zod.object({
       .union([zod.enum(["offline", "online", "backup"]), zod.null()])
       .optional()
       .describe(
-        'Only present when role is \"rider\" — the rider\'s own current availability, otherwise null.',
+        'Only present when roles includes \"rider\" — the rider\'s own current availability, otherwise null.',
       ),
     preferredLocale: zod
       .union([zod.literal("nl"), zod.literal("en"), zod.literal(null)])
@@ -47,11 +49,14 @@ export const LoginResponse = zod.object({
 /**
  * @summary Get the currently authenticated user
  */
+
 export const GetCurrentUserResponse = zod.object({
   id: zod.string(),
   email: zod.string(),
   name: zod.string(),
-  role: zod.enum(["admin", "coordinator", "rider", "restaurant_staff"]),
+  roles: zod
+    .array(zod.enum(["admin", "coordinator", "rider", "restaurant_staff"]))
+    .min(1),
   accountStatus: zod.enum(["active", "suspended"]),
   restaurantId: zod.string().nullish(),
   riderId: zod.string().nullish(),
@@ -59,7 +64,7 @@ export const GetCurrentUserResponse = zod.object({
     .union([zod.enum(["offline", "online", "backup"]), zod.null()])
     .optional()
     .describe(
-      'Only present when role is \"rider\" — the rider\'s own current availability, otherwise null.',
+      'Only present when roles includes \"rider\" — the rider\'s own current availability, otherwise null.',
     ),
   preferredLocale: zod
     .union([zod.literal("nl"), zod.literal("en"), zod.literal(null)])
@@ -4421,27 +4426,13 @@ export const ListRidersResponseItem = zod.object({
 export const ListRidersResponse = zod.array(ListRidersResponseItem);
 
 /**
- * @summary Create a new rider account
- */
-
-export const CreateRiderBody = zod.object({
-  email: zod.string(),
-  name: zod.string(),
-  nameCode: zod.string().min(1),
-  password: zod.string(),
-  phone: zod.string().nullish(),
-  availabilityStatus: zod.enum(["offline", "online", "backup"]).optional(),
-});
-
-/**
- * @summary Update rider account or availability
+ * @summary Update rider-specific profile fields (nameCode, phone, availability). Account-level fields (email, password, roles) are managed via /users/{id}.
  */
 export const UpdateRiderParams = zod.object({
   id: zod.coerce.string(),
 });
 
 export const UpdateRiderBody = zod.object({
-  name: zod.string().optional(),
   nameCode: zod.string().min(1).optional(),
   phone: zod.string().nullish(),
   availabilityStatus: zod.enum(["offline", "online", "backup"]).optional(),
@@ -4567,7 +4558,9 @@ export const ListUsersResponseItem = zod.object({
   id: zod.string(),
   email: zod.string(),
   name: zod.string(),
-  role: zod.enum(["admin", "coordinator", "rider", "restaurant_staff"]),
+  roles: zod
+    .array(zod.enum(["admin", "coordinator", "rider", "restaurant_staff"]))
+    .min(1),
   accountStatus: zod.enum(["active", "suspended"]),
   restaurantId: zod.string().nullish(),
   createdAt: zod.coerce.date(),
@@ -4578,8 +4571,30 @@ export const CreateUserBody = zod.object({
   email: zod.string(),
   name: zod.string(),
   password: zod.string(),
-  role: zod.enum(["admin", "coordinator", "rider", "restaurant_staff"]),
-  restaurantId: zod.string().nullish(),
+  roles: zod
+    .array(zod.enum(["admin", "coordinator", "rider", "restaurant_staff"]))
+    .min(1),
+  restaurantId: zod
+    .string()
+    .nullish()
+    .describe('Required (non-null) when roles includes \"restaurant_staff\".'),
+  riderProfile: zod
+    .union([
+      zod
+        .object({
+          nameCode: zod.string().min(1),
+          phone: zod.string().nullish(),
+          availabilityStatus: zod
+            .enum(["offline", "online", "backup"])
+            .optional(),
+        })
+        .describe(
+          'Rider-specific profile fields. Required when creating\/updating a user\nwhose roles include \"rider\" and no rider profile exists for them yet.\n',
+        ),
+      zod.null(),
+    ])
+    .optional()
+    .describe('Required when roles includes \"rider\".'),
 });
 
 export const UpdateUserParams = zod.object({
@@ -4590,18 +4605,40 @@ export const UpdateUserBody = zod.object({
   email: zod.string().optional(),
   name: zod.string().optional(),
   password: zod.string().optional(),
-  role: zod
-    .enum(["admin", "coordinator", "rider", "restaurant_staff"])
+  roles: zod
+    .array(zod.enum(["admin", "coordinator", "rider", "restaurant_staff"]))
+    .min(1)
     .optional(),
   accountStatus: zod.enum(["active", "suspended"]).optional(),
   restaurantId: zod.string().nullish(),
+  riderProfile: zod
+    .union([
+      zod
+        .object({
+          nameCode: zod.string().min(1),
+          phone: zod.string().nullish(),
+          availabilityStatus: zod
+            .enum(["offline", "online", "backup"])
+            .optional(),
+        })
+        .describe(
+          'Rider-specific profile fields. Required when creating\/updating a user\nwhose roles include \"rider\" and no rider profile exists for them yet.\n',
+        ),
+      zod.null(),
+    ])
+    .optional()
+    .describe(
+      'Required when roles includes \"rider\" and the user has no rider profile yet.',
+    ),
 });
 
 export const UpdateUserResponse = zod.object({
   id: zod.string(),
   email: zod.string(),
   name: zod.string(),
-  role: zod.enum(["admin", "coordinator", "rider", "restaurant_staff"]),
+  roles: zod
+    .array(zod.enum(["admin", "coordinator", "rider", "restaurant_staff"]))
+    .min(1),
   accountStatus: zod.enum(["active", "suspended"]),
   restaurantId: zod.string().nullish(),
   createdAt: zod.coerce.date(),

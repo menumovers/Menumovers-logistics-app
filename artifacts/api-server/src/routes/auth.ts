@@ -7,6 +7,8 @@ import {
   signToken,
   requireAuth,
   revokeJti,
+  loadUserRoles,
+  resolveRiderId,
 } from "../lib/auth";
 import { AppError } from "../lib/errors";
 
@@ -45,20 +47,18 @@ router.post("/auth/login", async (req, res, next): Promise<void> => {
     throw new AppError(401, "INVALID_CREDENTIALS", "Invalid credentials");
   }
 
+  const roles = await loadUserRoles(user.id);
+  if (roles.length === 0) {
+    throw new AppError(403, "NO_ROLES", "User has no roles assigned");
+  }
+
   const { token } = signToken({
     sub: user.id,
-    role: user.role,
+    roles,
     restaurantId: user.restaurantId,
   });
 
-  let riderId: string | null = null;
-  if (user.role === "rider") {
-    const [rider] = await db
-      .select({ id: ridersTable.id })
-      .from(ridersTable)
-      .where(eq(ridersTable.userId, user.id));
-    riderId = rider?.id ?? null;
-  }
+  const riderId = await resolveRiderId(user.id, roles);
 
   const body = LoginResponseZod.parse({
     token,
@@ -66,7 +66,7 @@ router.post("/auth/login", async (req, res, next): Promise<void> => {
       id: user.id,
       email: user.email,
       name: user.name,
-      role: user.role,
+      roles,
       accountStatus: user.accountStatus,
       restaurantId: user.restaurantId,
       riderId,
@@ -93,14 +93,13 @@ router.post("/auth/logout", requireAuth, async (req, res): Promise<void> => {
 
 router.get("/auth/me", requireAuth, async (req, res): Promise<void> => {
   const user = req.user!;
-  let riderId: string | null = null;
+  const auth = req.auth!;
   let availabilityStatus: (typeof ridersTable.$inferSelect)["availabilityStatus"] | null = null;
-  if (user.role === "rider") {
+  if (auth.riderId) {
     const [rider] = await db
-      .select({ id: ridersTable.id, availabilityStatus: ridersTable.availabilityStatus })
+      .select({ availabilityStatus: ridersTable.availabilityStatus })
       .from(ridersTable)
-      .where(eq(ridersTable.userId, user.id));
-    riderId = rider?.id ?? null;
+      .where(eq(ridersTable.id, auth.riderId));
     availabilityStatus = rider?.availabilityStatus ?? null;
   }
   res.json(
@@ -108,10 +107,10 @@ router.get("/auth/me", requireAuth, async (req, res): Promise<void> => {
       id: user.id,
       email: user.email,
       name: user.name,
-      role: user.role,
+      roles: auth.roles,
       accountStatus: user.accountStatus,
       restaurantId: user.restaurantId,
-      riderId,
+      riderId: auth.riderId,
       availabilityStatus,
       preferredLocale: normalizeLocale(user.preferredLocale),
     }),

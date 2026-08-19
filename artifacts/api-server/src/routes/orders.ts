@@ -26,7 +26,7 @@ import {
   SetOrderRestaurantBody,
   AcknowledgeOrderBody,
 } from "@workspace/api-zod";
-import { requireAuth, requireRole, requireInboundCredential } from "../lib/auth";
+import { requireAuth, requireRole, requireInboundCredential, primaryRoleLabel } from "../lib/auth";
 import { httpError } from "../lib/errors";
 import { assertValidTransition } from "../lib/state-machine";
 import {
@@ -75,31 +75,37 @@ const wrap =
  * restaurant), to short-circuit safely without leaking other rows.
  */
 function orderScopeWhere(auth: NonNullable<Request["auth"]>) {
-  if (auth.role === "admin" || auth.role === "coordinator") return undefined;
-  if (auth.role === "restaurant_staff") {
-    if (!auth.restaurantId) return sql`false`;
-    return eq(ordersTable.restaurantId, auth.restaurantId);
+  if (auth.roles.includes("admin") || auth.roles.includes("coordinator")) return undefined;
+
+  // Union of what each held role can see — a rider who is also
+  // restaurant_staff sees both their own deliveries and their restaurant's orders.
+  const clauses = [];
+  if (auth.roles.includes("restaurant_staff") && auth.restaurantId) {
+    clauses.push(eq(ordersTable.restaurantId, auth.restaurantId));
   }
-  if (auth.role === "rider") {
+  if (auth.roles.includes("rider")) {
     const ownAssigned = auth.riderId
       ? eq(ordersTable.riderId, auth.riderId)
       : sql`false`;
-    return or(
-      // Discovery: unclaimed work. Excludes held orders (not triaged, not
-      // dispatchable) and customer-pickup orders (never rider work at all).
-      // The rider's own assigned orders below are deliberately NOT filtered,
-      // so placing a hold never makes an in-flight delivery vanish from the
-      // rider's screen.
-      and(
-        eq(ordersTable.status, "pending"),
-        sql`${ordersTable.riderId} IS NULL`,
-        notHeld(),
-        riderDeliverable(),
+    clauses.push(
+      or(
+        // Discovery: unclaimed work. Excludes held orders (not triaged, not
+        // dispatchable) and customer-pickup orders (never rider work at all).
+        // The rider's own assigned orders below are deliberately NOT filtered,
+        // so placing a hold never makes an in-flight delivery vanish from the
+        // rider's screen.
+        and(
+          eq(ordersTable.status, "pending"),
+          sql`${ordersTable.riderId} IS NULL`,
+          notHeld(),
+          riderDeliverable(),
+        )!,
+        ownAssigned,
       )!,
-      ownAssigned,
-    )!;
+    );
   }
-  return sql`false`;
+  if (clauses.length === 0) return sql`false`;
+  return or(...clauses);
 }
 
 async function resolveRestaurantByNameCode(
@@ -488,7 +494,9 @@ router.post(
     // - Riders may transition only their own orders, and only forward.
     // - Restaurant staff may not transition.
     // - Admin/coordinator may always transition.
-    if (auth.role === "rider") {
+    if (auth.roles.includes("admin") || auth.roles.includes("coordinator")) {
+      // unrestricted
+    } else if (auth.roles.includes("rider")) {
       const [rider] = await db
         .select({ id: ridersTable.id })
         .from(ridersTable)
@@ -496,7 +504,7 @@ router.post(
       if (!rider || rider.id !== order.riderId) {
         throw httpError(403, "FORBIDDEN", "Rider can only update their own orders");
       }
-    } else if (auth.role === "restaurant_staff") {
+    } else {
       throw httpError(403, "FORBIDDEN", "Forbidden");
     }
 
@@ -526,7 +534,7 @@ router.post(
       fromStatus: order.status,
       toStatus,
       actorUserId: auth.sub,
-      actorRole: auth.role,
+      actorRole: primaryRoleLabel(auth.roles),
       note: logNote,
     });
 
@@ -589,7 +597,8 @@ router.post(
     // race below (atomic update guarded by status='pending' + rider IS NULL)
     // remains the real authority on whether a claim succeeds — this gate is
     // only about whether the *attempt* is allowed at all.
-    if (auth.role === "rider") {
+    const isRiderOnly = !auth.roles.includes("admin") && !auth.roles.includes("coordinator");
+    if (isRiderOnly && auth.roles.includes("rider")) {
       if (auth.riderId === null || auth.riderId !== riderId) {
         throw httpError(403, "FORBIDDEN", "Riders can only claim orders for themselves");
       }
@@ -661,7 +670,7 @@ router.post(
         fromStatus: "pending",
         toStatus: "driver_assigned",
         actorUserId: auth.sub,
-        actorRole: auth.role,
+        actorRole: primaryRoleLabel(auth.roles),
         note: `Assigned rider ${riderId}`,
       }),
       db.insert(riderAssignmentsTable).values({
@@ -718,8 +727,9 @@ router.post(
     const order = await loadOrderForAuthOr404(auth, id);
 
     // Per-source role authorization.
+    const hasBroadAccess = auth.roles.includes("admin") || auth.roles.includes("coordinator");
     if (source === "rider") {
-      if (auth.role !== "rider")
+      if (!auth.roles.includes("rider"))
         throw httpError(403, "FORBIDDEN", "Only riders may update pickupTimeRider");
       const [rider] = await db
         .select({ id: ridersTable.id })
@@ -729,21 +739,14 @@ router.post(
         throw httpError(403, "FORBIDDEN", "Rider can only update their own orders");
       }
     } else if (source === "restaurant") {
-      if (
-        auth.role !== "restaurant_staff" &&
-        auth.role !== "admin" &&
-        auth.role !== "coordinator"
-      ) {
+      if (!hasBroadAccess && !auth.roles.includes("restaurant_staff")) {
         throw httpError(403, "FORBIDDEN", "Forbidden");
       }
-      if (
-        auth.role === "restaurant_staff" &&
-        auth.restaurantId !== order.restaurantId
-      ) {
+      if (!hasBroadAccess && auth.restaurantId !== order.restaurantId) {
         throw httpError(403, "FORBIDDEN", "Forbidden");
       }
     } else if (source === "override") {
-      if (auth.role !== "admin" && auth.role !== "coordinator") {
+      if (!hasBroadAccess) {
         throw httpError(403, "FORBIDDEN", "Only coordinators may override pickup time");
       }
     }
@@ -773,7 +776,7 @@ router.post(
         previousValue: previous,
         newValue: newValueDb,
         actorUserId: auth.sub,
-        actorRole: auth.role,
+        actorRole: primaryRoleLabel(auth.roles),
       });
     }
 
@@ -931,7 +934,9 @@ router.post(
 
     const order = await loadOrderOr404(id);
     if (
-      auth.role === "restaurant_staff" &&
+      !auth.roles.includes("admin") &&
+      !auth.roles.includes("coordinator") &&
+      auth.roles.includes("restaurant_staff") &&
       auth.restaurantId !== order.restaurantId
     ) {
       throw httpError(403, "FORBIDDEN", "Forbidden");
@@ -971,7 +976,9 @@ router.post(
 
     const order = await loadOrderOr404(id);
     if (
-      auth.role === "restaurant_staff" &&
+      !auth.roles.includes("admin") &&
+      !auth.roles.includes("coordinator") &&
+      auth.roles.includes("restaurant_staff") &&
       auth.restaurantId !== order.restaurantId
     ) {
       throw httpError(403, "FORBIDDEN", "Forbidden");
@@ -1004,7 +1011,7 @@ router.post(
         previousValue: order.pickupTimeRestaurant,
         newValue: chosen,
         actorUserId: auth.sub,
-        actorRole: auth.role,
+        actorRole: primaryRoleLabel(auth.roles),
         reason: "Chosen at acknowledgement",
       });
       await enqueueOutboundEvent({
@@ -1142,7 +1149,7 @@ router.post(
       fromStatus: order.status,
       toStatus: order.status,
       actorUserId: auth.sub,
-      actorRole: auth.role,
+      actorRole: primaryRoleLabel(auth.roles),
       note: wasParked
         ? `Parked order resolved to ${restaurant.name}`
         : `Restaurant changed to ${restaurant.name}`,

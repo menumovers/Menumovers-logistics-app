@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Link, useLocation } from "wouter";
 import { useLogin } from "@workspace/api-client-react";
 import { useAuth } from "@/lib/auth";
-import { ROLE_HOMES } from "@/lib/role-homes";
+import { getHomeForRoles } from "@/lib/role-homes";
 import {
   type AppContext,
   getAllowedRolesForContext,
@@ -45,8 +45,8 @@ export default function LoginPage({ variant }: Props) {
   useEffect(() => {
     if (isLoading || !user) return;
     const allowed = getAllowedRolesForContext(variant);
-    if (allowed.includes(user.role)) {
-      navigate(ROLE_HOMES[user.role]);
+    if (allowed.some((r) => user.roles.includes(r))) {
+      navigate(getHomeForRoles(user.roles, variant));
     }
   }, [user, isLoading, variant, navigate]);
 
@@ -58,15 +58,15 @@ export default function LoginPage({ variant }: Props) {
       {
         onSuccess: async (session) => {
           const allowed = getAllowedRolesForContext(variant);
-          if (!allowed.includes(session.user.role)) {
-            // Logged in successfully but with a role that does not belong to
-            // this app. Discard the token and tell them to use the other app.
+          if (!allowed.some((r) => session.user.roles.includes(r))) {
+            // Logged in successfully but with roles that don't fit this app.
+            // Discard the token and tell them to use the other app.
             setToken(null);
             setError(t("login.wrongApp"));
             return;
           }
           await applyToken(session.token);
-          navigate(ROLE_HOMES[session.user.role]);
+          navigate(getHomeForRoles(session.user.roles, variant));
         },
         onError: () => setError(t("login.invalid")),
       },
@@ -169,7 +169,7 @@ export default function LoginPage({ variant }: Props) {
               )}
             </Button>
           </form>
-          {user && !getAllowedRolesForContext(variant).includes(user.role) ? (
+          {user && !getAllowedRolesForContext(variant).some((r) => user.roles.includes(r)) ? (
             <div className="mt-4 text-center text-sm text-muted-foreground">
               <button
                 type="button"

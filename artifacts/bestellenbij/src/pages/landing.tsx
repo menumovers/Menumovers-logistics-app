@@ -4,7 +4,8 @@ import { Link, useLocation } from "wouter";
 import { motion } from "framer-motion";
 import { Bike, Store, ArrowRight, ExternalLink } from "lucide-react";
 import { useAuth } from "@/lib/auth";
-import { ROLE_HOMES } from "@/lib/role-homes";
+import { getHomeForRoles } from "@/lib/role-homes";
+import { getContextForPath } from "@/lib/app-context";
 import { LocaleSwitch } from "@/components/locale-switch";
 
 export default function LandingPage() {
@@ -16,7 +17,7 @@ export default function LandingPage() {
   // landing buttons are only useful when the user is choosing where to log in.
   useEffect(() => {
     if (isLoading) return;
-    if (user) navigate(ROLE_HOMES[user.role]);
+    if (user) navigate(getHomeForRoles(user.roles, getContextForPath(window.location.pathname)));
   }, [user, isLoading, navigate]);
 
   return (

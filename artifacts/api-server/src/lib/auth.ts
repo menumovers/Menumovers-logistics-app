@@ -7,6 +7,7 @@ import {
   db,
   usersTable,
   ridersTable,
+  userRolesTable,
   revokedTokensTable,
   type User,
   type UserRole,
@@ -26,7 +27,7 @@ function getJwtSecret(): string {
 
 export type AuthClaims = {
   sub: string; // user id
-  role: UserRole;
+  roles: UserRole[];
   restaurantId: string | null;
   jti: string;
   exp: number;
@@ -63,10 +64,12 @@ export function verifyToken(token: string): AuthClaims | null {
   try {
     const decoded = jwt.verify(token, getJwtSecret(), { algorithms: [JWT_ALGO] });
     if (typeof decoded !== "object" || decoded === null) return null;
-    const { sub, role, restaurantId, jti, exp } = decoded as Record<string, unknown>;
+    const { sub, roles, restaurantId, jti, exp } = decoded as Record<string, unknown>;
     if (
       typeof sub !== "string" ||
-      typeof role !== "string" ||
+      !Array.isArray(roles) ||
+      roles.length === 0 ||
+      !roles.every((r) => typeof r === "string") ||
       typeof jti !== "string" ||
       typeof exp !== "number"
     ) {
@@ -74,7 +77,7 @@ export function verifyToken(token: string): AuthClaims | null {
     }
     return {
       sub,
-      role: role as UserRole,
+      roles: roles as UserRole[],
       restaurantId: typeof restaurantId === "string" ? restaurantId : null,
       jti,
       exp,
@@ -82,6 +85,35 @@ export function verifyToken(token: string): AuthClaims | null {
   } catch {
     return null;
   }
+}
+
+/** Resolves the riderId for a user, if "rider" is among their roles. */
+export async function resolveRiderId(userId: string, roles: UserRole[]): Promise<string | null> {
+  if (!roles.includes("rider")) return null;
+  const [rider] = await db
+    .select({ id: ridersTable.id })
+    .from(ridersTable)
+    .where(eq(ridersTable.userId, userId));
+  return rider?.id ?? null;
+}
+
+/** Loads all roles currently granted to a user. */
+export async function loadUserRoles(userId: string): Promise<UserRole[]> {
+  const rows = await db
+    .select({ role: userRolesTable.role })
+    .from(userRolesTable)
+    .where(eq(userRolesTable.userId, userId));
+  return rows.map((r) => r.role);
+}
+
+const ROLE_LOG_PRIORITY: UserRole[] = ["admin", "coordinator", "restaurant_staff", "rider"];
+
+/**
+ * Picks one role to attribute an action to in free-text `actorRole` log
+ * columns, for a user who may hold several roles at once.
+ */
+export function primaryRoleLabel(roles: UserRole[]): UserRole {
+  return ROLE_LOG_PRIORITY.find((r) => roles.includes(r)) ?? roles[0]!;
 }
 
 export async function isJtiRevoked(jti: string): Promise<boolean> {
@@ -153,18 +185,12 @@ export async function requireAuth(
     next(new AppError(403, "ACCOUNT_SUSPENDED", "Account is suspended"));
     return;
   }
-  let riderId: string | null = null;
-  if (user.role === "rider") {
-    const [rider] = await db
-      .select({ id: ridersTable.id })
-      .from(ridersTable)
-      .where(eq(ridersTable.userId, user.id));
-    riderId = rider?.id ?? null;
-  }
+  const roles = await loadUserRoles(user.id);
+  const riderId = await resolveRiderId(user.id, roles);
   req.user = user;
   req.auth = {
     sub: user.id,
-    role: user.role,
+    roles,
     restaurantId: user.restaurantId,
     riderId,
     jti: claims.jti,
@@ -173,13 +199,13 @@ export async function requireAuth(
   next();
 }
 
-export function requireRole(...roles: UserRole[]) {
+export function requireRole(...allowed: UserRole[]) {
   return (req: Request, _res: Response, next: NextFunction): void => {
-    if (!req.user) {
+    if (!req.auth) {
       next(new AppError(401, "AUTH_REQUIRED", "Authentication required"));
       return;
     }
-    if (!roles.includes(req.user.role)) {
+    if (!allowed.some((r) => req.auth!.roles.includes(r))) {
       next(new AppError(403, "FORBIDDEN", "Forbidden"));
       return;
     }

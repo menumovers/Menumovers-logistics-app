@@ -12,7 +12,8 @@ export interface User {
   id: string;
   email: string;
   name: string;
-  role: UserRole;
+  /** @minItems 1 */
+  roles: UserRole[];
   accountStatus: AccountStatus;
   /** @nullable */
   restaurantId?: string | null;
