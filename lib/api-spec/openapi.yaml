@@ -717,6 +717,33 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/User"
+  /users/role-migration:
+    get:
+      operationId: getRoleMigrationStatus
+      tags: [users]
+      summary: Check whether every account has canonical multi-role assignments
+      responses:
+        "200":
+          description: Role migration status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RoleMigrationStatus"
+    post:
+      operationId: initializeLegacyRoles
+      tags: [users]
+      summary: Initialize canonical roles for accounts still relying on a legacy role
+      description: |
+        Admin-only, idempotent stage-one rollout action. Copies the legacy role only
+        for accounts that currently have no user_roles rows. It never alters an
+        account that already has canonical role assignments.
+      responses:
+        "200":
+          description: Initialization result and updated migration status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LegacyRoleInitializationResult"
   /users/{id}:
     patch:
       operationId: updateUser
@@ -1157,6 +1184,43 @@ components:
         createdAt:
           type: string
           format: date-time
+    RoleMigrationStatus:
+      type: object
+      required:
+        - totalUsers
+        - usersWithRoleRows
+        - usersWithoutRoleRows
+        - legacyUsersPending
+        - readyToRemoveLegacyRole
+      properties:
+        totalUsers:
+          type: integer
+          minimum: 0
+        usersWithRoleRows:
+          type: integer
+          minimum: 0
+        usersWithoutRoleRows:
+          type: integer
+          minimum: 0
+        legacyUsersPending:
+          type: integer
+          minimum: 0
+          description: Accounts with no canonical role rows that can be initialized from users.role.
+        readyToRemoveLegacyRole:
+          type: boolean
+          description: True only when every account has at least one user_roles row.
+    LegacyRoleInitializationResult:
+      allOf:
+        - $ref: "#/components/schemas/RoleMigrationStatus"
+        - type: object
+          required: [initializedUsers, insertedRoleRows]
+          properties:
+            initializedUsers:
+              type: integer
+              minimum: 0
+            insertedRoleRows:
+              type: integer
+              minimum: 0
     CreateUserRequest:
       type: object
       required: [email, name, password, roles]

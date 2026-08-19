@@ -1,5 +1,20 @@
 # Changelog
 
+## 2026-08-19 — Multi-role accounts get a non-destructive production bridge
+
+The production rollout is now explicitly two-stage. Stage one retains the
+legacy `users.role` column while adding `user_roles`; authentication and admin
+user listings prefer canonical role rows but fall back to the legacy role only
+when an account has no rows yet. This keeps every existing account able to sign
+in through the first Publish.
+
+Admin → Users now reports whether every account has canonical role rows and
+offers an idempotent initialization action. It copies a legacy role only for
+accounts with zero rows, so repeating it cannot overwrite multi-role choices or
+re-add a stale role to an already-migrated account. The legacy column and this
+temporary UI/API bridge are removed only in a separate second Publish after the
+panel reports all accounts ready.
+
 ## 2026-08-18 — New `subtotal` field (menu items only, receipt data)
 
 `InboundOrderPayload`/`Order` gain `subtotal` — the menu items total,
