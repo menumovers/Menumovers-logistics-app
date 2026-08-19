@@ -238,29 +238,6 @@ export interface User {
   createdAt: string;
 }
 
-export interface RoleMigrationStatus {
-  /** @minimum 0 */
-  totalUsers: number;
-  /** @minimum 0 */
-  usersWithRoleRows: number;
-  /** @minimum 0 */
-  usersWithoutRoleRows: number;
-  /**
-   * Accounts with no canonical role rows that can be initialized from users.role.
-   * @minimum 0
-   */
-  legacyUsersPending: number;
-  /** True only when every account has at least one user_roles row. */
-  readyToRemoveLegacyRole: boolean;
-}
-
-export type LegacyRoleInitializationResult = RoleMigrationStatus & {
-  /** @minimum 0 */
-  initializedUsers: number;
-  /** @minimum 0 */
-  insertedRoleRows: number;
-};
-
 export interface CreateUserRequest {
   email: string;
   name: string;

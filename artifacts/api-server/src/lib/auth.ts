@@ -103,13 +103,7 @@ export async function loadUserRoles(userId: string): Promise<UserRole[]> {
     .select({ role: userRolesTable.role })
     .from(userRolesTable)
     .where(eq(userRolesTable.userId, userId));
-  if (rows.length > 0) return rows.map((r) => r.role);
-
-  const [user] = await db
-    .select({ legacyRole: usersTable.legacyRole })
-    .from(usersTable)
-    .where(eq(usersTable.id, userId));
-  return user?.legacyRole ? [user.legacyRole] : [];
+  return rows.map((r) => r.role);
 }
 
 const ROLE_LOG_PRIORITY: UserRole[] = ["admin", "coordinator", "restaurant_staff", "rider"];
@@ -238,9 +232,9 @@ export async function requireInboundCredential(
   next();
 }
 
-export function sanitizeUser(user: User): Omit<User, "passwordHash" | "legacyRole"> {
-  // Strip private and migration-only fields before serializing.
+export function sanitizeUser(user: User): Omit<User, "passwordHash"> {
+  // Strip private fields before serializing.
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { passwordHash: _ph, legacyRole: _legacyRole, ...safe } = user;
+  const { passwordHash: _ph, ...safe } = user;
   return safe;
 }

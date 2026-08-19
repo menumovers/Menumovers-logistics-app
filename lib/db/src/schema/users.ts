@@ -19,11 +19,6 @@ export const usersTable = pgTable(
     email: text("email").notNull(),
     passwordHash: text("password_hash").notNull(),
     name: text("name").notNull(),
-    /**
-     * Temporary stage-one migration bridge. New authorization reads user_roles
-     * first and only falls back to this value when no role rows exist.
-     */
-    legacyRole: userRoleEnum("role"),
     restaurantId: uuid("restaurant_id").references(() => restaurantsTable.id, {
       onDelete: "set null",
     }),

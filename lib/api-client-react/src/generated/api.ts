@@ -30,7 +30,6 @@ import type {
   HideItemRequest,
   HoldOrderRequest,
   InboundOrderPayload,
-  LegacyRoleInitializationResult,
   ListOrdersParams,
   ListTripsParams,
   LoginRequest,
@@ -43,7 +42,6 @@ import type {
   ReplaceTripStopsRequest,
   Restaurant,
   RiderWithWorkload,
-  RoleMigrationStatus,
   SetAvailabilityRequest,
   SetOrderRestaurantRequest,
   SetRiderNotificationRequest,
@@ -2696,170 +2694,6 @@ export const useCreateUser = <
   TContext
 > => {
   return useMutation(getCreateUserMutationOptions(options));
-};
-
-/**
- * @summary Check whether every account has canonical multi-role assignments
- */
-export const getGetRoleMigrationStatusUrl = () => {
-  return `/api/users/role-migration`;
-};
-
-export const getRoleMigrationStatus = async (
-  options?: RequestInit,
-): Promise<RoleMigrationStatus> => {
-  return customFetch<RoleMigrationStatus>(getGetRoleMigrationStatusUrl(), {
-    ...options,
-    method: "GET",
-  });
-};
-
-export const getGetRoleMigrationStatusQueryKey = () => {
-  return [`/api/users/role-migration`] as const;
-};
-
-export const getGetRoleMigrationStatusQueryOptions = <
-  TData = Awaited<ReturnType<typeof getRoleMigrationStatus>>,
-  TError = ErrorType<unknown>,
->(options?: {
-  query?: UseQueryOptions<
-    Awaited<ReturnType<typeof getRoleMigrationStatus>>,
-    TError,
-    TData
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}) => {
-  const { query: queryOptions, request: requestOptions } = options ?? {};
-
-  const queryKey =
-    queryOptions?.queryKey ?? getGetRoleMigrationStatusQueryKey();
-
-  const queryFn: QueryFunction<
-    Awaited<ReturnType<typeof getRoleMigrationStatus>>
-  > = ({ signal }) => getRoleMigrationStatus({ signal, ...requestOptions });
-
-  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
-    Awaited<ReturnType<typeof getRoleMigrationStatus>>,
-    TError,
-    TData
-  > & { queryKey: QueryKey };
-};
-
-export type GetRoleMigrationStatusQueryResult = NonNullable<
-  Awaited<ReturnType<typeof getRoleMigrationStatus>>
->;
-export type GetRoleMigrationStatusQueryError = ErrorType<unknown>;
-
-/**
- * @summary Check whether every account has canonical multi-role assignments
- */
-
-export function useGetRoleMigrationStatus<
-  TData = Awaited<ReturnType<typeof getRoleMigrationStatus>>,
-  TError = ErrorType<unknown>,
->(options?: {
-  query?: UseQueryOptions<
-    Awaited<ReturnType<typeof getRoleMigrationStatus>>,
-    TError,
-    TData
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
-  const queryOptions = getGetRoleMigrationStatusQueryOptions(options);
-
-  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
-    queryKey: QueryKey;
-  };
-
-  return { ...query, queryKey: queryOptions.queryKey };
-}
-
-/**
- * Admin-only, idempotent stage-one rollout action. Copies the legacy role only
-for accounts that currently have no user_roles rows. It never alters an
-account that already has canonical role assignments.
-
- * @summary Initialize canonical roles for accounts still relying on a legacy role
- */
-export const getInitializeLegacyRolesUrl = () => {
-  return `/api/users/role-migration`;
-};
-
-export const initializeLegacyRoles = async (
-  options?: RequestInit,
-): Promise<LegacyRoleInitializationResult> => {
-  return customFetch<LegacyRoleInitializationResult>(
-    getInitializeLegacyRolesUrl(),
-    {
-      ...options,
-      method: "POST",
-    },
-  );
-};
-
-export const getInitializeLegacyRolesMutationOptions = <
-  TError = ErrorType<unknown>,
-  TContext = unknown,
->(options?: {
-  mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof initializeLegacyRoles>>,
-    TError,
-    void,
-    TContext
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}): UseMutationOptions<
-  Awaited<ReturnType<typeof initializeLegacyRoles>>,
-  TError,
-  void,
-  TContext
-> => {
-  const mutationKey = ["initializeLegacyRoles"];
-  const { mutation: mutationOptions, request: requestOptions } = options
-    ? options.mutation &&
-      "mutationKey" in options.mutation &&
-      options.mutation.mutationKey
-      ? options
-      : { ...options, mutation: { ...options.mutation, mutationKey } }
-    : { mutation: { mutationKey }, request: undefined };
-
-  const mutationFn: MutationFunction<
-    Awaited<ReturnType<typeof initializeLegacyRoles>>,
-    void
-  > = () => {
-    return initializeLegacyRoles(requestOptions);
-  };
-
-  return { mutationFn, ...mutationOptions };
-};
-
-export type InitializeLegacyRolesMutationResult = NonNullable<
-  Awaited<ReturnType<typeof initializeLegacyRoles>>
->;
-
-export type InitializeLegacyRolesMutationError = ErrorType<unknown>;
-
-/**
- * @summary Initialize canonical roles for accounts still relying on a legacy role
- */
-export const useInitializeLegacyRoles = <
-  TError = ErrorType<unknown>,
-  TContext = unknown,
->(options?: {
-  mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof initializeLegacyRoles>>,
-    TError,
-    void,
-    TContext
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}): UseMutationResult<
-  Awaited<ReturnType<typeof initializeLegacyRoles>>,
-  TError,
-  void,
-  TContext
-> => {
-  return useMutation(getInitializeLegacyRolesMutationOptions(options));
 };
 
 export const getUpdateUserUrl = (id: string) => {

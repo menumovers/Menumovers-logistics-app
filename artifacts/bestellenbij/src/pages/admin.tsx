@@ -4,12 +4,11 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Link } from "wouter";
 import {
   useListUsers, useCreateUser, useUpdateUser, useDeleteUser,
-  useGetRoleMigrationStatus, useInitializeLegacyRoles,
   useListRestaurants, useCreateRestaurant, useUpdateRestaurant, useDeleteRestaurant,
   useListRiders, useUpdateRider,
   useGetSettings, useUpdateSettings,
   useListOrders,
-  getListUsersQueryKey, getGetRoleMigrationStatusQueryKey,
+  getListUsersQueryKey,
   getListRestaurantsQueryKey, getListRidersQueryKey, getGetSettingsQueryKey,
   getListOrdersQueryKey,
   UserRole, RiderAvailability, RestaurantAcceptanceMode, OrderStatus,
@@ -407,13 +406,8 @@ function OrdersPanel() {
 
 function UsersPanel() {
   const { t } = useTranslation();
-  const { toast } = useToast();
   const qc = useQueryClient();
   const users = useListUsers({ query: { queryKey: getListUsersQueryKey() } });
-  const roleMigration = useGetRoleMigrationStatus({
-    query: { queryKey: getGetRoleMigrationStatusQueryKey() },
-  });
-  const initializeLegacyRoles = useInitializeLegacyRoles();
   const restaurants = useListRestaurants({ query: { queryKey: getListRestaurantsQueryKey() } });
   const riders = useListRiders({ query: { queryKey: getListRidersQueryKey() } });
   const updateUser = useUpdateUser();
@@ -427,19 +421,6 @@ function UsersPanel() {
     qc.invalidateQueries({ queryKey: getListRidersQueryKey() });
   }
 
-  function initializeRoles() {
-    initializeLegacyRoles.mutate(undefined, {
-      onSuccess: (result) => {
-        qc.setQueryData(getGetRoleMigrationStatusQueryKey(), result);
-        invalidate();
-        toast({
-          title: t("admin.roleMigrationInitialized", { count: result.initializedUsers }),
-        });
-      },
-      onError: () => toast({ title: t("errors.generic"), variant: "destructive" }),
-    });
-  }
-
   const filtered = useMemo(() => {
     const all = users.data ?? [];
     const needle = q.trim().toLowerCase();
@@ -451,54 +432,6 @@ function UsersPanel() {
 
   return (
     <div className="space-y-4">
-      {roleMigration.data ? (
-        <Card>
-          <CardContent className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center">
-            {roleMigration.data.readyToRemoveLegacyRole ? (
-              <CheckCircle2 className="size-5 shrink-0 text-emerald-600" aria-hidden="true" />
-            ) : (
-              <AlertCircle className="size-5 shrink-0 text-amber-600" aria-hidden="true" />
-            )}
-            <div className="min-w-0 flex-1">
-              <div className="font-medium">
-                {roleMigration.data.readyToRemoveLegacyRole
-                  ? t("admin.roleMigrationReadyTitle")
-                  : t("admin.roleMigrationPendingTitle")}
-              </div>
-              <div className="text-sm text-muted-foreground">
-                {roleMigration.data.readyToRemoveLegacyRole
-                  ? t("admin.roleMigrationReadyHelp", { count: roleMigration.data.totalUsers })
-                  : t("admin.roleMigrationPendingHelp", {
-                      count: roleMigration.data.usersWithoutRoleRows,
-                    })}
-              </div>
-              {!roleMigration.data.readyToRemoveLegacyRole &&
-              roleMigration.data.usersWithoutRoleRows > roleMigration.data.legacyUsersPending ? (
-                <div className="mt-1 text-sm text-amber-700">
-                  {t("admin.roleMigrationUnmigratableHelp", {
-                    count:
-                      roleMigration.data.usersWithoutRoleRows -
-                      roleMigration.data.legacyUsersPending,
-                  })}
-                </div>
-              ) : null}
-            </div>
-            {!roleMigration.data.readyToRemoveLegacyRole &&
-            roleMigration.data.legacyUsersPending > 0 ? (
-              <Button
-                onClick={initializeRoles}
-                disabled={initializeLegacyRoles.isPending}
-                data-testid="button-initialize-legacy-roles"
-              >
-                {initializeLegacyRoles.isPending
-                  ? t("admin.initializingLegacyRoles")
-                  : t("admin.initializeLegacyRoles")}
-              </Button>
-            ) : null}
-          </CardContent>
-        </Card>
-      ) : null}
-
       <Card>
         <CardContent className="flex flex-wrap items-end gap-3 py-3">
           <div className="flex-1 min-w-[180px]">

@@ -243,33 +243,18 @@ as `todo.md` M6.
 
 ## Part 5 — Schema work that is coming
 
-### Multi-role accounts — staged production Publish
+### Multi-role accounts — final cleanup Publish
 
-This is intentionally split across two Publishes so existing production
-accounts cannot lose authorization between the schema change and the data
-initialization.
-
-**Stage one (this release):**
+`user_roles` is the sole source of authorization. Complete this cleanup only
+after the prior release has been published, **Admin → Users** has reported that
+every account has canonical role assignments, and representative role logins
+have been checked.
 
 1. Publish the development schema normally. Do **not** select **overwrite data**.
-   The diff adds `user_roles` and retains `users.role`, relaxing that legacy
-   column to nullable for newly-created accounts.
-2. Sign in with the existing admin account. Authentication falls back to its
-   legacy role because it has no `user_roles` rows yet.
-3. Open **Admin → Users** and click **Initialize roles**. The action only copies
-   a legacy role for accounts with zero canonical role rows; repeated runs are
-   safe and insert nothing.
-4. Confirm the panel turns green and says every account has stored role
-   assignments. Test admin login and at least one non-admin account before
-   preparing stage two.
-
-**Stage two (separate later release):**
-
-1. Remove `users.role` from the Drizzle schema.
-2. Remove the legacy fallback, initialization endpoint, generated contract
-   entries, and migration panel.
-3. Publish again. Do not proceed if stage one's panel is not green; removing the
-   legacy column while any account lacks `user_roles` rows would lock it out.
+2. Review the production schema diff. It must drop only `users.role`; it must
+   not remove, recreate, or overwrite `users`, `user_roles`, or their data.
+3. After Publish, verify login and role-protected access for an admin,
+   coordinator, rider, and restaurant-staff account.
 
 ---
 

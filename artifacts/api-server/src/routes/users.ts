@@ -13,8 +13,6 @@ import {
   CreateUserBody,
   UpdateUserBody,
   UpdateMyLocaleBody,
-  GetRoleMigrationStatusResponse,
-  InitializeLegacyRolesResponse,
 } from "@workspace/api-zod";
 import { hashPassword, requireAuth, requireRole } from "../lib/auth";
 import { httpError } from "../lib/errors";
@@ -28,7 +26,7 @@ const wrap =
   };
 
 async function loadRolesMap(
-  users: Array<Pick<User, "id" | "legacyRole">>,
+  users: Array<Pick<User, "id">>,
 ): Promise<Map<string, UserRole[]>> {
   const userIds = users.map((user) => user.id);
   const rows = await db
@@ -41,18 +39,12 @@ async function loadRolesMap(
     arr.push(row.role);
     map.set(row.userId, arr);
   }
-  for (const user of users) {
-    if (!map.has(user.id) && user.legacyRole) {
-      map.set(user.id, [user.legacyRole]);
-    }
-  }
   return map;
 }
 
 function toUserView(user: User, roles: UserRole[]) {
   const {
     passwordHash: _passwordHash,
-    legacyRole: _legacyRole,
     updatedAt: _updatedAt,
     preferredLocale: _preferredLocale,
     ...safe
@@ -65,22 +57,6 @@ async function userView(id: string) {
   if (!user) return null;
   const rolesMap = await loadRolesMap([user]);
   return toUserView(user, rolesMap.get(id) ?? []);
-}
-
-async function roleMigrationStatus() {
-  const [users, roleRows] = await Promise.all([
-    db.select({ id: usersTable.id, legacyRole: usersTable.legacyRole }).from(usersTable),
-    db.select({ userId: userRolesTable.userId }).from(userRolesTable),
-  ]);
-  const usersWithRoleRows = new Set(roleRows.map((row) => row.userId));
-  const usersWithoutRoleRows = users.filter((user) => !usersWithRoleRows.has(user.id));
-  return {
-    totalUsers: users.length,
-    usersWithRoleRows: usersWithRoleRows.size,
-    usersWithoutRoleRows: usersWithoutRoleRows.length,
-    legacyUsersPending: usersWithoutRoleRows.filter((user) => user.legacyRole !== null).length,
-    readyToRemoveLegacyRole: usersWithoutRoleRows.length === 0,
-  };
 }
 
 // PATCH /users/me/locale — any authenticated user can set their own locale.
@@ -113,56 +89,6 @@ router.get(
     res.json(
       users.map((u) => {
         return toUserView(u, rolesMap.get(u.id) ?? []);
-      }),
-    );
-  }),
-);
-
-router.get(
-  "/users/role-migration",
-  requireAuth,
-  requireRole("admin"),
-  wrap(async (_req, res) => {
-    res.json(GetRoleMigrationStatusResponse.parse(await roleMigrationStatus()));
-  }),
-);
-
-router.post(
-  "/users/role-migration",
-  requireAuth,
-  requireRole("admin"),
-  wrap(async (req, res) => {
-    const inserted = await db.transaction(async (tx) => {
-      const users = await tx
-        .select({ id: usersTable.id, legacyRole: usersTable.legacyRole })
-        .from(usersTable)
-        .orderBy(usersTable.id)
-        .for("update");
-      const roleRows = await tx.select({ userId: userRolesTable.userId }).from(userRolesTable);
-      const usersWithRoleRows = new Set(roleRows.map((row) => row.userId));
-      const candidates = users.filter(
-        (user): user is { id: string; legacyRole: UserRole } =>
-          !usersWithRoleRows.has(user.id) && user.legacyRole !== null,
-      );
-      if (candidates.length === 0) return [];
-      return tx
-        .insert(userRolesTable)
-        .values(candidates.map((user) => ({ userId: user.id, role: user.legacyRole })))
-        .onConflictDoNothing()
-        .returning({ userId: userRolesTable.userId });
-    });
-
-    const status = await roleMigrationStatus();
-    const initializedUsers = new Set(inserted.map((row) => row.userId)).size;
-    req.log.info(
-      { initializedUsers, insertedRoleRows: inserted.length, ...status },
-      "Initialized legacy user roles",
-    );
-    res.json(
-      InitializeLegacyRolesResponse.parse({
-        ...status,
-        initializedUsers,
-        insertedRoleRows: inserted.length,
       }),
     );
   }),
@@ -254,12 +180,7 @@ router.patch(
           .from(userRolesTable)
           .where(eq(userRolesTable.userId, id));
         const assignedRoles = currentRoleRows.map((row) => row.role);
-        const currentRoles =
-          assignedRoles.length > 0
-            ? assignedRoles
-            : existing.legacyRole
-              ? [existing.legacyRole]
-              : [];
+        const currentRoles = assignedRoles;
         const nextRoles = data.roles ?? currentRoles;
         const wantsRestaurantStaff = nextRoles.includes("restaurant_staff");
         const wantsRider = nextRoles.includes("rider");
