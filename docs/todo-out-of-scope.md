@@ -14,7 +14,7 @@ Items that appear in multiple tasks' out-of-scope sections are merged into one e
 - **Source**: Task #1 (Backend Foundation)
 - **In docs/todo-roadmap.md**: No
 - **Kind**: Deferred feature
-- **Notes**: The local email/password auth system (bcryptjs + JWT HS256, JTI revocation) was intentionally designed to be replaceable. The `auth.ts` helpers (`hashPassword`, `verifyPassword`, `signToken`, `verifyToken`) are centralized so an OAuth/SAML/OIDC layer can be swapped in without touching route handlers. When this becomes necessary, the most natural seam is replacing `signToken`/`verifyToken` and the `POST /api/auth/login` handler while keeping `requireAuth` and `requireRole` intact. `docs/todo-roadmap.md` does not cover this — it is an infrastructure task, not a product feature.
+- **Notes**: The local username/password auth system (bcryptjs + JWT HS256, JTI revocation) was intentionally designed to be replaceable. The `auth.ts` helpers (`hashPassword`, `verifyPassword`, `signToken`, `verifyToken`) are centralized so an OAuth/SAML/OIDC layer can be swapped in without touching route handlers. When this becomes necessary, the most natural seam is replacing `signToken`/`verifyToken` and the `POST /api/auth/login` handler while keeping `requireAuth` and `requireRole` intact. `docs/todo-roadmap.md` does not cover this — it is an infrastructure task, not a product feature.
 
 ---
 

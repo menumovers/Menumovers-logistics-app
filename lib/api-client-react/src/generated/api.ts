@@ -149,7 +149,7 @@ export function useHealthCheck<
 }
 
 /**
- * @summary Sign in with email and password
+ * @summary Sign in with username and password
  */
 export const getLoginUrl = () => {
   return `/api/auth/login`;
@@ -212,7 +212,7 @@ export type LoginMutationBody = BodyType<LoginRequest>;
 export type LoginMutationError = ErrorType<ErrorResponse>;
 
 /**
- * @summary Sign in with email and password
+ * @summary Sign in with username and password
  */
 export const useLogin = <
   TError = ErrorType<ErrorResponse>,
@@ -1993,7 +1993,7 @@ export function useListRiders<
 }
 
 /**
- * @summary Update rider-specific profile fields (nameCode, phone, availability). Account-level fields (email, password, roles) are managed via /users/{id}.
+ * @summary Update rider-specific profile fields (nameCode, phone, availability). Account-level fields (username, password, roles) are managed via /users/{id}.
  */
 export const getUpdateRiderUrl = (id: string) => {
   return `/api/riders/${id}`;
@@ -2057,7 +2057,7 @@ export type UpdateRiderMutationBody = BodyType<UpdateRiderRequest>;
 export type UpdateRiderMutationError = ErrorType<unknown>;
 
 /**
- * @summary Update rider-specific profile fields (nameCode, phone, availability). Account-level fields (email, password, roles) are managed via /users/{id}.
+ * @summary Update rider-specific profile fields (nameCode, phone, availability). Account-level fields (username, password, roles) are managed via /users/{id}.
  */
 export const useUpdateRider = <
   TError = ErrorType<unknown>,

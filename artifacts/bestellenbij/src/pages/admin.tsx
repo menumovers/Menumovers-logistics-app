@@ -425,7 +425,7 @@ function UsersPanel() {
     const all = users.data ?? [];
     const needle = q.trim().toLowerCase();
     const matching = needle
-      ? all.filter((u) => u.name.toLowerCase().includes(needle) || u.email.toLowerCase().includes(needle))
+      ? all.filter((u) => u.name.toLowerCase().includes(needle) || u.username.toLowerCase().includes(needle))
       : all;
     return sortByName(matching, sortBy, (u) => u.name);
   }, [users.data, q, sortBy]);
@@ -526,7 +526,7 @@ function UserEditForm({
   const { t } = useTranslation();
   const { toast } = useToast();
   const [name, setName] = useState(user.name);
-  const [email, setEmail] = useState(user.email);
+  const [username, setUsername] = useState(user.username);
   const [roles, setRoles] = useState<UserRoleType[]>(user.roles);
   const [restaurantId, setRestaurantId] = useState(user.restaurantId ?? "");
   const [riderNameCode, setRiderNameCode] = useState("");
@@ -538,7 +538,7 @@ function UserEditForm({
   const needsNewRiderProfile = wantsRider && !existingRider;
   const dirty =
     name !== user.name ||
-    email !== user.email ||
+    username !== user.username ||
     !rolesEqual(roles, user.roles) ||
     (wantsRestaurant && restaurantId !== (user.restaurantId ?? ""));
   const canSave = dirty && (!needsNewRiderProfile || riderNameCode.trim().length > 0);
@@ -549,7 +549,7 @@ function UserEditForm({
         id: user.id,
         data: {
           name,
-          email,
+          username,
           roles,
           restaurantId: wantsRestaurant ? restaurantId || null : null,
           riderProfile: needsNewRiderProfile
@@ -564,7 +564,7 @@ function UserEditForm({
   return (
     <div className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end py-2">
       <div><Label className="text-xs">{t("common.name")}</Label><Input value={name} onChange={(e) => setName(e.target.value)} data-testid={`input-user-name-${user.id}`} /></div>
-      <div><Label className="text-xs">{t("common.email")}</Label><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} data-testid={`input-user-email-${user.id}`} /></div>
+      <div><Label className="text-xs">{t("common.username")}</Label><Input value={username} onChange={(e) => setUsername(e.target.value)} data-testid={`input-user-username-${user.id}`} /></div>
       <div className="md:col-span-2">
         <Label className="text-xs">{t("common.role")}</Label>
         <ToggleGroup
@@ -787,7 +787,7 @@ function RidersPanel() {
     const all = riders.data ?? [];
     const needle = q.trim().toLowerCase();
     const searched = needle
-      ? all.filter((r) => r.name.toLowerCase().includes(needle) || r.nameCode.toLowerCase().includes(needle) || r.email.toLowerCase().includes(needle))
+      ? all.filter((r) => r.name.toLowerCase().includes(needle) || r.nameCode.toLowerCase().includes(needle) || r.username.toLowerCase().includes(needle))
       : all;
     const matching = quickFilters.size === 0 ? searched : searched.filter((r) => matchesRiderQuickFilters(r, quickFilters));
     return sortByName(matching, sortBy, (r) => r.name);
@@ -896,7 +896,7 @@ function RidersPanel() {
 }
 
 // Rider-specific operational fields only (nameCode/phone/availability).
-// Account-level fields (email, password, roles, active/suspended) are
+// Account-level fields (username, password, roles, active/suspended) are
 // managed from the Users tab — see UserEditForm.
 function RiderEditForm({ rider: r, onUpdate, onInvalidate }: { rider: RiderWithWorkload; onUpdate: ReturnType<typeof useUpdateRider>["mutate"]; onInvalidate: () => void }) {
   const { t } = useTranslation();
@@ -917,7 +917,7 @@ function RiderEditForm({ rider: r, onUpdate, onInvalidate }: { rider: RiderWithW
     <div className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end py-2">
       <div><Label className="text-xs">{t("common.name")}</Label><Input value={r.name} disabled data-testid={`input-rider-name-${r.id}`} /></div>
       <div><Label className="text-xs">{t("admin.nameCode")}</Label><Input value={nameCode} onChange={(e) => setNameCode(e.target.value)} data-testid={`input-rider-name-code-${r.id}`} /></div>
-      <div><Label className="text-xs">{t("common.email")}</Label><Input value={r.email} disabled data-testid={`input-rider-email-${r.id}`} /></div>
+      <div><Label className="text-xs">{t("common.username")}</Label><Input value={r.username} disabled data-testid={`input-rider-username-${r.id}`} /></div>
       <div><Label className="text-xs">{t("common.phone")}</Label><Input value={phone} onChange={(e) => setPhone(e.target.value)} data-testid={`input-rider-phone-${r.id}`} /></div>
       <div>
         <Label className="text-xs">{t("rider.availability")}</Label>
@@ -950,7 +950,7 @@ function AddPanel() {
 }
 
 const DEFAULT_NEW_USER_FORM = {
-  email: "",
+  username: "",
   name: "",
   password: "",
   roles: ["coordinator"] as UserRoleType[],
@@ -972,7 +972,7 @@ function AddUserCard() {
   const wantsRestaurant = form.roles.includes("restaurant_staff");
   const wantsRider = form.roles.includes("rider");
   const canSubmit =
-    form.email && form.password && form.name && (!wantsRider || form.riderNameCode.trim().length > 0);
+    form.username && form.password && form.name && (!wantsRider || form.riderNameCode.trim().length > 0);
 
   return (
     <Card>
@@ -997,7 +997,7 @@ function AddUserCard() {
             create.mutate(
               {
                 data: {
-                  email: form.email,
+                  username: form.username,
                   name: form.name,
                   password: form.password,
                   roles: form.roles,
@@ -1020,7 +1020,7 @@ function AddUserCard() {
           }}
         >
           <div><Label className="text-xs">{t("common.name")}</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required data-testid="input-new-user-name" /></div>
-          <div><Label className="text-xs">{t("common.email")}</Label><Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required data-testid="input-new-user-email" /></div>
+          <div><Label className="text-xs">{t("common.username")}</Label><Input value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })} required data-testid="input-new-user-username" /></div>
           <div><Label className="text-xs">{t("common.password")}</Label><Input type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required minLength={8} data-testid="input-new-user-password" /></div>
           <div className="md:col-span-2">
             <Label className="text-xs">{t("common.role")}</Label>

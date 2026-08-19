@@ -14,7 +14,7 @@ export interface RiderWithWorkload {
   /** @minLength 1 */
   nameCode: string;
   name: string;
-  email: string;
+  username: string;
   /** @nullable */
   phone?: string | null;
   availabilityStatus: RiderAvailability;

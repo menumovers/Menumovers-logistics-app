@@ -255,10 +255,10 @@ when production already has at least one canonical role row for every account.
    production write.
 
    ```sql
-   SELECT u.id, u.email
+   SELECT u.id, u.username
    FROM users AS u
    LEFT JOIN user_roles AS ur ON ur.user_id = u.id
-   GROUP BY u.id, u.email
+   GROUP BY u.id, u.username
    HAVING count(ur.id) = 0;
    ```
 

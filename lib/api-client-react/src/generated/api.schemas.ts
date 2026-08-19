@@ -154,7 +154,7 @@ export const DeliveryTimeType = {
 } as const;
 
 export interface LoginRequest {
-  email: string;
+  username: string;
   password: string;
 }
 
@@ -172,7 +172,7 @@ export const CurrentUserPreferredLocale = {
 
 export interface CurrentUser {
   id: string;
-  email: string;
+  username: string;
   name: string;
   /** @minItems 1 */
   roles: UserRole[];
@@ -228,7 +228,7 @@ export interface UpdateLocaleResponse {
 
 export interface User {
   id: string;
-  email: string;
+  username: string;
   name: string;
   /** @minItems 1 */
   roles: UserRole[];
@@ -239,7 +239,7 @@ export interface User {
 }
 
 export interface CreateUserRequest {
-  email: string;
+  username: string;
   name: string;
   password: string;
   /** @minItems 1 */
@@ -254,7 +254,7 @@ export interface CreateUserRequest {
 }
 
 export interface UpdateUserRequest {
-  email?: string;
+  username?: string;
   name?: string;
   password?: string;
   /** @minItems 1 */
@@ -804,7 +804,7 @@ export interface RiderWithWorkload {
   /** @minLength 1 */
   nameCode: string;
   name: string;
-  email: string;
+  username: string;
   /** @nullable */
   phone?: string | null;
   availabilityStatus: RiderAvailability;

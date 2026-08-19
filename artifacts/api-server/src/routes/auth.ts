@@ -26,14 +26,14 @@ router.post("/auth/login", async (req, res, next): Promise<void> => {
     throw new AppError(400, "VALIDATION_ERROR", parsed.error.message);
   }
 
-  const { email, password } = parsed.data;
+  const { username, password } = parsed.data;
   const [user] = await db
     .select()
     .from(usersTable)
-    .where(eq(usersTable.email, email.toLowerCase()));
+    .where(eq(usersTable.username, username.toLowerCase()));
 
   if (!user) {
-    req.log.warn({ email }, "Login: unknown email");
+    req.log.warn({ username }, "Login: unknown username");
     throw new AppError(401, "INVALID_CREDENTIALS", "Invalid credentials");
   }
 
@@ -64,7 +64,7 @@ router.post("/auth/login", async (req, res, next): Promise<void> => {
     token,
     user: {
       id: user.id,
-      email: user.email,
+      username: user.username,
       name: user.name,
       roles,
       accountStatus: user.accountStatus,
@@ -105,7 +105,7 @@ router.get("/auth/me", requireAuth, async (req, res): Promise<void> => {
   res.json(
     GetCurrentUserResponse.parse({
       id: user.id,
-      email: user.email,
+      username: user.username,
       name: user.name,
       roles: auth.roles,
       accountStatus: user.accountStatus,

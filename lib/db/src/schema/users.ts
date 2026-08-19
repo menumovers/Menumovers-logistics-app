@@ -16,7 +16,7 @@ export const usersTable = pgTable(
   "users",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    email: text("email").notNull(),
+    username: text("username").notNull(),
     passwordHash: text("password_hash").notNull(),
     name: text("name").notNull(),
     restaurantId: uuid("restaurant_id").references(() => restaurantsTable.id, {
@@ -31,7 +31,7 @@ export const usersTable = pgTable(
       .$onUpdate(() => new Date()),
   },
   (t) => ({
-    emailIdx: uniqueIndex("users_email_unique").on(t.email),
+    usernameIdx: uniqueIndex("users_username_unique").on(t.username),
   }),
 );
 

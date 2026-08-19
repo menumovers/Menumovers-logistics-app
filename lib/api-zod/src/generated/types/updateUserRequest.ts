@@ -10,7 +10,7 @@ import type { RiderProfile } from "./riderProfile";
 import type { UserRole } from "./userRole";
 
 export interface UpdateUserRequest {
-  email?: string;
+  username?: string;
   name?: string;
   password?: string;
   /** @minItems 1 */

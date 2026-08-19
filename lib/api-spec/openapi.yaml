@@ -39,7 +39,7 @@ paths:
       operationId: login
       tags: [auth]
       security: []
-      summary: Sign in with email and password
+      summary: Sign in with username and password
       requestBody:
         required: true
         content:
@@ -568,7 +568,7 @@ paths:
     patch:
       operationId: updateRider
       tags: [riders]
-      summary: Update rider-specific profile fields (nameCode, phone, availability). Account-level fields (email, password, roles) are managed via /users/{id}.
+      summary: Update rider-specific profile fields (nameCode, phone, availability). Account-level fields (username, password, roles) are managed via /users/{id}.
       parameters:
         - in: path
           name: id
@@ -1078,9 +1078,9 @@ components:
       enum: [asap, later_today, other_day]
     LoginRequest:
       type: object
-      required: [email, password]
+      required: [username, password]
       properties:
-        email:
+        username:
           type: string
         password:
           type: string
@@ -1094,11 +1094,11 @@ components:
           $ref: "#/components/schemas/CurrentUser"
     CurrentUser:
       type: object
-      required: [id, email, name, roles, accountStatus]
+      required: [id, username, name, roles, accountStatus]
       properties:
         id:
           type: string
-        email:
+        username:
           type: string
         name:
           type: string
@@ -1137,11 +1137,11 @@ components:
           enum: [nl, en, null]
     User:
       type: object
-      required: [id, email, name, roles, accountStatus, createdAt]
+      required: [id, username, name, roles, accountStatus, createdAt]
       properties:
         id:
           type: string
-        email:
+        username:
           type: string
         name:
           type: string
@@ -1159,9 +1159,9 @@ components:
           format: date-time
     CreateUserRequest:
       type: object
-      required: [email, name, password, roles]
+      required: [username, name, password, roles]
       properties:
-        email:
+        username:
           type: string
         name:
           type: string
@@ -1183,7 +1183,7 @@ components:
     UpdateUserRequest:
       type: object
       properties:
-        email:
+        username:
           type: string
         name:
           type: string
@@ -1879,7 +1879,7 @@ components:
         - userId
         - nameCode
         - name
-        - email
+        - username
         - availabilityStatus
         - accountStatus
         - activeOrderCount
@@ -1894,7 +1894,7 @@ components:
           minLength: 1
         name:
           type: string
-        email:
+        username:
           type: string
         phone:
           type: ["string", "null"]

@@ -6,18 +6,22 @@ async function j(method, path, body, headers={}) {
   return { status: r.status, body: parsed };
 }
 // Need to seed restaurant + admin + inbound credential via direct DB.
-import("@workspace/db").then(async ({ db, restaurantsTable, usersTable, ridersTable, apiCredentialsTable }) => {
+import("@workspace/db").then(async ({ db, restaurantsTable, usersTable, userRolesTable, ridersTable, apiCredentialsTable }) => {
   const bcrypt = (await import("bcryptjs")).default;
   const { createHash, randomBytes } = await import("node:crypto");
   const passwordHash = await bcrypt.hash("password123", 10);
   // Cleanup prior smoke data
   const { eq } = await import("drizzle-orm");
-  await db.delete(usersTable).where(eq(usersTable.email, "smoke-admin@x.com"));
-  await db.delete(usersTable).where(eq(usersTable.email, "smoke-rider@x.com"));
+  await db.delete(usersTable).where(eq(usersTable.username, "smoke-admin"));
+  await db.delete(usersTable).where(eq(usersTable.username, "smoke-rider"));
   const RESTAURANT_NAME_CODE = `smoke-resto-${Date.now()}`;
   const [rest] = await db.insert(restaurantsTable).values({ name:"Smoke Resto", nameCode: RESTAURANT_NAME_CODE, address:"Hoofdstraat 1", minDeliveryTime:25 }).returning();
-  const [admin] = await db.insert(usersTable).values({ email:"smoke-admin@x.com", name:"Admin", passwordHash, role:"admin" }).returning();
-  const [riderUser] = await db.insert(usersTable).values({ email:"smoke-rider@x.com", name:"Rider1", passwordHash, role:"rider" }).returning();
+  const [admin] = await db.insert(usersTable).values({ username:"smoke-admin", name:"Admin", passwordHash }).returning();
+  const [riderUser] = await db.insert(usersTable).values({ username:"smoke-rider", name:"Rider1", passwordHash }).returning();
+  await db.insert(userRolesTable).values([
+    { userId: admin.id, role: "admin" },
+    { userId: riderUser.id, role: "rider" },
+  ]);
   const [rider] = await db.insert(ridersTable).values({ userId: riderUser.id, nameCode:`smoke-rider-${Date.now()}`, availabilityStatus:"online" }).returning();
   const RAW_SECRET = randomBytes(16).toString("hex");
   await db.insert(apiCredentialsTable).values({
@@ -27,8 +31,8 @@ import("@workspace/db").then(async ({ db, restaurantsTable, usersTable, ridersTa
   });
   console.log("Seeded:", { restaurantId: rest.id, restaurantNameCode: RESTAURANT_NAME_CODE, adminId: admin.id, riderId: rider.id });
   // Login
-  const login = await j("POST","/auth/login",{ email:"smoke-admin@x.com", password:"password123" });
-  console.log("login:", login.status, login.body.user?.role);
+  const login = await j("POST","/auth/login",{ username:"smoke-admin", password:"password123" });
+  console.log("login:", login.status, login.body.user?.roles);
   const token = login.body.token;
   // Ingest — resolved restaurantNameCode
   const orderId = `ext-smoke-${Date.now()}`;

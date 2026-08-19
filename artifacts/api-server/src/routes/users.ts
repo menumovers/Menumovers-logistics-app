@@ -101,7 +101,7 @@ router.post(
   wrap(async (req, res) => {
     const parsed = CreateUserBody.safeParse(req.body);
     if (!parsed.success) throw httpError(400, "VALIDATION_ERROR", parsed.error.message);
-    const { email, name, password, roles, restaurantId, riderProfile } = parsed.data;
+    const { username, name, password, roles, restaurantId, riderProfile } = parsed.data;
     const wantsRestaurantStaff = roles.includes("restaurant_staff");
     const wantsRider = roles.includes("rider");
 
@@ -120,7 +120,7 @@ router.post(
         const [user] = await tx
           .insert(usersTable)
           .values({
-            email: email.toLowerCase(),
+            username: username.toLowerCase(),
             name,
             passwordHash,
             restaurantId: wantsRestaurantStaff ? (restaurantId ?? null) : null,
@@ -210,7 +210,7 @@ router.patch(
         }
 
         const userUpdates: Partial<typeof usersTable.$inferInsert> = {};
-        if (data.email !== undefined) userUpdates.email = data.email.toLowerCase();
+        if (data.username !== undefined) userUpdates.username = data.username.toLowerCase();
         if (data.name !== undefined) userUpdates.name = data.name;
         if (data.accountStatus !== undefined) userUpdates.accountStatus = data.accountStatus;
         if (nextPasswordHash !== undefined) userUpdates.passwordHash = nextPasswordHash;

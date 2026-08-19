@@ -12,7 +12,7 @@ import type { UserRole } from "./userRole";
 
 export interface CurrentUser {
   id: string;
-  email: string;
+  username: string;
   name: string;
   /** @minItems 1 */
   roles: UserRole[];

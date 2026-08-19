@@ -18,16 +18,16 @@ async function upsertUser(fields: typeof usersTable.$inferInsert, roles: UserRol
   const [existing] = await db
     .select()
     .from(usersTable)
-    .where(eq(usersTable.email, fields.email));
+    .where(eq(usersTable.username, fields.username));
   let userId: string;
   if (existing) {
     await db.update(usersTable).set(fields).where(eq(usersTable.id, existing.id));
     userId = existing.id;
-    console.log(`Updated  ${roles.join("+").padEnd(24)} ${fields.email}`);
+    console.log(`Updated  ${roles.join("+").padEnd(24)} ${fields.username}`);
   } else {
     const [created] = await db.insert(usersTable).values(fields).returning();
     userId = created!.id;
-    console.log(`Created  ${roles.join("+").padEnd(24)} ${fields.email}  (id: ${userId})`);
+    console.log(`Created  ${roles.join("+").padEnd(24)} ${fields.username}  (id: ${userId})`);
   }
   await db
     .insert(userRolesTable)
@@ -42,26 +42,26 @@ async function main(): Promise<void> {
   // Admin — also granted coordinator + rider, since on the logistics side an
   // admin routinely needs to act in those capacities too.
   await upsertUser(
-    { email: "admin@bestellenbij.nl", passwordHash: hash, name: "Beheerder1", accountStatus: "active" },
+    { username: "admin", passwordHash: hash, name: "Beheerder1", accountStatus: "active" },
     ["admin", "coordinator"],
   );
 
   // Coordinator
   await upsertUser(
-    { email: "coordinator@bestellenbij.nl", passwordHash: hash, name: "Coördinator1", accountStatus: "active" },
+    { username: "coordinator", passwordHash: hash, name: "Coördinator1", accountStatus: "active" },
     ["coordinator"],
   );
 
-  // Rider — needs a riders row
+  // Rider — needs a riders row. Look it up by the linked account so reruns stay
+  // idempotent even if the rider's operational name code has changed.
+  const riderUserId = await upsertUser(
+    { username: "rider1", passwordHash: hash, name: "Rijder1", accountStatus: "active" },
+    ["rider"],
+  );
   const [existingRider] = await db
     .select()
     .from(ridersTable)
-    .where(eq(ridersTable.nameCode, "rijder1"));
-
-  const riderUserId = await upsertUser(
-    { email: "rider1@bestellenbij.nl", passwordHash: hash, name: "Rijder1", accountStatus: "active" },
-    ["rider"],
-  );
+    .where(eq(ridersTable.userId, riderUserId));
   if (!existingRider) {
     const [r] = await db
       .insert(ridersTable)
@@ -92,7 +92,7 @@ async function main(): Promise<void> {
 
   await upsertUser(
     {
-      email: "restaurant1@bestellenbij.nl",
+      username: "restaurant1",
       passwordHash: hash,
       name: "Restaurant1",
       restaurantId: restaurant.id,

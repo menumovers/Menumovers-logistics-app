@@ -35,7 +35,7 @@ async function buildRiderViews(riderIds: string[]) {
       phone: ridersTable.phone,
       availabilityStatus: ridersTable.availabilityStatus,
       name: usersTable.name,
-      email: usersTable.email,
+      username: usersTable.username,
       accountStatus: usersTable.accountStatus,
     })
     .from(ridersTable)
@@ -64,7 +64,7 @@ async function buildRiderViews(riderIds: string[]) {
     userId: r.userId,
     nameCode: r.nameCode,
     name: r.name,
-    email: r.email,
+    username: r.username,
     phone: r.phone,
     availabilityStatus: r.availabilityStatus,
     accountStatus: r.accountStatus,
@@ -85,7 +85,7 @@ router.get(
 );
 
 // Rider-specific profile fields only (nameCode/phone/availability). Account-level
-// fields (email, password, roles) are managed via PATCH /users/:id.
+// fields (username, password, roles) are managed via PATCH /users/:id.
 router.patch(
   "/riders/:id",
   requireAuth,

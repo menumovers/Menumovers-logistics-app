@@ -99,7 +99,7 @@ export default function SettingsPage() {
         <CardContent className="space-y-4">
           <div className="text-sm space-y-1">
             <div><span className="text-muted-foreground">{t("common.name")}: </span><span data-testid="text-account-name">{user.name}</span></div>
-            <div><span className="text-muted-foreground">{t("common.email")}: </span><span data-testid="text-account-email">{user.email}</span></div>
+            <div><span className="text-muted-foreground">{t("common.username")}: </span><span data-testid="text-account-username">{user.username}</span></div>
             <div><span className="text-muted-foreground">{t("common.role")}: </span><span>{user.roles.map((r) => t(`roles.${r}`)).join(", ")}</span></div>
           </div>
           <form onSubmit={changePassword} className="space-y-2 pt-2 border-t border-border">

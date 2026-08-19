@@ -9,7 +9,7 @@ import type { RiderProfile } from "./riderProfile";
 import type { UserRole } from "./userRole";
 
 export interface CreateUserRequest {
-  email: string;
+  username: string;
   name: string;
   password: string;
   /** @minItems 1 */

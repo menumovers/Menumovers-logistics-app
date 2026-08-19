@@ -19,13 +19,13 @@ import { ArrowLeft, Bike, Store } from "lucide-react";
 import { setToken } from "@/lib/api";
 
 const RIDER_DEMO = [
-  { roleKey: "admin", email: "admin@bestellenbij.nl" },
-  { roleKey: "coordinator", email: "coordinator@bestellenbij.nl" },
-  { roleKey: "rider", email: "rider1@bestellenbij.nl" },
+  { roleKey: "admin", username: "admin" },
+  { roleKey: "coordinator", username: "coordinator" },
+  { roleKey: "rider", username: "rider1" },
 ] as const;
 
 const RESTAURANT_DEMO = [
-  { roleKey: "restaurant_staff", email: "restaurant1@bestellenbij.nl" },
+  { roleKey: "restaurant_staff", username: "restaurant1" },
 ] as const;
 
 type Props = { variant: AppContext };
@@ -34,7 +34,7 @@ export default function LoginPage({ variant }: Props) {
   const { t } = useTranslation();
   const { applyToken, user, isLoading, signOut } = useAuth();
   const [, navigate] = useLocation();
-  const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const login = useLogin();
@@ -54,7 +54,7 @@ export default function LoginPage({ variant }: Props) {
     e.preventDefault();
     setError(null);
     login.mutate(
-      { data: { email, password } },
+      { data: { username, password } },
       {
         onSuccess: async (session) => {
           const allowed = getAllowedRolesForContext(variant);
@@ -125,15 +125,15 @@ export default function LoginPage({ variant }: Props) {
             data-testid="form-login"
           >
             <div className="space-y-2">
-              <Label htmlFor="email">{t("login.email")}</Label>
+              <Label htmlFor="username">{t("login.username")}</Label>
               <Input
-                id="email"
-                type="email"
-                autoComplete="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                id="username"
+                type="text"
+                autoComplete="username"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
                 required
-                data-testid="input-email"
+                data-testid="input-username"
               />
             </div>
             <div className="space-y-2">
@@ -198,16 +198,16 @@ export default function LoginPage({ variant }: Props) {
               {demos.map((d) => (
                 <button
                   type="button"
-                  key={d.email}
+                  key={d.username}
                   onClick={() => {
-                    setEmail(d.email);
+                    setUsername(d.username);
                     setPassword("password");
                   }}
                   className="rounded-md border border-border bg-background hover:bg-muted px-3 py-2 text-xs text-left transition-colors"
                   data-testid={`button-demo-${d.roleKey}`}
                 >
                   <div className="font-medium">{t(`roles.${d.roleKey}`)}</div>
-                  <div className="text-muted-foreground truncate">{d.email}</div>
+                  <div className="text-muted-foreground truncate">{d.username}</div>
                 </button>
               ))}
             </div>

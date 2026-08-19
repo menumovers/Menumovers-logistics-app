@@ -15,10 +15,10 @@ export const HealthCheckResponse = zod.object({
 });
 
 /**
- * @summary Sign in with email and password
+ * @summary Sign in with username and password
  */
 export const LoginBody = zod.object({
-  email: zod.string(),
+  username: zod.string(),
   password: zod.string(),
 });
 
@@ -26,7 +26,7 @@ export const LoginResponse = zod.object({
   token: zod.string(),
   user: zod.object({
     id: zod.string(),
-    email: zod.string(),
+    username: zod.string(),
     name: zod.string(),
     roles: zod
       .array(zod.enum(["admin", "coordinator", "rider", "restaurant_staff"]))
@@ -52,7 +52,7 @@ export const LoginResponse = zod.object({
 
 export const GetCurrentUserResponse = zod.object({
   id: zod.string(),
-  email: zod.string(),
+  username: zod.string(),
   name: zod.string(),
   roles: zod
     .array(zod.enum(["admin", "coordinator", "rider", "restaurant_staff"]))
@@ -4416,7 +4416,7 @@ export const ListRidersResponseItem = zod.object({
   userId: zod.string(),
   nameCode: zod.string().min(1),
   name: zod.string(),
-  email: zod.string(),
+  username: zod.string(),
   phone: zod.string().nullish(),
   availabilityStatus: zod.enum(["offline", "online", "backup"]),
   accountStatus: zod.enum(["active", "suspended"]),
@@ -4426,7 +4426,7 @@ export const ListRidersResponseItem = zod.object({
 export const ListRidersResponse = zod.array(ListRidersResponseItem);
 
 /**
- * @summary Update rider-specific profile fields (nameCode, phone, availability). Account-level fields (email, password, roles) are managed via /users/{id}.
+ * @summary Update rider-specific profile fields (nameCode, phone, availability). Account-level fields (username, password, roles) are managed via /users/{id}.
  */
 export const UpdateRiderParams = zod.object({
   id: zod.coerce.string(),
@@ -4444,7 +4444,7 @@ export const UpdateRiderResponse = zod.object({
   userId: zod.string(),
   nameCode: zod.string().min(1),
   name: zod.string(),
-  email: zod.string(),
+  username: zod.string(),
   phone: zod.string().nullish(),
   availabilityStatus: zod.enum(["offline", "online", "backup"]),
   accountStatus: zod.enum(["active", "suspended"]),
@@ -4464,7 +4464,7 @@ export const SetOwnAvailabilityResponse = zod.object({
   userId: zod.string(),
   nameCode: zod.string().min(1),
   name: zod.string(),
-  email: zod.string(),
+  username: zod.string(),
   phone: zod.string().nullish(),
   availabilityStatus: zod.enum(["offline", "online", "backup"]),
   accountStatus: zod.enum(["active", "suspended"]),
@@ -4556,7 +4556,7 @@ export const UpdateMyLocaleResponse = zod.object({
 
 export const ListUsersResponseItem = zod.object({
   id: zod.string(),
-  email: zod.string(),
+  username: zod.string(),
   name: zod.string(),
   roles: zod
     .array(zod.enum(["admin", "coordinator", "rider", "restaurant_staff"]))
@@ -4568,7 +4568,7 @@ export const ListUsersResponseItem = zod.object({
 export const ListUsersResponse = zod.array(ListUsersResponseItem);
 
 export const CreateUserBody = zod.object({
-  email: zod.string(),
+  username: zod.string(),
   name: zod.string(),
   password: zod.string(),
   roles: zod
@@ -4602,7 +4602,7 @@ export const UpdateUserParams = zod.object({
 });
 
 export const UpdateUserBody = zod.object({
-  email: zod.string().optional(),
+  username: zod.string().optional(),
   name: zod.string().optional(),
   password: zod.string().optional(),
   roles: zod
@@ -4634,7 +4634,7 @@ export const UpdateUserBody = zod.object({
 
 export const UpdateUserResponse = zod.object({
   id: zod.string(),
-  email: zod.string(),
+  username: zod.string(),
   name: zod.string(),
   roles: zod
     .array(zod.enum(["admin", "coordinator", "rider", "restaurant_staff"]))
