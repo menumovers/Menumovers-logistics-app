@@ -1,0 +1,20 @@
+I just synced in a change that moves user accounts from a single role to multiple roles at once. Before this deploy goes live, I need help running a data migration safely, because I don't know exactly how this Replit project's database changes are normally applied here.
+
+Context: the users table used to have a single role column. The new code replaces that with a user_roles table (one row per user per role), and the application no longer reads or writes users.role at all. If the database schema gets synced to match the new code before the existing role data is captured somewhere else first, that data is just gone — Postgres drops the column, full stop.
+
+To prevent that, there are two one-off scripts under scripts/src/:
+
+snapshot-user-roles.ts — must run FIRST, while users.role still exists in the live database. It copies each user's current role into a plain backup table called _role_backfill.
+backfill-user-roles.ts — must run AFTER the schema has been updated (i.e., after user_roles exists and users.role is gone). It reads _role_backfill, inserts the corresponding rows into user_roles, and then deletes the backup table.
+
+What I need:
+
+Figure out how this project currently applies database schema changes in this environment (I know it uses drizzle-kit push via pnpm --filter @workspace/db run push, but I don't know if anything here runs that automatically on deploy or restart — check for that first, since if it does, it could beat me to the schema change before I get a chance to snapshot).
+Once you're confident nothing will apply the schema change automatically first, run the snapshot script against the live database.
+Apply the schema change.
+Run the backfill script, and confirm it reports restoring the same number of rows the snapshot reported saving.
+Spot-check a handful of rows directly in the database to make sure the roles look right, and check whether any user ended up with zero roles afterward — that's worth flagging to me rather than quietly proceeding, since a user with no roles can no longer log in.
+As far as I know, no new environment variables or secrets are required for this change. If the app fails to start or complains about missing config after this, tell me exactly what it's asking for rather than guessing at a fix.
+Once the data looks right, restart the app normally and do a basic sanity check — log in as an existing user and confirm their role(s) show up correctly in the UI.
+
+Walk me through what you find at each step, especially step 1, before touching the live schema.
