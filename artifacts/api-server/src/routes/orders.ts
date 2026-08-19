@@ -81,7 +81,8 @@ function orderScopeWhere(auth: NonNullable<Request["auth"]>) {
   // restaurant_staff sees both their own deliveries and their restaurant's orders.
   const clauses = [];
   if (auth.roles.includes("restaurant_staff") && auth.restaurantId) {
-    clauses.push(eq(ordersTable.restaurantId, auth.restaurantId));
+    // Holds are admin/coordinator triage, not restaurant-facing — see D2.
+    clauses.push(and(eq(ordersTable.restaurantId, auth.restaurantId), notHeld())!);
   }
   if (auth.roles.includes("rider")) {
     const ownAssigned = auth.riderId
