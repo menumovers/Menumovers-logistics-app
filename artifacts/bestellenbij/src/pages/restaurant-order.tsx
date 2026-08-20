@@ -125,7 +125,7 @@ export default function RestaurantOrderPage() {
           </div>
 
           <Button asChild variant="outline" size="sm" className="w-full" data-testid={`button-receipt-${o.id}`}>
-            <Link href={`/orders/${o.id}/receipt`}>
+            <Link href={`/orders/${o.id}/receipt?autoprint=true`}>
               <Printer className="size-3.5 mr-1.5" /> {t("receipt.title")}
             </Link>
           </Button>

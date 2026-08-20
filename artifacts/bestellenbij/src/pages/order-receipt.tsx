@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useParams } from "wouter";
 import {
@@ -12,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { ArrowLeft, Printer } from "lucide-react";
 import { formatCurrency, effectivePickup, formatTime } from "@/lib/format";
+import { requestReceiptAutoPrint } from "@/lib/receipt-autoprint";
 
 /**
  * The order receipt — primarily a kitchen document.
@@ -71,18 +73,44 @@ export default function OrderReceiptPage() {
   const orderId = id!;
   const { t, i18n } = useTranslation();
   const lang = i18n.resolvedLanguage ?? "nl";
+  const autoPrint =
+    typeof window !== "undefined" &&
+    new URLSearchParams(window.location.search).get("autoprint") === "true";
   const order = useGetOrder(orderId, {
     query: { queryKey: getGetOrderQueryKey(orderId), enabled: !!orderId },
   });
   const restaurants = useListRestaurants({
     query: { queryKey: getListRestaurantsQueryKey() },
   });
+  const restaurant = order.data
+    ? restaurants.data?.find((r) => r.id === order.data.restaurantId)
+    : undefined;
+  const receiptReady = Boolean(order.data && restaurant);
 
-  if (order.isLoading || !order.data) {
+  useEffect(() => {
+    const frame = requestReceiptAutoPrint({
+      printRequested: autoPrint,
+      receiptReady,
+      scheduleFrame: window.requestAnimationFrame,
+      // Wait one frame so the complete receipt has been committed before
+      // opening the browser print dialog. Remove the one-shot flag first so
+      // cancelling the dialog or refreshing does not unexpectedly print again.
+      onPrint: () => {
+        window.history.replaceState({}, "", window.location.pathname);
+        window.print();
+      },
+    });
+    return frame === null ? undefined : () => window.cancelAnimationFrame(frame);
+  }, [autoPrint, receiptReady]);
+
+  if (
+    order.isLoading ||
+    !order.data ||
+    (autoPrint && !receiptReady && !restaurants.isError)
+  ) {
     return <div className="grid place-items-center py-20"><Spinner className="size-6 text-primary" /></div>;
   }
   const o = order.data;
-  const restaurant = restaurants.data?.find((r) => r.id === o.restaurantId);
 
   return (
     <div className="space-y-4">
