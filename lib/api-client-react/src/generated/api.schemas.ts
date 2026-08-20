@@ -774,8 +774,7 @@ export interface AssignOrderRequest {
 export interface ReassignOrderRequest {
   /**
    * The rider to swap onto the order. Omitted or null unassigns the
-order back to `pending` — only allowed while the current rider
-hasn't yet left for the restaurant.
+order back to `pending`.
 
    * @nullable
    */

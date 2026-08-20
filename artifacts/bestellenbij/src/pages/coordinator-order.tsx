@@ -265,10 +265,6 @@ function HoldCard({ order }: { order: OrderDetail }) {
   );
 }
 
-// Hasn't left for the restaurant yet — matches REASSIGNABLE_TO_PENDING on the
-// server, which is the same guard the reassign endpoint enforces.
-const UNASSIGNABLE_STATUSES: ReadonlyArray<OrderDetail["status"]> = ["rider_assigned", "rider_accepted"];
-
 function AssignCard({ order }: { order: OrderDetail }) {
   const { t } = useTranslation();
   const riders = useListRiders({ query: { queryKey: getListRidersQueryKey(), refetchInterval: 30_000 } });
@@ -329,9 +325,8 @@ function AssignCard({ order }: { order: OrderDetail }) {
     );
   }
 
-  // Already has a rider: offer swapping in someone else, and — while the
-  // current rider hasn't left for the restaurant yet — unassigning entirely.
-  const canUnassign = UNASSIGNABLE_STATUSES.includes(order.status);
+  // Already has a rider: offer swapping in someone else, or unassigning
+  // entirely — at any stage short of delivered/failed/held.
   const reassignCandidates = candidates.filter((r) => r.id !== order.riderId);
 
   return (
@@ -379,28 +374,26 @@ function AssignCard({ order }: { order: OrderDetail }) {
             </Button>
           </>
         )}
-        {canUnassign ? (
-          <Button
-            variant="outline"
-            className="w-full"
-            disabled={reassign.isPending}
-            onClick={() =>
-              reassign.mutate(
-                { id: order.id, data: { riderId: null } },
-                {
-                  onSuccess: () => {
-                    toast({ title: t("coordinator.unassignRider") });
-                    invalidate();
-                  },
-                  onError: () => toast({ title: t("errors.generic"), variant: "destructive" }),
+        <Button
+          variant="outline"
+          className="w-full"
+          disabled={reassign.isPending}
+          onClick={() =>
+            reassign.mutate(
+              { id: order.id, data: { riderId: null } },
+              {
+                onSuccess: () => {
+                  toast({ title: t("coordinator.unassignRider") });
+                  invalidate();
                 },
-              )
-            }
-            data-testid="button-unassign-rider"
-          >
-            {t("coordinator.unassignRider")}
-          </Button>
-        ) : null}
+                onError: () => toast({ title: t("errors.generic"), variant: "destructive" }),
+              },
+            )
+          }
+          data-testid="button-unassign-rider"
+        >
+          {t("coordinator.unassignRider")}
+        </Button>
       </CardContent>
     </Card>
   );

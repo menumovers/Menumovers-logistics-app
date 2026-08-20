@@ -358,8 +358,9 @@ paths:
         assignment (`rider_accepted`); once en route or later, only the
         rider changes and the current status is preserved. Omitting
         `riderId` (or passing null) unassigns the order back to `pending`,
-        which is only allowed before the rider has left for the restaurant.
-        Terminal (`delivered`/`failed`) and held orders are rejected.
+        at any non-terminal, non-held stage — coordinators are trusted to
+        have a reason. Terminal (`delivered`/`failed`) and held orders are
+        rejected.
       parameters:
         - in: path
           name: id
@@ -379,7 +380,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/OrderDetail"
         "409":
-          description: Order is terminal, held, not assigned, already on that rider, or too far along to unassign
+          description: Order is terminal, held, not assigned, or already on that rider
           content:
             application/json:
               schema:
@@ -1981,8 +1982,7 @@ components:
         riderId:
           description: |
             The rider to swap onto the order. Omitted or null unassigns the
-            order back to `pending` — only allowed while the current rider
-            hasn't yet left for the restaurant.
+            order back to `pending`.
           type: ["string", "null"]
     UpdatePickupTimeRequest:
       type: object

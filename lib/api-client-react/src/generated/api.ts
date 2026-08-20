@@ -1192,8 +1192,9 @@ hasn't left for the restaurant yet the order is treated as a fresh
 assignment (`rider_accepted`); once en route or later, only the
 rider changes and the current status is preserved. Omitting
 `riderId` (or passing null) unassigns the order back to `pending`,
-which is only allowed before the rider has left for the restaurant.
-Terminal (`delivered`/`failed`) and held orders are rejected.
+at any non-terminal, non-held stage — coordinators are trusted to
+have a reason. Terminal (`delivered`/`failed`) and held orders are
+rejected.
 
  * @summary Unassign or swap the rider on an already-assigned order
  */

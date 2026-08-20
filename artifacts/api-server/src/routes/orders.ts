@@ -968,10 +968,13 @@ router.post(
 // POST /orders/:id/reassign — unassign to pending, or swap in a new rider
 // =====================================================================
 
-// Hasn't left for the restaurant yet — the rider can still be swapped or
-// dropped without leaving the order in an inconsistent state. Matches the
-// cutoff trip reassignment already uses (see PRE_FLIGHT_STATUSES in trips.ts).
-const REASSIGNABLE_TO_PENDING: ReadonlyArray<OrderStatus> = ["rider_assigned", "rider_accepted"];
+// Hasn't left for the restaurant yet. Used only to decide whether swapping in
+// a new rider counts as a fresh assignment (pre-flight) or a plain rider swap
+// with the reported status left alone (once en route or later) — matches
+// PRE_FLIGHT_STATUSES in trips.ts. Unassigning to `pending` has no such
+// cutoff: coordinators are trusted to have a reason, at any non-terminal,
+// non-held stage.
+const PRE_FLIGHT_STATUSES: ReadonlyArray<OrderStatus> = ["rider_assigned", "rider_accepted"];
 
 router.post(
   "/orders/:id/reassign",
@@ -1002,19 +1005,14 @@ router.post(
     if (newRiderId) {
       const [rider] = await db.select().from(ridersTable).where(eq(ridersTable.id, newRiderId));
       if (!rider) throw httpError(404, "RIDER_NOT_FOUND", "Rider not found");
-    } else if (!REASSIGNABLE_TO_PENDING.includes(order.status)) {
-      throw httpError(
-        409,
-        "CANNOT_UNASSIGN_IN_FLIGHT",
-        "Rider has already left for the restaurant — reassign to a different rider instead of unassigning",
-      );
     }
 
     // Pre-flight: a swap is a fresh assignment (the new rider hasn't accepted
     // yet). Once the rider has left, only the rider changes — the reported
-    // status is preserved rather than rewinding an in-flight leg.
+    // status is preserved rather than rewinding an in-flight leg. Unassigning
+    // always goes to `pending`, regardless of how far along the order is.
     const newStatus: OrderStatus = newRiderId
-      ? REASSIGNABLE_TO_PENDING.includes(order.status)
+      ? PRE_FLIGHT_STATUSES.includes(order.status)
         ? "rider_accepted"
         : order.status
       : "pending";
