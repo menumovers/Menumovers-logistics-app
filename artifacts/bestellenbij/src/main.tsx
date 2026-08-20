@@ -24,8 +24,8 @@ if (stored === "dark") document.documentElement.classList.add("dark");
   if (manifestEl) {
     manifestEl.href =
       ctx === "restaurant"
-        ? "/manifest-restaurant.webmanifest"
-        : "/manifest-rider.webmanifest";
+        ? "/manifest-restaurant.webmanifest?v=2"
+        : "/manifest-rider.webmanifest?v=2";
   }
 })();
 

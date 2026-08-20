@@ -3,7 +3,7 @@
 // and integrates with vite-plugin-pwa's injectManifest precache list when built.
 // In dev (no plugin), self.__WB_MANIFEST is undefined and precaching is a no-op.
 
-const CACHE_VERSION = "bb-v1";
+const CACHE_VERSION = "bb-v2";
 
 // vite-plugin-pwa replaces __WB_MANIFEST at build time. Reference it so the
 // build-time injection point is satisfied, but we precache lazily on first use.
@@ -74,8 +74,8 @@ self.addEventListener("push", (event) => {
   event.waitUntil(
     self.registration.showNotification(payload.title || "Bestellenbij", {
       body: payload.body || "",
-      icon: "/pwa-192x192.png",
-      badge: "/pwa-192x192.png",
+      icon: "/pwa-192x192-v2.png",
+      badge: "/pwa-192x192-v2.png",
       data: payload.data || {},
       tag: payload.tag,
     }),
