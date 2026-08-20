@@ -124,24 +124,20 @@ export default function CoordinatorOrderPage() {
         </div>
       ) : null}
 
-      <div className="grid gap-5 lg:grid-cols-3">
-        <div className="lg:col-span-2 space-y-5">
-          <ItemsCard order={o} />
-          <Card>
-            <CardHeader><CardTitle className="text-base">{t("payment.title")}</CardTitle></CardHeader>
-            <CardContent><PaymentPanel order={o} lang={lang} /></CardContent>
-          </Card>
-          <PickupCard order={o} />
-          <ContactCard order={o} />
-          <NotificationCard order={o} />
-          <TimelineCard order={o} />
-          <OriginalPayloadCard order={o} />
-        </div>
-        <div className="space-y-5">
-          <HoldCard order={o} />
-          <AssignCard order={o} />
-          <TransitionCard order={o} />
-        </div>
+      <div className="space-y-5">
+        <HoldCard order={o} />
+        <PickupCard order={o} />
+        <ContactCard order={o} />
+        <TimelineCard order={o} />
+        <AssignCard order={o} />
+        <NotificationCard order={o} />
+        <TransitionCard order={o} />
+        <ItemsCard order={o} />
+        <Card>
+          <CardHeader><CardTitle className="text-base">{t("payment.title")}</CardTitle></CardHeader>
+          <CardContent><PaymentPanel order={o} lang={lang} /></CardContent>
+        </Card>
+        <OriginalPayloadCard order={o} />
       </div>
     </div>
   );
