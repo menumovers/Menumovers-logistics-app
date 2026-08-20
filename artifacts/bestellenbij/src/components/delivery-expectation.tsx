@@ -48,6 +48,26 @@ export function DeliveryMethodBadge({ order }: { order: Pick<Expectation, "deliv
 }
 
 /**
+ * Zap for ASAP, a plain clock for a stated time — worth showing next to *any*
+ * time on an order, not just the customer-requested one below. Shared so the
+ * rider and coordinator cards use the same glyph as RequestedTimeLabel rather
+ * than reimplementing the ternary.
+ */
+export function PickupTimeTypeIcon({
+  deliveryTimeType,
+  className = "size-3",
+}: {
+  deliveryTimeType: string;
+  className?: string;
+}) {
+  return deliveryTimeType === "asap" ? (
+    <Zap className={className} data-testid="icon-pickup-type-asap" />
+  ) : (
+    <Clock className={className} data-testid="icon-pickup-type-scheduled" />
+  );
+}
+
+/**
  * When the customer asked for it.
  *
  * `requestedDeliveryTime` is the customer's checkout selection resolved to a
@@ -70,7 +90,6 @@ export function RequestedTimeLabel({
   lang: string;
   withDate?: boolean;
 }) {
-  const asap = order.deliveryTimeType === "asap";
   const otherDay = order.deliveryTimeType === "other_day";
   const showDate = withDate || otherDay;
   return (
@@ -78,7 +97,7 @@ export function RequestedTimeLabel({
       className="inline-flex items-center gap-1 text-xs text-muted-foreground"
       data-testid="label-requested-time"
     >
-      {asap ? <Zap className="size-3" /> : <Clock className="size-3" />}
+      <PickupTimeTypeIcon deliveryTimeType={order.deliveryTimeType} />
       <span className="tabular-nums">
         {showDate
           ? formatDateTime(order.requestedDeliveryTime, lang)

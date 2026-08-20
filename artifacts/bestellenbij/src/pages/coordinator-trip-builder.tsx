@@ -49,7 +49,9 @@ export default function CoordinatorTripBuilderPage() {
     return (orders.data ?? []).filter(
       (o) =>
         o.tripId == null &&
-        (o.status === "pending" || o.status === "driver_assigned"),
+        (o.status === "pending" ||
+          o.status === "rider_assigned" ||
+          o.status === "rider_accepted"),
     );
   }, [orders.data]);
 

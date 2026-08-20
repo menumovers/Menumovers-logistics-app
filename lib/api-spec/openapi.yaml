@@ -1019,8 +1019,10 @@ components:
       type: string
       enum:
         - pending
-        - driver_assigned
+        - rider_assigned
+        - rider_accepted
         - en_route_to_restaurant
+        - arrived_at_restaurant
         - picked_up
         - en_route_to_customer
         - delivered
@@ -1518,6 +1520,7 @@ components:
         - effectivePickupTime
         - allowedTransitions
         - createdAt
+        - updatedAt
       properties:
         id:
           type: string
@@ -1670,10 +1673,12 @@ components:
           description: |
             Statuses reportable from the order's current one, derived server-side from
             the state machine. Status is a report rather than a gate: skipping ahead
-            and correcting a mis-tap are both accepted. `pending` and `driver_assigned`
+            and correcting a mis-tap are both accepted. `pending` and `rider_assigned`
             never appear — they are coupled to `riderId` and written by
-            `POST /orders/{id}/assign`. Clients should render these rather than keep
-            their own transition table.
+            `POST /orders/{id}/assign`. `rider_accepted` appears only when the current
+            status is `rider_assigned` — it is otherwise reachable solely via
+            `POST /orders/{id}/assign` (rider self-claim). Clients should render these
+            rather than keep their own transition table.
         itemsAdjustment:
           type: ["string", "null"]
           description: |
@@ -1728,6 +1733,15 @@ components:
         createdAt:
           type: string
           format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+          description: |
+            Bumped on any change to the order row, not only status. A usable
+            proxy for "when did this reach its current state" only once a
+            status is terminal (delivered/failed) and therefore unlikely to
+            be touched again — do not read it as a status-change timestamp
+            for a non-terminal order.
     OrderListItem:
       allOf:
         - $ref: "#/components/schemas/Order"
@@ -2175,10 +2189,10 @@ components:
           type: boolean
           description: |
             Required when reassigning a rider while one or more orders on the trip
-            are already in motion (past `driver_assigned`). When omitted or false
-            and in-flight orders exist, the API returns 409
-            `INFLIGHT_REASSIGN_REQUIRES_CONFIRM` with an `inFlightOrders` detail
-            payload so the UI can confirm.
+            are already in motion (past the pre-flight stage — `pending`,
+            `rider_assigned`, `rider_accepted`). When omitted or false and in-flight
+            orders exist, the API returns 409 `INFLIGHT_REASSIGN_REQUIRES_CONFIRM`
+            with an `inFlightOrders` detail payload so the UI can confirm.
     StopInput:
       type: object
       required: [orderId, kind]

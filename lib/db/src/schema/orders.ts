@@ -19,8 +19,10 @@ import { usersTable } from "./users";
 
 export const ORDER_STATUSES = [
   "pending",
-  "driver_assigned",
+  "rider_assigned",
+  "rider_accepted",
   "en_route_to_restaurant",
+  "arrived_at_restaurant",
   "picked_up",
   "en_route_to_customer",
   "delivered",

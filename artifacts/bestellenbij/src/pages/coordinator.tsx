@@ -31,19 +31,37 @@ import {
 import { SearchableSelect } from "@/components/searchable-select";
 import { Spinner } from "@/components/ui/spinner";
 import { StatusBadge } from "@/components/status-badge";
-import { PickupCountdown, PickupSourceBadge } from "@/components/pickup-countdown";
-import { DeliveryMethodBadge, RequestedTimeLabel } from "@/components/delivery-expectation";
-import { effectivePickup, formatCurrency, formatTime } from "@/lib/format";
+import { AcceptanceStatusBadge } from "@/components/acceptance-status-badge";
+import { PickupCountdown } from "@/components/pickup-countdown";
+import { PickupTimeTypeIcon } from "@/components/delivery-expectation";
+import { effectivePickup, formatTime } from "@/lib/format";
 import { tripProgress } from "@/lib/trip-progress";
-import { Bike, MapPin, Phone, Bell, ChevronRight, Layers, Plus, PauseCircle, PlayCircle, ShoppingBag, CircleDashed } from "lucide-react";
+import { useAuth } from "@/lib/auth";
+import { Bike, MapPin, ChevronRight, Layers, Plus, PauseCircle, PlayCircle, ShoppingBag, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { motion } from "framer-motion";
 
 const ALL = "__all__";
+/** Recency window for the Completed section (and recent failures in Needs
+ * attention) — older terminal orders stay reachable via the filter bar. */
+const COMPLETED_WINDOW_MS = 60 * 60_000;
+/** Not yet in either delivery leg — has a rider, hasn't reported en route to the customer yet. */
+const ACTIVE_STATUSES: ReadonlyArray<OrderListItem["status"]> = [
+  "rider_assigned",
+  "rider_accepted",
+  "en_route_to_restaurant",
+  "arrived_at_restaurant",
+];
+const IN_DELIVERY_STATUSES: ReadonlyArray<OrderListItem["status"]> = ["picked_up", "en_route_to_customer"];
+
+function isRecent(iso: string): boolean {
+  return Date.now() - new Date(iso).getTime() <= COMPLETED_WINDOW_MS;
+}
 
 export default function CoordinatorPage() {
   const { t, i18n } = useTranslation();
   const lang = i18n.resolvedLanguage ?? "nl";
+  const { user } = useAuth();
+  const myRiderId = user?.riderId ?? undefined;
   const [status, setStatus] = useState<string>(ALL);
   const [restaurantId, setRestaurantId] = useState<string>(ALL);
   const [riderId, setRiderId] = useState<string>(ALL);
@@ -68,18 +86,33 @@ export default function CoordinatorPage() {
   });
 
   const all = orders.data ?? [];
-  // Held orders get their own section rather than sitting in the main grid
+  // Held orders get their own section rather than sitting in the board
   // looking dispatchable — a parked one is attributed to a placeholder
   // restaurant until someone resolves it.
   const held = all.filter((o) => o.holdState != null);
   const unheld = all.filter((o) => o.holdState == null);
+  // Postponed orders and a just-failed delivery both need a coordinator's
+  // eyes rather than sitting quietly in whichever column their status would
+  // otherwise put them in — pulled out the same way held orders are.
+  const needsAttention = unheld.filter(
+    (o) => o.status === "postponed" || (o.status === "failed" && isRecent(o.updatedAt)),
+  );
+  const boardPool = unheld.filter((o) => !needsAttention.includes(o));
   // The customer collects these themselves. They never reach a rider, so they
-  // don't belong in the dispatch grid — but they still need watching.
-  const customerPickup = unheld.filter((o) => o.deliveryMethod === "pickup");
-  const list = unheld.filter((o) => o.deliveryMethod !== "pickup");
+  // don't belong in the dispatch board — but they still need watching.
+  const customerPickup = boardPool.filter((o) => o.deliveryMethod === "pickup");
+  const dispatch = boardPool.filter((o) => o.deliveryMethod !== "pickup");
   const activeTrips = (trips.data ?? []).filter(
     (tr) => tr.status !== "completed" && tr.status !== "dissolved",
   );
+
+  const yourOrders = dispatch.filter(
+    (o) => !!myRiderId && o.riderId === myRiderId && o.status !== "delivered" && o.status !== "failed",
+  );
+  const openOrders = dispatch.filter((o) => o.status === "pending" && !o.riderId);
+  const activeOrders = dispatch.filter((o) => ACTIVE_STATUSES.includes(o.status));
+  const inDelivery = dispatch.filter((o) => IN_DELIVERY_STATUSES.includes(o.status));
+  const completedOrders = dispatch.filter((o) => o.status === "delivered" && isRecent(o.updatedAt));
 
   return (
     <div className="space-y-5">
@@ -90,7 +123,7 @@ export default function CoordinatorPage() {
         </div>
         <div className="flex items-center gap-3">
           <div className="text-sm text-muted-foreground tabular-nums" data-testid="text-orders-count">
-            {t("coordinator.ordersCount", { count: list.length })}
+            {t("coordinator.ordersCount", { count: dispatch.length })}
           </div>
           <Button asChild data-testid="button-new-trip">
             <Link href="/coordinator/trips/new">
@@ -102,6 +135,10 @@ export default function CoordinatorPage() {
 
       {held.length > 0 ? (
         <HeldSection held={held} restaurants={restaurants.data ?? []} />
+      ) : null}
+
+      {needsAttention.length > 0 ? (
+        <NeedsAttentionSection orders={needsAttention} lang={lang} />
       ) : null}
 
       {customerPickup.length > 0 ? (
@@ -170,16 +207,101 @@ export default function CoordinatorPage() {
 
       {orders.isLoading ? (
         <div className="grid place-items-center py-20"><Spinner className="size-6 text-primary" /></div>
-      ) : list.length === 0 ? (
-        <Card><CardContent className="py-20 text-center text-muted-foreground">{t("coordinator.empty")}</CardContent></Card>
       ) : (
-        <motion.div className="grid gap-4 grid-cols-1 md:grid-cols-2 xl:grid-cols-3" initial="hidden" animate="show" variants={{ show: { transition: { staggerChildren: 0.04 } } }}>
-          {list.map((o) => (
-            <OrderCard key={o.id} order={o} lang={lang} />
-          ))}
-        </motion.div>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <div className="space-y-4">
+            <BoardSection
+              title={t("coordinator.yourOrders")}
+              count={yourOrders.length}
+              testId="section-your-orders"
+              emptyText={t("coordinator.yourOrdersEmpty")}
+            >
+              {yourOrders.map((o) => (
+                <CoordinatorOrderCard key={o.id} order={o} lang={lang} />
+              ))}
+            </BoardSection>
+            <BoardSection
+              title={t("rider.sectionOpen")}
+              count={openOrders.length}
+              testId="section-open-orders"
+              emptyText={t("rider.sectionOpenEmpty")}
+            >
+              {openOrders.map((o) => (
+                <CoordinatorOrderCard key={o.id} order={o} lang={lang} />
+              ))}
+            </BoardSection>
+          </div>
+
+          <div className="space-y-4">
+            <BoardSection
+              title={t("coordinator.activeOrders")}
+              count={activeOrders.length}
+              testId="section-active-orders"
+              emptyText={t("coordinator.activeOrdersEmpty")}
+            >
+              {activeOrders.map((o) => (
+                <CoordinatorOrderCard key={o.id} order={o} lang={lang} />
+              ))}
+            </BoardSection>
+          </div>
+
+          <div className="space-y-4">
+            <BoardSection
+              title={t("coordinator.inDelivery")}
+              count={inDelivery.length}
+              testId="section-in-delivery"
+              emptyText={t("coordinator.inDeliveryEmpty")}
+            >
+              {inDelivery.map((o) => (
+                <CoordinatorOrderCard key={o.id} order={o} lang={lang} />
+              ))}
+            </BoardSection>
+            <BoardSection
+              title={t("coordinator.completedOrders")}
+              count={completedOrders.length}
+              testId="section-completed-orders"
+              emptyText={t("coordinator.completedOrdersEmpty")}
+            >
+              {completedOrders.map((o) => (
+                <CoordinatorOrderCard key={o.id} order={o} lang={lang} />
+              ))}
+            </BoardSection>
+          </div>
+        </div>
       )}
     </div>
+  );
+}
+
+function BoardSection({
+  title,
+  count,
+  testId,
+  emptyText,
+  children,
+}: {
+  title: string;
+  count: number;
+  testId: string;
+  emptyText: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section data-testid={testId}>
+      <div className="flex items-baseline justify-between mb-2">
+        <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">{title}</h2>
+        <span className="text-xs text-muted-foreground tabular-nums" data-testid={`${testId}-count`}>
+          {count}
+        </span>
+      </div>
+      {count === 0 ? (
+        <Card>
+          <CardContent className="py-6 text-center text-sm text-muted-foreground">{emptyText}</CardContent>
+        </Card>
+      ) : (
+        <div className="space-y-2">{children}</div>
+      )}
+    </section>
   );
 }
 
@@ -221,8 +343,64 @@ function CustomerPickupSection({
                   </div>
                   <div className="mt-0.5 flex items-center gap-2 text-xs text-muted-foreground">
                     <span className="truncate">{o.restaurantName}</span>
+                  </div>
+                </div>
+                <ChevronRight className="size-4 text-muted-foreground shrink-0" />
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </CardContent>
+    </Card>
+  );
+}
+
+/**
+ * Postponed orders, and deliveries that failed in the last hour. Neither fits
+ * a board column by status alone, and both are exactly the kind of thing a
+ * coordinator should notice rather than have to go looking for — pulled out
+ * the same way the Held section pulls held orders out of the board.
+ */
+function NeedsAttentionSection({
+  orders,
+  lang,
+}: {
+  orders: OrderListItem[];
+  lang: string;
+}) {
+  const { t } = useTranslation();
+  return (
+    <Card className="border-destructive/40 bg-destructive/[0.03]" data-testid="card-needs-attention-section">
+      <CardHeader className="pb-3">
+        <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-2">
+          <AlertTriangle className="size-4" /> {t("coordinator.needsAttention")} ({orders.length})
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <ul className="space-y-2">
+          {orders.map((o) => (
+            <li key={o.id}>
+              <Link
+                href={`/coordinator/orders/${o.id}`}
+                className="flex items-center gap-3 rounded-md border border-border bg-card px-3 py-2 hover:border-primary/50"
+                data-testid={`needs-attention-row-${o.id}`}
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2 text-sm">
+                    <span className="text-muted-foreground tabular-nums">#{o.externalOrderId}</span>
+                    <span className="font-medium truncate">{o.customerName}</span>
+                    <StatusBadge status={o.status} />
+                  </div>
+                  <div className="mt-0.5 flex items-center gap-2 text-xs text-muted-foreground">
+                    <span className="truncate">{o.restaurantName}</span>
                     <span>·</span>
-                    <RequestedTimeLabel order={o} lang={lang} />
+                    <span>{formatTime(o.updatedAt, lang)}</span>
+                    {o.riderName ? (
+                      <>
+                        <span>·</span>
+                        <span className="inline-flex items-center gap-1"><Bike className="size-3" />{o.riderName}</span>
+                      </>
+                    ) : null}
                   </div>
                 </div>
                 <ChevronRight className="size-4 text-muted-foreground shrink-0" />
@@ -492,78 +670,57 @@ function WorkloadPanel({ riders }: { riders: ReadonlyArray<{ id: string; name: s
   );
 }
 
-function OrderCard({ order, lang }: { order: OrderListItem; lang: string }) {
+/**
+ * The board's compact card, one shared layout for every column:
+ *   [pickup countdown]           [restaurant name + 2-char acceptance pill]
+ *   [pickup time + type icon]    [customer address]
+ *   [assigned rider]             [rider's order status, spelled out]
+ * Everything else (items, contact, timeline, actions) lives on the detail
+ * page this links to — same list/detail split as the rider and restaurant
+ * overviews.
+ */
+function CoordinatorOrderCard({ order, lang }: { order: OrderListItem; lang: string }) {
   const { t } = useTranslation();
   const eff = effectivePickup(order);
   return (
-    <motion.div variants={{ hidden: { opacity: 0, y: 8 }, show: { opacity: 1, y: 0 } }}>
-      <Link href={`/coordinator/orders/${order.id}`}>
-        <Card
-          className="hover:border-primary/40 hover:shadow-md hover:shadow-primary/5 transition cursor-pointer group h-full"
-          data-testid={`card-order-${order.id}`}
-        >
-          <CardHeader className="pb-3">
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <div className="text-xs text-muted-foreground tabular-nums">#{order.externalOrderId}</div>
-                <div className="font-semibold truncate" data-testid={`text-customer-${order.id}`}>{order.customerName}</div>
-                <div className="text-xs text-muted-foreground truncate">{order.restaurantName}</div>
-              </div>
-              <div className="flex flex-col items-end gap-1.5">
-                <StatusBadge status={order.status} />
-                <DeliveryMethodBadge order={order} />
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="flex items-center justify-between">
-              <PickupCountdown order={order} />
-              <PickupSourceBadge source={eff.source} />
-            </div>
-            <div className="flex items-center justify-between gap-2">
-              <RequestedTimeLabel order={order} lang={lang} />
-              {/* Visibility, not escalation — acknowledgement gates nothing. */}
-              {order.restaurantAcceptedAt ? null : (
-                <span
-                  className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wide text-muted-foreground"
-                  data-testid={`text-unconfirmed-${order.id}`}
-                >
-                  <CircleDashed className="size-3" /> {t("acknowledge.notYetShort")}
-                </span>
+    <Link href={`/coordinator/orders/${order.id}`}>
+      <Card
+        className="hover:border-primary/40 hover:shadow-md transition cursor-pointer"
+        data-testid={`card-order-${order.id}`}
+      >
+        <CardContent className="py-3 space-y-1.5">
+          <div className="flex items-center justify-between gap-3">
+            <PickupCountdown order={order} />
+            <span className="flex items-center gap-1.5 min-w-0">
+              <span className="font-semibold truncate">{order.restaurantName}</span>
+              <AcceptanceStatusBadge acceptedAt={order.restaurantAcceptedAt} compact />
+            </span>
+          </div>
+          <div className="flex items-center justify-between gap-3 text-sm text-muted-foreground">
+            <span className="inline-flex items-center gap-1 shrink-0">
+              <PickupTimeTypeIcon deliveryTimeType={order.deliveryTimeType} />
+              {formatTime(eff.iso, lang)}
+            </span>
+            <span className="flex items-center gap-1 text-right min-w-0">
+              <MapPin className="size-3.5 shrink-0" />
+              <span className="truncate">{order.deliveryAddress}</span>
+            </span>
+          </div>
+          <div className="flex items-center justify-between gap-3 text-sm">
+            <span className="flex items-center gap-1 min-w-0 text-foreground">
+              {order.riderName ? (
+                <>
+                  <Bike className="size-3.5 shrink-0" />
+                  <span className="font-medium truncate">{order.riderName}</span>
+                </>
+              ) : (
+                <span className="text-muted-foreground italic">{t("common.none")}</span>
               )}
-            </div>
-            <div className="flex items-start gap-2 text-sm text-muted-foreground">
-              <MapPin className="size-3.5 mt-0.5 shrink-0" />
-              <span className="line-clamp-2">{order.deliveryAddress}</span>
-            </div>
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Phone className="size-3.5 shrink-0" />
-              <span className="tabular-nums">{order.customerPhone}</span>
-            </div>
-            <div className="flex items-center justify-between text-sm pt-2 border-t border-border">
-              <span className="text-muted-foreground">
-                {order.items.length} × · <span className="tabular-nums">{formatCurrency(order.totalAmount, lang)}</span>
-              </span>
-              <span className="flex items-center gap-1.5 text-foreground">
-                {order.riderName ? (
-                  <><Bike className="size-3.5" /> <span className="font-medium">{order.riderName}</span></>
-                ) : (
-                  <span className="text-muted-foreground italic">{t("common.none")}</span>
-                )}
-              </span>
-            </div>
-            {order.pendingRiderNotification ? (
-              <div className="flex items-start gap-2 text-xs rounded-md bg-accent/10 border border-accent/30 p-2 text-accent-foreground">
-                <Bell className="size-3.5 mt-0.5 shrink-0" />
-                <span className="line-clamp-2">{order.pendingRiderNotification}</span>
-              </div>
-            ) : null}
-            <div className="flex justify-end -mb-1">
-              <ChevronRight className="size-4 text-muted-foreground group-hover:text-primary transition-colors" />
-            </div>
-          </CardContent>
-        </Card>
-      </Link>
-    </motion.div>
+            </span>
+            <span className="text-muted-foreground text-right">{t(`orderStatus.${order.status}`)}</span>
+          </div>
+        </CardContent>
+      </Card>
+    </Link>
   );
 }

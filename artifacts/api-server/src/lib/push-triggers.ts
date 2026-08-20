@@ -35,7 +35,7 @@ export function audienceForStatus(toStatus: OrderStatus): PushAudience | null {
         roles: ["coordinator", "admin"],
         notifyOrderRestaurantStaff: true,
       };
-    case "driver_assigned":
+    case "rider_assigned":
       return audienceForAssignment();
     default:
       return null;

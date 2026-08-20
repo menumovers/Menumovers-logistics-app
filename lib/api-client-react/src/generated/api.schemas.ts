@@ -58,8 +58,10 @@ export type OrderStatus = (typeof OrderStatus)[keyof typeof OrderStatus];
 
 export const OrderStatus = {
   pending: "pending",
-  driver_assigned: "driver_assigned",
+  rider_assigned: "rider_assigned",
+  rider_accepted: "rider_accepted",
   en_route_to_restaurant: "en_route_to_restaurant",
+  arrived_at_restaurant: "arrived_at_restaurant",
   picked_up: "picked_up",
   en_route_to_customer: "en_route_to_customer",
   delivered: "delivered",
@@ -625,10 +627,12 @@ time should be presented as an estimate, never as a promised time.
   failureReason?: string | null;
   /** Statuses reportable from the order's current one, derived server-side from
 the state machine. Status is a report rather than a gate: skipping ahead
-and correcting a mis-tap are both accepted. `pending` and `driver_assigned`
+and correcting a mis-tap are both accepted. `pending` and `rider_assigned`
 never appear — they are coupled to `riderId` and written by
-`POST /orders/{id}/assign`. Clients should render these rather than keep
-their own transition table.
+`POST /orders/{id}/assign`. `rider_accepted` appears only when the current
+status is `rider_assigned` — it is otherwise reachable solely via
+`POST /orders/{id}/assign` (rider self-claim). Clients should render these
+rather than keep their own transition table.
  */
   allowedTransitions: OrderStatus[];
   /**
@@ -688,6 +692,13 @@ another order at the same restaurant.
    */
   bundlePickupTime?: string | null;
   createdAt: string;
+  /** Bumped on any change to the order row, not only status. A usable
+proxy for "when did this reach its current state" only once a
+status is terminal (delivered/failed) and therefore unlikely to
+be touched again — do not read it as a status-change timestamp
+for a non-terminal order.
+ */
+  updatedAt: string;
 }
 
 export type OrderListItem = Order & {
@@ -1016,10 +1027,10 @@ export interface UpdateTripRequest {
   /** @nullable */
   riderId?: string | null;
   /** Required when reassigning a rider while one or more orders on the trip
-are already in motion (past `driver_assigned`). When omitted or false
-and in-flight orders exist, the API returns 409
-`INFLIGHT_REASSIGN_REQUIRES_CONFIRM` with an `inFlightOrders` detail
-payload so the UI can confirm.
+are already in motion (past the pre-flight stage — `pending`,
+`rider_assigned`, `rider_accepted`). When omitted or false and in-flight
+orders exist, the API returns 409 `INFLIGHT_REASSIGN_REQUIRES_CONFIRM`
+with an `inFlightOrders` detail payload so the UI can confirm.
  */
   force?: boolean;
 }

@@ -479,14 +479,16 @@ router.post(
 
     const order = await loadOrderForAuthOr404(auth, id);
     const toStatus = parsed.data.toStatus as OrderStatus;
-    // driver_assigned is reachable only via the atomic /assign endpoint so
+    // rider_assigned is reachable only via the atomic /assign endpoint so
     // status and riderId are always set together. Reject it here to prevent
-    // inconsistent (driver_assigned, riderId=NULL) states.
-    if (toStatus === "driver_assigned") {
+    // inconsistent (rider_assigned, riderId=NULL) states. rider_accepted needs
+    // no equivalent guard here — state-machine.ts's Rule 4 already restricts
+    // it to a report from rider_assigned.
+    if (toStatus === "rider_assigned") {
       throw httpError(
         422,
         "USE_ASSIGN_ENDPOINT",
-        "Use POST /orders/:id/assign to transition to driver_assigned",
+        "Use POST /orders/:id/assign to transition to rider_assigned",
       );
     }
     assertValidTransition(order.status, toStatus);
@@ -599,6 +601,11 @@ router.post(
     // remains the real authority on whether a claim succeeds — this gate is
     // only about whether the *attempt* is allowed at all.
     const isRiderOnly = !auth.roles.includes("admin") && !auth.roles.includes("coordinator");
+    // A rider claiming for themselves has, by the act of claiming, already
+    // accepted — there is no separate rider to wait on. A coordinator/admin
+    // assignment instead lands on rider_assigned, and the assigned rider
+    // reports rider_accepted themselves via POST /orders/:id/status.
+    const resultingStatus: OrderStatus = isRiderOnly ? "rider_accepted" : "rider_assigned";
     if (isRiderOnly && auth.roles.includes("rider")) {
       if (auth.riderId === null || auth.riderId !== riderId) {
         throw httpError(403, "FORBIDDEN", "Riders can only claim orders for themselves");
@@ -620,7 +627,7 @@ router.post(
     // UPDATE rather than a prior read so a hold placed concurrently still wins.
     const updated = await db
       .update(ordersTable)
-      .set({ status: "driver_assigned", riderId })
+      .set({ status: resultingStatus, riderId })
       .where(
         and(
           eq(ordersTable.id, id),
@@ -669,7 +676,7 @@ router.post(
       db.insert(orderStatusLogsTable).values({
         orderId: id,
         fromStatus: "pending",
-        toStatus: "driver_assigned",
+        toStatus: resultingStatus,
         actorUserId: auth.sub,
         actorRole: primaryRoleLabel(auth.roles),
         note: `Assigned rider ${riderId}`,

@@ -219,6 +219,7 @@ function baseOrderFields(
     tripNumber,
     bundlePickupTime,
     createdAt: order.createdAt,
+    updatedAt: order.updatedAt,
   };
 }
 
