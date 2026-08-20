@@ -577,6 +577,7 @@ export function useListOrders<
 }
 
 /**
+ * Active orders are returned according to the caller's normal scope. Archived orders are visible only to admins.
  * @summary Get a single order with its full audit trail and overrides
  */
 export const getGetOrderUrl = (id: string) => {
@@ -751,7 +752,7 @@ export const useDeleteOrder = <
 };
 
 /**
- * Admin-only. Removes an order from normal operational views without deleting its audit history.
+ * Admin-only. Removes an order from normal operational, trip, workload, and bundle-pickup views without deleting its audit history or changing its delivery status.
  * @summary Archive an order
  */
 export const getArchiveOrderUrl = (id: string) => {
@@ -1534,7 +1535,8 @@ export const useUnhideOrderItem = <
 };
 
 /**
- * Admin and coordinator only. Every other order serializer returns the
+ * Admin and coordinator may inspect active orders. Only an admin may
+inspect an archived order. Every other order serializer returns the
 override-applied list, which is what riders and restaurants must see;
 this is the unmodified list as the source sent it, for comparing against
 what is currently displayed.

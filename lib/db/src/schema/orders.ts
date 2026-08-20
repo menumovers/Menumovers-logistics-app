@@ -233,6 +233,8 @@ export const ordersTable = pgTable(
     }),
     // Archiving is independent from delivery status: it removes an order from
     // day-to-day operations without losing the audit trail or its related data.
+    // Only an admin may see, restore, or permanently delete an archived order;
+    // normal reads must filter archivedAt to NULL. See workflow decision D17.
     archivedAt: timestamp("archived_at", { withTimezone: true }),
     archivedByUserId: uuid("archived_by_user_id").references(() => usersTable.id, {
       onDelete: "set null",

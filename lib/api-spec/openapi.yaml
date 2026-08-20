@@ -171,6 +171,8 @@ paths:
       operationId: getOrder
       tags: [orders]
       summary: Get a single order with its full audit trail and overrides
+      description: Active orders are returned according to the caller's normal
+        scope. Archived orders are visible only to admins.
       parameters:
         - in: path
           name: id
@@ -221,7 +223,9 @@ paths:
       operationId: archiveOrder
       tags: [orders]
       summary: Archive an order
-      description: Admin-only. Removes an order from normal operational views without deleting its audit history.
+      description: Admin-only. Removes an order from normal operational, trip,
+        workload, and bundle-pickup views without deleting its audit history or
+        changing its delivery status.
       parameters:
         - in: path
           name: id
@@ -445,7 +449,8 @@ paths:
       tags: [orders]
       summary: The immutable upstream item list, before any overrides
       description: |
-        Admin and coordinator only. Every other order serializer returns the
+        Admin and coordinator may inspect active orders. Only an admin may
+        inspect an archived order. Every other order serializer returns the
         override-applied list, which is what riders and restaurants must see;
         this is the unmodified list as the source sent it, for comparing against
         what is currently displayed.

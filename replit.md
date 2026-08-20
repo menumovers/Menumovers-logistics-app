@@ -6,12 +6,12 @@ Bestellenbij is an internal Progressive Web App (PWA) for food-delivery logistic
 
 **In scope:**
 - Receiving inbound orders from the upstream distribution middleware (babeldish) via a per-source credential endpoint
-- Dispatching orders to riders and tracking them through reported status updates, with holds as the one mechanism that blocks dispatch
+- Dispatching orders to riders and tracking them through reported status updates, including reversible postponement/resume, with holds as the one mechanism that blocks dispatch
 - Pickup confirmation from restaurant staff; item overrides (hide/add)
 - Multi-source pickup-time prioritization; trip (order-bundle) management
 - Outbound webhook delivery of status updates back to babeldish, with database-backed retry
 - Web Push notifications for riders, coordinators, and restaurant staff
-- Role-based UIs: coordinator view, rider order flow, restaurant pickup view, admin settings
+- Role-based UIs: coordinator view, rider order flow, restaurant pickup view, admin settings, and an admin-only order archive
 
 **Explicitly out of scope:**
 - Customer-facing ordering (that is the storefront, Bestellenbij.nl)
@@ -88,11 +88,11 @@ Both sections exist because a decision log alone did not stop settled things res
 
 One line per domain — go check the registry before writing anything in a covered area. Full registry → `docs/architecture-sources-of-truth.md`.
 
-- **Calculations** (effective pickup time, countdown label, urgency, status visuals, state machine, trip bundling, item overrides, currency rendering) → `docs/architecture-sources-of-truth.md` §Calculations
+- **Calculations** (effective pickup time, countdown label, urgency, status visuals, state machine, postponement resume, trip bundling, item overrides, currency rendering) → `docs/architecture-sources-of-truth.md` §Calculations
 - **Auth** (password hashing, JWT sign/verify, auth middlewares, JTI revocation, user serialization) → `docs/architecture-sources-of-truth.md` §Auth
 - **Time / Locale** (active locale resolution, locale-aware UI mapping) → `docs/architecture-sources-of-truth.md` §Time/Locale
 - **External Services** (outbound webhook dispatch + retry, push dispatch, push audiences, typed settings readers, revoked-token janitor) → `docs/architecture-sources-of-truth.md` §External Services
-- **Data Access** (Drizzle client, order serialization, HTTP errors, logger, rate limits) → `docs/architecture-sources-of-truth.md` §Data Access
+- **Data Access** (Drizzle client, order serialization, archive lifecycle/visibility boundary, HTTP errors, logger, rate limits) → `docs/architecture-sources-of-truth.md` §Data Access
 - **Frontend Plumbing** (API client config, auth context, app context, PWA manifests, generated hooks + Zods, searchable filter select) → `docs/architecture-sources-of-truth.md` §Frontend Plumbing
 
 ---

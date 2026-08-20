@@ -59,6 +59,23 @@ authoritative implementation locations and invariants.
   request for an endpoint that belongs in the contract; add it to
   `lib/api-spec/openapi.yaml` and regenerate the client packages.
 
+## Order status and record lifecycle
+
+`postponed` is a delivery-status report, not a deletion state. Resuming a
+postponed order restores the exact status recorded immediately before its
+postponement: unassigned work returns to `pending`; assigned or in-motion work
+keeps its rider and resumes its prior status. Admins and coordinators may resume
+any eligible order; riders may resume only an order assigned to them.
+
+Archiving is separate from status. An admin can archive an order to remove it
+from operational lists, trip views, rider workload counts, and normal
+subresources while retaining its audit data. Only admins may inspect archived
+orders, restore them, or permanently delete them. Permanent deletion is
+deliberately two-step: the order must already be archived and the admin must
+confirm its external order ID exactly. See
+[the full flow reference](architecture-full-technical.md#53a-postponement-and-resume)
+and [the source-of-truth registry](architecture-sources-of-truth.md).
+
 ## Working references
 
 - [Sources of truth](architecture-sources-of-truth.md) — centralized helpers,

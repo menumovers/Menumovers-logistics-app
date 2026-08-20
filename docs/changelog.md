@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-08-20 — Postponed orders resume; admins gain archive and safe deletion
+
+Resuming now restores the actual pre-postpone state from the status audit trail:
+unassigned work returns to `pending`, while assigned or in-motion work retains
+its rider and prior status. Admins and coordinators can resolve any eligible
+order; riders can resume only their own assigned order.
+
+Order archiving is separate from delivery status. Archived orders are removed
+from normal operational, trip, workload, and bundle-pickup paths but remain
+available to admins for audit and restoration. Permanent deletion is admin-only
+and requires both prior archival and an exact external-order-ID confirmation.
+
 ## 2026-08-19 — Coordinator overview rebuilt as a three-column board
 
 Same list/detail split as the rider and restaurant overviews: `pages/coordinator.tsx`

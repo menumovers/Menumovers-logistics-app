@@ -863,6 +863,49 @@ actually do before running it for real.
 
 ---
 
+## D17. Postponement is reversible; archiving is a separate record lifecycle
+
+**Decided and built 2026-08-20.**
+
+`postponed` remains an **order status**: a report that delivery work has been
+set aside. It is not an attempt to remove the record. Resuming must therefore
+recover the exact status that was in effect when the order was postponed:
+
+- An unassigned postponed order resumes to `pending`.
+- An assigned or in-motion order resumes to its exact previous status and keeps
+  its rider.
+- Admins and coordinators may resume any eligible order. A rider may resume
+  only an order assigned to that rider. Restaurant staff may not resume.
+
+The existing `order_status_logs` entry for the real transition into
+`postponed` is the source of that previous status. This keeps the recovery
+state in the same audit trail that explains *why* a delivery was paused and
+avoids a separate “status before postpone” field that could drift. Same-status
+operational audit events are not postpone provenance, so they must not be used
+as the resume source. The resuming write also preserves the rider/status
+invariant atomically rather than relying on the prior read.
+
+**Archiving answers a different question:** whether a record should participate
+in current operations. It is independent of delivery status and leaves the
+order, its audit history, source payload, and relationships intact. An admin can
+archive an active or in-motion order when it must disappear from the operational
+surface without erasing history; ordinary lists, trip views/mutations, rider
+workload counts, bundled-pickup calculation, and non-admin subresources exclude
+it. Only admins may inspect archived records, restore them, or delete them.
+
+Permanent deletion is deliberately a two-step, admin-only action: archive the
+order first, then repeat its exact external order ID in the delete request.
+This protects against a casual destructive click while still allowing an
+operator to remove a record when required. Foreign keys remove order-owned
+dependent data; webhook retry history remains as an event with a null order
+reference. Inbound replays do not clear archive metadata or revive the order.
+
+**What this does not do:** archiving does not change delivery status, release a
+rider, dissolve a trip, or send an archived record back into operational views
+on replay. Restoration reverses only the archive state.
+
+---
+
 # Told once, not to be asked again
 
 The two sections below exist because the decision log above did not stop things

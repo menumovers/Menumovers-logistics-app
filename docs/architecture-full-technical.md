@@ -30,8 +30,16 @@ What the system does:
 
 - Ingests orders from the distribution service (idempotent, authenticated by a hashed per-source credential).
 - Tracks every order through a reported status lifecycle. The expected order of events is `pending → rider_assigned → rider_accepted → en_route_to_restaurant → arrived_at_restaurant → picked_up → en_route_to_customer → delivered`, but status is a *report* of where things stand rather than a gate: skipping ahead and correcting a mis-tap are both accepted, and the audit trail records the jump that actually happened. Four invariants remain — `pending` and `rider_assigned` are coupled to `riderId` and written only by `POST /orders/:id/assign`; `rider_accepted` is reportable only from `rider_assigned` (otherwise, like `pending`/`rider_assigned`, it's reachable solely via `POST /orders/:id/assign` — a rider self-claiming an open order, or a trip assigning one, lands directly on `rider_accepted`, skipping the coordinator-assign step entirely); `delivered` and `failed` are terminal (only `delivered → failed` leaves); and a transition must actually move the order. See `docs/workflow-decisions.md` D1 and D16.
+- Treats postponement as reversible status reporting: `POST /orders/:id/resume`
+  restores the status captured by the real postpone audit transition, returning
+  unassigned work to `pending` and preserving the rider on assigned/in-motion
+  work. Admins and coordinators can resume any eligible order; riders can
+  resume only their own assigned work.
 - Lets coordinators bundle multiple orders into a `Trip` so one rider executes them as a single pickup pass; restaurants see a unified bundled pickup time per trip.
 - Lets coordinators and admins assign riders atomically, override pickup times, override delivery contact info, and add or hide items per order.
+- Lets admins archive an order out of day-to-day operations without losing its
+  audit history, restore it later, or permanently delete it only after archival
+  and an exact external-order-ID confirmation.
 - Lets riders self-claim unassigned orders, propose a pickup time, and advance status from their device.
 - Lets restaurant staff see only their own restaurant's orders, acknowledge them according to the restaurant's acceptance mode, adjust the restaurant-side pickup time when applicable, and report that food is ready.
 - Notifies the right audiences via Web Push on every significant event.
@@ -80,7 +88,7 @@ What the system explicitly does not do:
 │   │       │                       and daily settings reset.
 │   │       ├── routes/            One file per resource. All mounted at /api.
 │   │       │                       (auth, health, orders, riders, restaurants, users,
-│   │       │                        settings, push, trips)
+│   │       │                        settings, push, trips, order-items)
 │   │       ├── middlewares/       error-handler.ts, rate-limit.ts
 │   │       └── lib/               auth, errors, logger, state-machine, pickup-time,
 │   │                              push, push-triggers, webhook, order-serialize,
@@ -144,6 +152,44 @@ What the system explicitly does not do:
 4. `audienceForStatus(to)` resolves the audience (e.g. coordinators+admins for `picked_up`, all coordinators+admins for `failed`); `push.ts` sends.
 5. `enqueueOutbound("order.status_changed", ...)` fires.
 
+### 5.3a Postponement and resume
+
+- `postponed` is a delivery status, not a record-retention state. The initial
+  postpone writes an `order_status_logs` row containing the status it replaced.
+- `POST /api/orders/:id/resume` is available to admins/coordinators for any
+  eligible order and to riders only when the order remains assigned to their
+  rider record. It locates the latest genuine transition *to* `postponed`,
+  ignoring same-status audit events such as forced in-motion trip reassignment.
+- The endpoint restores that logged `fromStatus` rather than deriving a new
+  status from current trip membership. Consequently an unassigned postponed
+  order returns to `pending`, while an assigned/in-motion order keeps its
+  `riderId` and returns to its prior status.
+- Resume validates the rider/status pairing both before and inside the guarded
+  update. It refuses an inconsistent pairing instead of producing `pending`
+  with a rider or active work without one, then writes its own status-log row
+  and emits the normal status event.
+
+### 5.3b Archive, restore, and permanent deletion
+
+- Archive is a separate axis from delivery status: `orders.archivedAt` and
+  `archivedByUserId` remove a record from active operational reads without
+  rewriting its status, rider, trip link, history, or original payload.
+- `POST /api/orders/:id/archive` and `POST /api/orders/:id/restore` are
+  admin-only and use conditional writes so concurrent archive-state changes
+  return a conflict instead of overwriting one another.
+- Active lists, non-admin detail/subresources, trip detail/list/build/reassign/
+  stop-replacement/dissolution paths, rider workload counts, and bundled-pickup
+  calculations all exclude archived orders. Admins can list with
+  `archived=true` and inspect archived detail/original items; coordinators,
+  riders, and restaurant staff receive the same not-found boundary as for any
+  out-of-scope order.
+- `DELETE /api/orders/:id` is admin-only and is intentionally not a shortcut:
+  it succeeds only for an already archived record after the request repeats the
+  order's exact `externalOrderId`. Foreign-key actions remove dependent
+  order-owned data; webhook retry rows retain their event but lose the deleted
+  order reference. Inbound idempotency replays never clear archive metadata or
+  revive an archived order.
+
 ### 5.4 Pickup time priority and updates
 
 - Four candidate fields exist on the order: `pickupTimeOriginal`, `pickupTimeRider`, `pickupTimeRestaurant`, `pickupTimeOverride`.
@@ -176,7 +222,14 @@ What the system explicitly does not do:
 3. `PUT /api/trips/:id/stops` (admin/coordinator) replaces the stop list within a transaction, validating that every supplied `orderId` is currently on the trip. Stops are replaced wholesale with nothing carried across: they record what to do and in what order, never whether it happened. Progress is derived from each order's status (D6), which this endpoint does not touch, so a re-order cannot lose it.
 4. `POST /api/trips/:id/dissolve` (admin/coordinator/own-rider) runs in a transaction. Pre-flight orders (`pending`/`rider_assigned`/`rider_accepted`) are reverted to `pending` with `riderId` and `tripId` cleared and a `rider_assignments` row written for audit; in-flight orders keep their status and rider but lose their `tripId`. The trip moves to `dissolved`. `audienceForTripDissolved` fires push to coordinators, the previously-assigned rider, and restaurant staff for the affected orders.
 5. `audienceForOpenTrip` exists for surfacing unclaimed trips to coordinators; rider-side discovery of open trips uses the regular trip list, gated by `system_settings.allow_rider_self_claim`.
-6. The order state machine extension that powers trip-driven postpone is documented in section 5.3 above and in the SSOT — `postponed` is reachable from `en_route_to_restaurant` and `en_route_to_customer`, resumes back to either, and accepts `failed` from there.
+6. Archived orders are excluded at every operational trip boundary. They cannot
+   be added, reassigned, have stops replaced, or influence a trip's pickup
+   calculation; trip detail and rider-facing trip progress omit them. An archive
+   does not rewrite the remaining trip or its other orders.
+7. The order state machine extension that powers trip-driven postpone is
+   documented in section 5.3a above and in the SSOT — `postponed` is reachable
+   from `en_route_to_restaurant` and `en_route_to_customer`, resumes back to
+   either, and accepts `failed` from there.
 
 ### 5.9 Frontend polling
 
@@ -212,6 +265,11 @@ What the system explicitly does not do:
 - `requireRole(...roles)` gates by intersection: it allows a request when any current account role appears in the route's explicit allowlist. There is no inherited role hierarchy in this helper; routes include `admin` explicitly wherever an admin is allowed.
 - `POST /users` creates the account and its role rows in one transaction. `PATCH /users/:id` locks that account row before reading and replacing role rows, so concurrent edits cannot calculate a role diff from stale assignments. The API exposes `roles[]`, never a legacy or singular role field.
 - Restaurant staff queries are scoped by `req.auth.restaurantId` in the SQL `WHERE` clause, ANDed with `notHeld()` so an order on hold is invisible to the restaurant it belongs to (D2 — holds are admin/coordinator triage only). Riders are scoped by `req.auth.riderId`. The filtering happens at the database layer, not in JS.
+- Archived-order access is stricter than active-order access: an admin may list
+  and inspect archived records for audit and restore/delete them; all other
+  roles are denied archived lists and receive 404 for archived detail and
+  operational subresources. This prevents a coordinator's otherwise-valid
+  active-order permission from becoming historical-record access.
 - Frontend has a `RequireRole` guard component in `App.tsx` for direct-URL navigation safety, but the server is the only authority.
 
 ### Inbound
@@ -226,7 +284,11 @@ What the system explicitly does not do:
 4. **No timezone per restaurant.** Server is UTC, client renders in the active locale. DST transitions work because we render with `Intl.DateTimeFormat` from a UTC instant, but if the cooperative ever expands beyond Europe/Amsterdam this will need per-restaurant timezone storage. See `docs/todo-roadmap.md` item 5.
 5. **Single global outbound webhook URL.** A natural evolution is per-restaurant or per-brand targets. Today, all outbound events go to one URL pulled from env or `system_settings`.
 6. **Money is a string everywhere.** This is by design (see Hard Policy 2). It means we cannot show "subtotals" without trusting the upstream payload — which is correct, the cooperative is a passthrough.
-7. **No automated tests yet.** This is the highest-priority deferred work (see `docs/todo.md` and `docs/todo-roadmap.md`). Current safety relies on TypeScript, Zod, the centralized utilities, and manual testing.
+7. **No full automated test suite or CI gate yet.** The API has a runnable
+   `smoke.mjs` flow that seeds isolated data and covers critical order lifecycle,
+   trip, archive/restore/delete, and authorization behavior against a running
+   server, but it is not a unit/integration test runner. Broader repeatable
+   coverage remains deferred (see `docs/todo.md` and `docs/todo-roadmap.md`).
 8. **`as unknown as` casts are forbidden.** Where a shape mismatch shows up, the fix is to widen the canonical model, not cast around it. Example: `AvailabilityRow` (`rider.tsx`) used to read a rider's own status by fetching the full rider list and filtering (`useListRiders.find`) — which is `admin`/`coordinator`-only server-side, so it silently 403'd for actual riders and the status pill never highlighted correctly. Fixed by adding a role-scoped `availabilityStatus` to `CurrentUser` (`GET /auth/me`, null for non-riders) instead of working around the gap.
 9. **The web client and the API are deployed as separate artifacts behind a path-based proxy.** This is a workspace convention, not a hard architectural choice — a single Express server could serve both in production.
 
@@ -235,7 +297,7 @@ What the system explicitly does not do:
 This section is intentionally short — `docs/todo-roadmap.md` is the detailed register. The thematic areas:
 
 - **Quality and reliability**: automated test suite, expanded structured logging, centralized error response shape (mostly done), rate-limit tuning, timezone modeling.
-- **Operations and admin**: CSV export of filtered order lists, order delete and duplicate, per-restaurant or per-brand outbound webhooks, an admin analytics dashboard, rider shift scheduling.
+- **Operations and admin**: CSV export of filtered order lists, order duplication, per-restaurant or per-brand outbound webhooks, an admin analytics dashboard, rider shift scheduling.
 - **UX**: a step-by-step rider mobile flow, a customer-facing public status page, per-user notification preferences.
 - **Architecture**: a real-time channel (WebSockets or SSE) supplementing the 30-second polling.
 

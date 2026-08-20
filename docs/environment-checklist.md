@@ -315,6 +315,29 @@ than asserted.
 
 ---
 
+## Part 5c — Order lifecycle and archival verification, 2026-08-20
+
+The API smoke flow (`artifacts/api-server/smoke.mjs`) was run against the
+running API after the schema push. It creates isolated test users, rider,
+restaurant, inbound credential, order, and trip records.
+
+| Flow | Verified behavior |
+|---|---|
+| Resume pending order | A postponed unassigned order returns to `pending`. |
+| Resume in-motion order | A postponed `en_route_to_restaurant` order returns to that exact status and retains its rider. |
+| Archive boundary | Archiving removes the record from active lists, rider trip data, rider workload counts, and bundle calculations. |
+| Admin audit access | An admin can list (`archived=true`), inspect detail, and inspect original items for an archived order. |
+| Non-admin denial | Coordinator archived detail and original-item requests return 404; riders cannot request archived lists. |
+| Restore | Restore clears only archive metadata and returns the unchanged delivery record to active operations. |
+| Permanent deletion | A non-matching confirmation returns 409; an archived record with its exact external order ID deletes with 204. |
+
+Schema verification also passed with `pnpm --filter @workspace/db run
+db:live-drift`. The repository's separate `db:drift` command remains a
+working-tree/commit-state guard in this push-based workflow; it is not the
+live-schema verification.
+
+---
+
 ## Part 6 — Known gaps
 
 - **No automated tests, and the stand-in scripts rot.** 162 assertions across

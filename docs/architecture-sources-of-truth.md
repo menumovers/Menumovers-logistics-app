@@ -70,6 +70,13 @@ The structure for each entry: **Name**, **Location**, **What it does**, **Formul
 - **Callers**: `routes/orders.ts` on every status-changing endpoint; `routes/trips.ts` for trip-driven postpone/resume; `lib/order-serialize.ts` for `allowedTransitions`.
 - **Do not**: keep a transition table in a client. Both the coordinator and rider pages previously did, and drifted from the server and from each other (`docs/todo-bugs.md` B6) — render `order.allowedTransitions` instead. A client-side ordering of the *expected* path, such as the rider's primary next-step button, is presentation and is fine; validity is not. Do not implement a parallel "can this role do X here" check in the frontend either: the frontend may hide buttons, but the server is the only authority.
 
+### Postponement resume
+- **Location**: `artifacts/api-server/src/routes/orders.ts` → `POST /orders/:id/resume`; postpone provenance in `orderStatusLogsTable`.
+- **What it does**: Restores the exact `fromStatus` of the latest genuine transition into `postponed`. This returns unassigned work to `pending` and returns assigned/in-motion work to its previous state without changing its rider.
+- **Authorization**: admin/coordinator may resume any eligible active order; a rider may resume only an order assigned to that rider. Restaurant staff cannot resume.
+- **Safety rules**: ignores same-status audit events, requires a real pre-postpone status, and guards the status/rider invariant inside the conditional update so a concurrent reassignment cannot create `pending` with a rider or active work without one.
+- **Do not**: add a “pre-postpone status” column or infer the target from trip state. The append-only status log is the existing authoritative history; a second stored status would be another source that can drift.
+
 ### Pre-flight order statuses (trips)
 - **Location**: `artifacts/api-server/src/routes/trips.ts` → `PRE_FLIGHT_STATUSES`
 - **What it does**: The set of statuses — `pending`, `rider_assigned`, `rider_accepted` — an order can be in before it's "in motion" (`en_route_to_restaurant` or later). Trip membership and rider can be freely changed for an order in one of these; anything past it is in-flight, and reassignment/dissolve preserve its status instead of rewinding it.
@@ -84,6 +91,9 @@ The structure for each entry: **Name**, **Location**, **What it does**, **Formul
 - **Reassignment in motion**: `PATCH /trips/:id` with a changed `riderId` returns `409 TRIP_IN_MOTION` when any order on the trip is at or past `picked_up`, unless the caller passes `force: true`. The coordinator UI (`pages/coordinator-trip.tsx`) catches that error code, opens a confirmation dialog, and re-issues the same patch with `force: true` on confirm. The server still preserves in-flight order statuses; only the trip's rider is swapped.
 - **Callers**: coordinator UI (`pages/coordinator-trip-builder.tsx`, `pages/coordinator-trip.tsx`, `pages/coordinator.tsx` `TripsSection`), rider UI (`pages/rider.tsx` trips section, `pages/rider-trip.tsx`, `pages/rider-order.tsx` trip banner + postpone/resume), restaurant UI (`pages/restaurant.tsx` `BundleSection` — grouping/summary only; `pages/restaurant-order.tsx` renders the bundle's individual orders).
 - **Do not**: render trips by `tripId` UUID in user-facing copy — always use `tripNumber`. Do not compute the bundle pickup time on the client; rely on `bundlePickupTime` from the API. Do not write a trip mutation outside a `db.transaction` — the row-lock invariant is what makes the concurrent-edit guarantees hold. Do not bypass the `TRIP_IN_MOTION` guard at the call site by issuing `force: true` without surfacing the warning to the user.
+- **Archive boundary**: archived orders are excluded from the trip-mate query before
+  the bundled pickup time is calculated. An archived record must never change
+  the time shown for its active trip mates.
 
 ### Trip progress
 - **Location**: `artifacts/api-server/src/lib/trip-progress.ts` (`stopStateFor`, `tripProgress`); phrasing in `artifacts/bestellenbij/src/lib/trip-progress.ts`.
@@ -234,6 +244,13 @@ The structure for each entry: **Name**, **Location**, **What it does**, **Formul
 - **What it does**: `serializeOrderDetail`, `serializeOrderListItems` — produces the wire shape (effective pickup, applied items, status logs, rider/restaurant joins).
 - **Do not**: serialize an order ad hoc in a route. Add a new serializer here if you need a new shape.
 
+### Order archive lifecycle and visibility boundary
+- **Location**: persistence in `lib/db/src/schema/orders.ts` (`archivedAt`, `archivedByUserId`); lifecycle routes and active-order loaders in `artifacts/api-server/src/routes/orders.ts`; original-item boundary in `routes/order-items.ts`; trip and workload filters in `routes/trips.ts` and `routes/riders.ts`.
+- **What it does**: Separates record retention from the delivery status. Active operational reads add `archivedAt IS NULL`; admin archive views opt in with the literal `archived=true` list parameter. Admins alone can inspect an archived record, restore it, or permanently delete it.
+- **Permanent deletion rule**: `DELETE /orders/:id` accepts only an already archived order and only when the request repeats that order's exact `externalOrderId`. Database foreign keys delete dependent order data; retained webhook retry records have their order reference set to null.
+- **Replay rule**: inbound idempotency updates may refresh mutable source data but never clear archive metadata or revive an archived record.
+- **Do not**: model archive as an `OrderStatus`, hide it only in the frontend, or use `archived=false` as a truthy generic query flag. Treat archive filtering as an authorization and data-access boundary, not a presentation choice.
+
 ### HTTP errors
 - **Location**: `artifacts/api-server/src/lib/errors.ts` → `AppError`, `httpError(status, code, message)`
 - **What it does**: Typed errors with a stable `code`. Caught and rendered consistently by `middlewares/error-handler.ts` as `{ error, code, requestId, [details] }`.
@@ -295,7 +312,8 @@ All routes are mounted under `/api` (see `artifacts/api-server/src/app.ts` → `
 | --- | --- | --- | --- |
 | Health | `routes/health.ts` | `/api/healthz` | GET healthz |
 | Auth | `routes/auth.ts` | `/api/auth/*` | POST login, POST logout, GET me |
-| Orders | `routes/orders.ts` | `/api/orders/*`, `/api/inbound/orders` | POST inbound (per-source hashed credential), GET list/detail, POST assign/status/pickup-time, restaurant accept/ready, hold/release/resolve-restaurant, item hide/add, contact, rider-notification |
+| Orders | `routes/orders.ts` | `/api/orders/*`, `/api/inbound/orders` | POST inbound (per-source hashed credential), GET list/detail (admin-only archived view), archive/restore/permanent delete, assign/status/resume/pickup-time, restaurant accept/ready, hold/release/resolve-restaurant, item hide/add, contact, rider-notification |
+| Order items | `routes/order-items.ts` | `/api/orders/:id/items/*` | GET immutable original item list (active: admin/coordinator; archived: admin only), DELETE a hide override |
 | Riders | `routes/riders.ts` | `/api/riders/*` | GET list, POST create, PATCH availability, POST suspend |
 | Restaurants | `routes/restaurants.ts` | `/api/restaurants/*` | GET list, POST create, PATCH, DELETE |
 | Users | `routes/users.ts` | `/api/users/*` | GET, POST, PATCH, DELETE |
