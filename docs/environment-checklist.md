@@ -89,6 +89,18 @@ pnpm --filter @workspace/db run push
 - [x] `pnpm --filter @workspace/db run db:drift` reports no uncommitted schema files
 - [x] `pnpm --filter @workspace/db run db:live-drift` reports no live/schema delta
 
+> **This verification predates later schema changes and no longer reflects
+> current live-database state.** D15 (2026-08-18, no DDL) and **D16
+> (2026-08-19) do** change the schema — D16 renames `order_status`'s
+> `driver_assigned` value to `rider_assigned` and adds `rider_accepted` /
+> `arrived_at_restaurant`. A live environment that hasn't had `push` re-run
+> since will 500 on any write that lands on one of the new/renamed values
+> (self-claiming a delivery is the one most likely to be hit first). The
+> rename is not purely additive: if the target database has real orders
+> currently sitting in `driver_assigned`, re-run `db:live-drift` first and
+> read its output before pushing — see D16 for what a safe apply looks like
+> (`ALTER TYPE ... RENAME VALUE`, not a drop-and-recreate of the enum).
+
 ### ⚠ The no-ceremony rule expired on 2026-08-14
 
 For the duration of that session only, the owner's instruction was: *"there is
@@ -168,9 +180,12 @@ with what was observed — those verify the code, not the deployment.
       confirm should record the acknowledgement and leave the pickup time alone;
       choosing "10 min later" should move `pickupTimeRestaurant` and log a
       pickup-time adjustment. Confirming twice must not overwrite who confirmed.
-- [ ] **Check the coordinator board** shows "Unconfirmed" on orders the
-      restaurant hasn't acknowledged — and that assigning one still works,
-      since acknowledgement gates nothing.
+- [ ] **Check the coordinator board** shows the "Ne" (not yet accepted) vs
+      "Ac" (accepted) restaurant-acceptance pill on order cards matching
+      whether the restaurant has acknowledged — and that assigning one still
+      works, since acknowledgement gates nothing. (This card replaced an
+      inline "Unconfirmed" text label when the coordinator overview was
+      rebuilt as a compact-card board — 2026-08-19.)
 - [ ] **Set a pickup time several days out** from the dispatch board, the rider
       screen and the restaurant screen. All three should keep the date you
       chose. This was B1 — previously the date could only ever be today or

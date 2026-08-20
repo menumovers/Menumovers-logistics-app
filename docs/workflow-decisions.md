@@ -33,14 +33,19 @@ refused today.
 **"Not a gate" is not "no validation."** These remain, because they are
 invariants rather than workflow rules:
 
-- `driver_assigned` is reachable only via `POST /orders/:id/assign`, so status
-  and `riderId` are always written together.
+- `rider_assigned` (renamed from `driver_assigned` by D16) is reachable only
+  via `POST /orders/:id/assign`, so status and `riderId` are always written
+  together.
 - The atomic `UPDATE … WHERE status = <observed>` guard stays; it prevents
   concurrent writes clobbering each other.
 - `delivered` and `failed` are terminal. Leaving them stays deliberate rather
   than a side effect of a stray tap. (`delivered → failed` is currently
   permitted and is *intentional* — `state-machine.ts` says so explicitly. Worth
   re-confirming when D1 lands, but it is not an oversight to clean up.)
+- **Added by D16:** `rider_accepted` is reportable via a bare status report
+  only when the current status is `rider_assigned` — otherwise, like
+  `pending`/`rider_assigned`, it's reachable solely and atomically via
+  `POST /orders/:id/assign`.
 
 **Consequence:** a restaurant reporting `picked_up` is a second observer
 corroborating an event, not a claim on the rider's role. This dissolves the
@@ -768,6 +773,93 @@ contract change (here, Babeldish + this app) is not atomic across a
 deployment boundary, so a field can legitimately exist in `originalPayload`
 before it exists in `items` for orders ingested mid-rollout. See the new
 "Inbound item field mapping" entry in `architecture-sources-of-truth.md`.
+
+---
+
+## D16. Rider acceptance and restaurant arrival become real statuses; `driver_assigned` renamed
+
+**Decided 2026-08-19. Built 2026-08-19** — `order_status` enum, `lib/state-machine.ts`,
+`routes/orders.ts`, `routes/trips.ts`, `routes/riders.ts`, `lib/push-triggers.ts`,
+and every frontend screen that names a status. Needs a schema push — see
+`docs/environment-checklist.md`.
+
+Two changes bundled together because they touch the same enum and landed in
+the same session.
+
+**Rename.** `driver_assigned` became `rider_assigned` — pure terminology, to
+match "rider" everywhere else in the app (the UI, the schema's `riders` table,
+`riderId` throughout). No behavior change.
+
+**Two new statuses.** The lifecycle was:
+
+```
+pending → driver_assigned → en_route_to_restaurant → picked_up → en_route_to_customer → delivered
+```
+
+and is now:
+
+```
+pending → rider_assigned → rider_accepted → en_route_to_restaurant → arrived_at_restaurant → picked_up → en_route_to_customer → delivered
+```
+
+- **`rider_accepted`.** "Assigned" used to mean two different things depending
+  on who caused it: a coordinator picking a rider for an order they haven't
+  seen yet, or a rider grabbing an open order themselves — already, by the act
+  of claiming, having accepted it. Collapsing both into one status hid that
+  difference. Now:
+  - **Coordinator/admin assigns** (`POST /orders/:id/assign` by a non-rider
+    caller) → `rider_assigned`. The rider hasn't acted yet.
+  - **Rider self-claims** (`POST /orders/:id/assign` by the rider being
+    assigned) → `rider_accepted` directly. Claiming for yourself already
+    implies acceptance; there is no separate rider to wait on.
+  - **The assigned rider accepts** → reports `rider_accepted` themselves via
+    `POST /orders/:id/status`, same as any other status report, but gated:
+    only reportable when the order is currently `rider_assigned` (state
+    machine rule 4 below). This is the one new piece of rider-facing UI —
+    everything else fell out of the existing `allowedTransitions`-driven
+    machinery for free.
+  - **Trip assignment** (`POST /trips`, or a rider swap on `PATCH
+    /trips/:id`) → `rider_accepted` directly, same as self-claim. Trips have
+    no per-order or per-trip accept UI today, and inventing one wasn't part
+    of this change — deliberately deferred, revisit if wanted later.
+- **`arrived_at_restaurant`**, between `en_route_to_restaurant` and
+  `picked_up`. No special coupling; a normal reportable status like the other
+  en-route statuses.
+
+**New state-machine rule.** `rider_accepted` can't be reached by a bare status
+report from anywhere but `rider_assigned` — otherwise a report could set
+`rider_accepted` on an order with no rider attached, the same class of bug the
+`pending`/`rider_assigned` coupling already guards against. Everything else
+about D1 is unchanged: skipping ahead and correcting backwards still work
+everywhere else, and the frontend still renders `allowedTransitions` rather
+than keeping a transition table.
+
+**Consequence for trips.** `trips.ts` had six call sites treating
+`{pending, driver_assigned}` as "not yet in motion, rider/trip membership
+freely changeable" — now three statuses, not two, replaced by a shared
+`PRE_FLIGHT_STATUSES` constant (new SSOT entry) instead of six hand-spelled
+arrays.
+
+**Consequence for the coordinator board.** Rebuilt the same session — see the
+changelog and the SSOT change log for that piece. Needed one small backend
+addition: `Order` gained a serialized `updatedAt` (the column already
+existed, just wasn't exposed), so the board's "delivered in the last hour"
+window has something to filter on.
+
+**Applying this to a database with real data.** Unlike most of this
+document's schema changes, the rename half is not purely additive — a live
+environment almost certainly has orders currently sitting in
+`driver_assigned` status (real riders, real in-flight deliveries). Same
+concern as item 10 in `environment-checklist.md` (`delivery_address` →
+`delivery_address_original`): `drizzle-kit push` may offer a rename as a
+drop-and-add rather than a rename, which for an enum *value* in use by
+existing rows would be destructive or fail outright. Postgres supports
+`ALTER TYPE order_status RENAME VALUE 'driver_assigned' TO 'rider_assigned'`
+directly — a metadata-only change, no row rewrite, existing rows read back as
+the new name automatically. Prefer that over accepting whatever `push`
+proposes without reading it; `db:live-drift` (read-only, computes the
+statements without applying them) is the way to check what `push` would
+actually do before running it for real.
 
 ---
 
