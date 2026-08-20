@@ -2,9 +2,7 @@ import { useTranslation } from "react-i18next";
 import { Link } from "wouter";
 import {
   useListOrders,
-  useListRestaurants,
   getListOrdersQueryKey,
-  getListRestaurantsQueryKey,
   type OrderListItem,
 } from "@workspace/api-client-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -25,8 +23,6 @@ export default function RestaurantPage() {
     { restaurantId: restId },
     { query: { queryKey: getListOrdersQueryKey({ restaurantId: restId }), refetchInterval: 30_000, enabled: !!restId } },
   );
-  const restaurants = useListRestaurants({ query: { queryKey: getListRestaurantsQueryKey() } });
-  const myRestaurant = restaurants.data?.find((r) => r.id === restId);
 
   const active = (orders.data ?? []).filter((o) => !["delivered", "failed"].includes(o.status));
 
@@ -52,15 +48,7 @@ export default function RestaurantPage() {
 
   return (
     <div className="space-y-6">
-      <header className="flex items-end justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">{t("restaurant.title")}</h1>
-          {myRestaurant ? (
-            <p className="text-muted-foreground text-sm">
-              {myRestaurant.name} · {t("restaurant.minDelivery")}: {myRestaurant.minDeliveryTime} {t("common.minutes")}
-            </p>
-          ) : null}
-        </div>
+      <header className="flex justify-end">
         <div className="text-sm text-muted-foreground" data-testid="text-active-count">
           {t("coordinator.ordersCount", { count: active.length })}
         </div>
