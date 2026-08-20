@@ -1,3 +1,4 @@
 - [DB schema sync requirement](db-schema-sync.md) — after any schema change, db:live-drift must be run and drift must be pushed; db:drift alone is not sufficient.
 - [Drizzle temporary-table safety](drizzle-temporary-table-safety.md) — tables not represented in the Drizzle schema can be removed by push; do not rely on them for migration backups.
 - [Order-status audit events](order-status-audit-events.md) — same-status logs can be operational events; restoration flows must locate real transitions and guard rider/state invariants together.
+- [PWA icon cache updates](pwa-icon-cache-updates.md) — install icons are manifest PNGs, not the favicon; version all changed icon URLs and service-worker caches together.
