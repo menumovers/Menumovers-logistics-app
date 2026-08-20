@@ -19,6 +19,7 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { PickupCountdown } from "@/components/pickup-countdown";
+import { PickupTimeTypeIcon } from "@/components/delivery-expectation";
 import { useAuth } from "@/lib/auth";
 import { ArrowRight, ChevronRight, Layers } from "lucide-react";
 import { motion } from "framer-motion";
@@ -35,6 +36,7 @@ const AVAILABILITY_BG: Record<RiderAvailabilityType, string> = {
 
 const ACTIVE_STATUSES: ReadonlyArray<OrderListItem["status"]> = [
   "en_route_to_restaurant",
+  "arrived_at_restaurant",
   "picked_up",
   "en_route_to_customer",
   "postponed",
@@ -73,7 +75,9 @@ export default function RiderPage() {
   const all = orders.data ?? [];
   const mine = all.filter((o) => o.riderId === riderId);
   const active = mine.filter((o) => ACTIVE_STATUSES.includes(o.status));
-  const queue = mine.filter((o) => o.status === "driver_assigned");
+  const queue = mine.filter(
+    (o) => o.status === "rider_assigned" || o.status === "rider_accepted",
+  );
   const open = all.filter((o) => o.status === "pending" && !o.riderId);
 
   return (
@@ -281,7 +285,10 @@ function RiderOrderCard({ order, lang }: { order: OrderListItem; lang: string })
               <span className="font-semibold text-right">{order.restaurantName}</span>
             </div>
             <div className="flex items-center justify-between gap-3 text-sm text-muted-foreground">
-              <span>{t("rider.pickupCompact")} {formatTime(eff.iso, lang)}</span>
+              <span className="inline-flex items-center gap-1">
+                <PickupTimeTypeIcon deliveryTimeType={order.deliveryTimeType} />
+                {t("rider.pickupCompact")} {formatTime(eff.iso, lang)}
+              </span>
               <span className="flex items-center gap-1 text-right">
                 <ArrowRight className="size-3.5 shrink-0" />
                 {order.deliveryAddress}

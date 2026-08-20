@@ -40,8 +40,10 @@ import { effectivePickup, formatCurrency, formatTime } from "@/lib/format";
  * step" below. See docs/workflow-decisions.md D1.
  */
 const HAPPY_PATH: Partial<Record<OrderStatusType, OrderStatusType>> = {
-  driver_assigned: "en_route_to_restaurant",
-  en_route_to_restaurant: "picked_up",
+  rider_assigned: "rider_accepted",
+  rider_accepted: "en_route_to_restaurant",
+  en_route_to_restaurant: "arrived_at_restaurant",
+  arrived_at_restaurant: "picked_up",
   picked_up: "en_route_to_customer",
   en_route_to_customer: "delivered",
 };

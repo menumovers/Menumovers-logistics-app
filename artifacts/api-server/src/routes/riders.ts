@@ -20,8 +20,10 @@ const wrap =
   };
 
 const ACTIVE_STATUSES = [
-  "driver_assigned",
+  "rider_assigned",
+  "rider_accepted",
   "en_route_to_restaurant",
+  "arrived_at_restaurant",
   "picked_up",
   "en_route_to_customer",
 ] as const;

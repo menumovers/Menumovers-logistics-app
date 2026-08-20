@@ -12,10 +12,10 @@ export interface UpdateTripRequest {
   /** @nullable */
   riderId?: string | null;
   /** Required when reassigning a rider while one or more orders on the trip
-are already in motion (past `driver_assigned`). When omitted or false
-and in-flight orders exist, the API returns 409
-`INFLIGHT_REASSIGN_REQUIRES_CONFIRM` with an `inFlightOrders` detail
-payload so the UI can confirm.
+are already in motion (past the pre-flight stage — `pending`,
+`rider_assigned`, `rider_accepted`). When omitted or false and in-flight
+orders exist, the API returns 409 `INFLIGHT_REASSIGN_REQUIRES_CONFIRM`
+with an `inFlightOrders` detail payload so the UI can confirm.
  */
   force?: boolean;
 }

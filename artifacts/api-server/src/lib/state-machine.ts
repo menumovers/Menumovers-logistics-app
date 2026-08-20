@@ -13,11 +13,11 @@ import { ORDER_STATUSES, type OrderStatus } from "@workspace/db";
  * a rider who forgot "en route to restaurant", arrived, and tapped "picked up"
  * was refused while standing outside the restaurant.
  *
- * **"Not a gate" is not "no validation."** Three rules remain, because each is
+ * **"Not a gate" is not "no validation."** Four rules remain, because each is
  * an invariant about data consistency rather than a rule about workflow order:
  *
- *  1. `pending` and `driver_assigned` are not settable here. Both are coupled
- *     to `riderId` — `driver_assigned` must be written together with a rider by
+ *  1. `pending` and `rider_assigned` are not settable here. Both are coupled
+ *     to `riderId` — `rider_assigned` must be written together with a rider by
  *     `POST /orders/:id/assign`, and `pending` means no rider is attached.
  *     Allowing either as a plain report would let status and `riderId` disagree.
  *  2. `delivered` and `failed` are terminal. Leaving them is not a side effect
@@ -25,13 +25,21 @@ import { ORDER_STATUSES, type OrderStatus } from "@workspace/db";
  *     discovered to have failed after the fact — but nothing else leaves.
  *  3. No same-state transition. A report that changes nothing is not a report,
  *     and the route's atomic guard depends on the status actually moving.
+ *  4. `rider_accepted` is reportable only from `rider_assigned`. A coordinator
+ *     assigns a rider (`rider_assigned`); the rider then accepts. That accept
+ *     is otherwise a plain report like any other, but it must not be reachable
+ *     by report-skipping from `pending` or anywhere else — the only other path
+ *     to `rider_accepted` is atomically together with `riderId`, via
+ *     `POST /orders/:id/assign` (rider self-claim, which bypasses this
+ *     function entirely). Without this rule a bare status report could set
+ *     `rider_accepted` on an order with no rider attached.
  *
  * Everything else — forward, skipping ahead, or back to correct a mis-tap — is
  * accepted. See docs/workflow-decisions.md D1.
  */
 
 /** Coupled to `riderId`, so never settable as a bare status report. */
-const RIDER_COUPLED: ReadonlyArray<OrderStatus> = ["pending", "driver_assigned"];
+const RIDER_COUPLED: ReadonlyArray<OrderStatus> = ["pending", "rider_assigned"];
 
 /** Once here, an order does not casually leave. */
 const TERMINAL: ReadonlyArray<OrderStatus> = ["delivered", "failed"];
@@ -45,6 +53,8 @@ export function isValidTransition(from: OrderStatus, to: OrderStatus): boolean {
   if (from === to) return false;
   // Rule 1 — riderId-coupled statuses are written by /assign, not reported.
   if (RIDER_COUPLED.includes(to)) return false;
+  // Rule 4 — rider_accepted is a report, but only from rider_assigned.
+  if (to === "rider_accepted") return from === "rider_assigned";
   // Rule 2 — terminals are sticky; only delivered → failed leaves.
   if (from === "failed") return false;
   if (from === "delivered") return to === "failed";

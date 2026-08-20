@@ -41,6 +41,15 @@ import { stopStateFor, tripProgress } from "../lib/trip-progress";
 
 const router: IRouter = Router();
 
+// An order in one of these hasn't left for the restaurant yet, so trip
+// membership and rider can still be freely changed. Anything past this is
+// "in flight" and status is preserved on reassignment/dissolve.
+const PRE_FLIGHT_STATUSES: ReadonlyArray<OrderStatus> = [
+  "pending",
+  "rider_assigned",
+  "rider_accepted",
+];
+
 const wrap =
   (fn: (req: Request, res: Response) => Promise<void>) =>
   (req: Request, res: Response, next: NextFunction): void => {
@@ -363,7 +372,7 @@ router.post(
             `Order ${o.externalOrderId} is already on a trip`,
           );
         }
-        if (o.status !== "pending" && o.status !== "driver_assigned") {
+        if (!PRE_FLIGHT_STATUSES.includes(o.status)) {
           throw httpError(
             422,
             "ORDER_NOT_BUNDLEABLE",
@@ -402,13 +411,14 @@ router.post(
       );
 
       // Attach orders. If riderId provided, also assign pending orders
-      // (pending → driver_assigned) using a conditional update so a concurrent
-      // change is detected.
+      // (pending → rider_accepted — trip assignment skips the rider_assigned
+      // accept step, same as self-claim) using a conditional update so a
+      // concurrent change is detected.
       for (const o of orders) {
         if (riderId && o.status === "pending") {
           const upd = await tx
             .update(ordersTable)
-            .set({ tripId: createdTrip.id, riderId, status: "driver_assigned" })
+            .set({ tripId: createdTrip.id, riderId, status: "rider_accepted" })
             .where(
               and(
                 eq(ordersTable.id, o.id),
@@ -427,7 +437,7 @@ router.post(
           await tx.insert(orderStatusLogsTable).values({
             orderId: o.id,
             fromStatus: "pending",
-            toStatus: "driver_assigned",
+            toStatus: "rider_accepted",
             actorUserId: auth.sub,
             actorRole: primaryRoleLabel(auth.roles),
             note: `Bundled into trip #${createdTrip.tripNumber}`,
@@ -548,13 +558,12 @@ router.patch(
           .where(eq(ordersTable.tripId, id));
         tripOrdersCount = tripOrders.length;
 
-        // Identify in-flight orders: past driver_assigned but not yet in a
-        // terminal state. We never lock the coordinator out, but we require
+        // Identify in-flight orders: past the pre-flight stage but not yet in
+        // a terminal state. We never lock the coordinator out, but we require
         // an explicit `force: true` so the choice is conscious.
         const inFlight = tripOrders.filter(
           (o) =>
-            o.status !== "pending" &&
-            o.status !== "driver_assigned" &&
+            !PRE_FLIGHT_STATUSES.includes(o.status) &&
             o.status !== "delivered" &&
             o.status !== "failed",
         );
@@ -582,7 +591,7 @@ router.patch(
           // In-flight orders: with force=true, swap the rider but preserve
           // the current status (no rewind of an in-flight leg). Without
           // force we would have already returned 409 above.
-          if (o.status !== "pending" && o.status !== "driver_assigned") {
+          if (!PRE_FLIGHT_STATUSES.includes(o.status)) {
             if (newRiderId !== null && o.riderId !== newRiderId) {
               const upd = await tx
                 .update(ordersTable)
@@ -622,7 +631,7 @@ router.patch(
                 and(
                   eq(ordersTable.id, o.id),
                   eq(ordersTable.tripId, id),
-                  inArray(ordersTable.status, ["pending", "driver_assigned"]),
+                  inArray(ordersTable.status, PRE_FLIGHT_STATUSES),
                 ),
               )
               .returning();
@@ -644,21 +653,21 @@ router.patch(
           } else if (o.riderId !== newRiderId) {
             const upd = await tx
               .update(ordersTable)
-              .set({ riderId: newRiderId, status: "driver_assigned" })
+              .set({ riderId: newRiderId, status: "rider_accepted" })
               .where(
                 and(
                   eq(ordersTable.id, o.id),
                   eq(ordersTable.tripId, id),
-                  inArray(ordersTable.status, ["pending", "driver_assigned"]),
+                  inArray(ordersTable.status, PRE_FLIGHT_STATUSES),
                 ),
               )
               .returning();
             if (upd.length === 0) continue;
-            if (o.status !== "driver_assigned") {
+            if (o.status !== "rider_accepted") {
               await tx.insert(orderStatusLogsTable).values({
                 orderId: o.id,
                 fromStatus: o.status,
-                toStatus: "driver_assigned",
+                toStatus: "rider_accepted",
                 actorUserId: auth.sub,
                 actorRole: primaryRoleLabel(auth.roles),
                 note: `Trip #${trip.tripNumber} reassigned`,
@@ -795,10 +804,10 @@ router.post(
       for (const o of tripOrders) {
         // Pre-flight orders revert to pending; in-flight keep status/rider
         // but detach from the trip. Re-check the order's current status in
-        // the UPDATE so a concurrent rider advance (e.g. driver_assigned →
+        // the UPDATE so a concurrent rider advance (e.g. rider_accepted →
         // picked_up committed between our SELECT and UPDATE) is not silently
         // rewound to pending.
-        if (o.status === "pending" || o.status === "driver_assigned") {
+        if (PRE_FLIGHT_STATUSES.includes(o.status)) {
           const upd = await tx
             .update(ordersTable)
             .set({ tripId: null, riderId: null, status: "pending" })
@@ -806,7 +815,7 @@ router.post(
               and(
                 eq(ordersTable.id, o.id),
                 eq(ordersTable.tripId, id),
-                inArray(ordersTable.status, ["pending", "driver_assigned"]),
+                inArray(ordersTable.status, PRE_FLIGHT_STATUSES),
               ),
             )
             .returning();

@@ -10,8 +10,10 @@ export type OrderStatus = (typeof OrderStatus)[keyof typeof OrderStatus];
 
 export const OrderStatus = {
   pending: "pending",
-  driver_assigned: "driver_assigned",
+  rider_assigned: "rider_assigned",
+  rider_accepted: "rider_accepted",
   en_route_to_restaurant: "en_route_to_restaurant",
+  arrived_at_restaurant: "arrived_at_restaurant",
   picked_up: "picked_up",
   en_route_to_customer: "en_route_to_customer",
   delivered: "delivered",

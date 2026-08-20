@@ -115,10 +115,12 @@ time should be presented as an estimate, never as a promised time.
   failureReason?: string | null;
   /** Statuses reportable from the order's current one, derived server-side from
 the state machine. Status is a report rather than a gate: skipping ahead
-and correcting a mis-tap are both accepted. `pending` and `driver_assigned`
+and correcting a mis-tap are both accepted. `pending` and `rider_assigned`
 never appear — they are coupled to `riderId` and written by
-`POST /orders/{id}/assign`. Clients should render these rather than keep
-their own transition table.
+`POST /orders/{id}/assign`. `rider_accepted` appears only when the current
+status is `rider_assigned` — it is otherwise reachable solely via
+`POST /orders/{id}/assign` (rider self-claim). Clients should render these
+rather than keep their own transition table.
  */
   allowedTransitions: OrderStatus[];
   /**
@@ -178,4 +180,11 @@ another order at the same restaurant.
    */
   bundlePickupTime?: Date | null;
   createdAt: Date;
+  /** Bumped on any change to the order row, not only status. A usable
+proxy for "when did this reach its current state" only once a
+status is terminal (delivered/failed) and therefore unlikely to
+be touched again — do not read it as a status-change timestamp
+for a non-terminal order.
+ */
+  updatedAt: Date;
 }
