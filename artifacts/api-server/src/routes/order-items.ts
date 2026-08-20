@@ -1,5 +1,5 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { db, itemOverridesTable, ordersTable, type OrderItem } from "@workspace/db";
 import { requireAuth, requireRole } from "../lib/auth";
 import { httpError } from "../lib/errors";
@@ -12,11 +12,15 @@ const wrap =
     fn(req, res).catch(next);
   };
 
-async function loadOrderOr404(id: string) {
+async function loadOrderOr404(id: string, includeArchived = false) {
   const [order] = await db
     .select()
     .from(ordersTable)
-    .where(eq(ordersTable.id, id));
+    .where(
+      includeArchived
+        ? eq(ordersTable.id, id)
+        : and(eq(ordersTable.id, id), isNull(ordersTable.archivedAt)),
+    );
   if (!order) throw httpError(404, "ORDER_NOT_FOUND", "Order not found");
   return order;
 }
@@ -50,7 +54,7 @@ router.get(
   requireRole("admin", "coordinator"),
   wrap(async (req, res) => {
     const id = req.params["id"] as string;
-    const order = await loadOrderOr404(id);
+    const order = await loadOrderOr404(id, req.auth!.roles.includes("admin"));
     res.json({ items: (order.items ?? []).map(serializeOriginalItem) });
   }),
 );

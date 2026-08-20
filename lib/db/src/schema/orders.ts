@@ -231,6 +231,12 @@ export const ordersTable = pgTable(
     tripId: uuid("trip_id").references(() => tripsTable.id, {
       onDelete: "set null",
     }),
+    // Archiving is independent from delivery status: it removes an order from
+    // day-to-day operations without losing the audit trail or its related data.
+    archivedAt: timestamp("archived_at", { withTimezone: true }),
+    archivedByUserId: uuid("archived_by_user_id").references(() => usersTable.id, {
+      onDelete: "set null",
+    }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true })
       .notNull()
@@ -243,6 +249,7 @@ export const ordersTable = pgTable(
     restaurantIdx: index("orders_restaurant_idx").on(t.restaurantId),
     riderIdx: index("orders_rider_idx").on(t.riderId),
     tripIdx: index("orders_trip_idx").on(t.tripId),
+    archivedIdx: index("orders_archived_at_idx").on(t.archivedAt),
     // Held orders are filtered out of rider discovery on every list query.
     holdIdx: index("orders_hold_state_idx").on(t.holdState),
   }),

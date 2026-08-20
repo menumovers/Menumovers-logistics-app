@@ -151,6 +151,12 @@ paths:
           name: q
           schema:
             type: string
+        - in: query
+          name: archived
+          description: Admin-only. Use the literal string "true" to return archived orders instead of active operational orders.
+          schema:
+            type: string
+            enum: ["true", "false"]
       responses:
         "200":
           description: Orders
@@ -184,6 +190,70 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: deleteOrder
+      tags: [orders]
+      summary: Permanently delete an archived order
+      description: Admin-only. Requires the order's external order ID as an explicit confirmation.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PermanentOrderDeletionConfirmation"
+      responses:
+        "204":
+          description: Order permanently deleted
+        "409":
+          description: Order must be archived first or the confirmation did not match
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /orders/{id}/archive:
+    post:
+      operationId: archiveOrder
+      tags: [orders]
+      summary: Archive an order
+      description: Admin-only. Removes an order from normal operational views without deleting its audit history.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Archived order
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrderDetail"
+  /orders/{id}/restore:
+    post:
+      operationId: restoreOrder
+      tags: [orders]
+      summary: Restore an archived order
+      description: Admin-only. Returns the order to normal operational views in its unchanged delivery state.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Restored order
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrderDetail"
   /orders/{id}/status:
     post:
       operationId: transitionOrderStatus
@@ -1748,6 +1818,12 @@ components:
           description: Null for automatic holds (`parked`).
         tripId:
           type: ["string", "null"]
+        archivedAt:
+          type: ["string", "null"]
+          format: date-time
+          description: Set when an admin archives the order. Archived orders are excluded from operational views.
+        archivedByUserId:
+          type: ["string", "null"]
         tripNumber:
           type: ["integer", "null"]
           description: Human-friendly trip number for the trip this order belongs to.
@@ -1914,6 +1990,14 @@ components:
           minLength: 1
         deliveryInstructions:
           type: ["string", "null"]
+    PermanentOrderDeletionConfirmation:
+      type: object
+      required: [externalOrderId]
+      properties:
+        externalOrderId:
+          type: string
+          minLength: 1
+          description: Must exactly match the external order ID of the archived order being deleted.
     RiderWithWorkload:
       type: object
       required:

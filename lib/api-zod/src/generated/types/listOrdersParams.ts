@@ -5,6 +5,7 @@
  * Bestellenbij logistics platform API
  * OpenAPI spec version: 0.1.0
  */
+import type { ListOrdersArchived } from "./listOrdersArchived";
 import type { OrderStatus } from "./orderStatus";
 
 export type ListOrdersParams = {
@@ -12,4 +13,8 @@ export type ListOrdersParams = {
   restaurantId?: string;
   riderId?: string;
   q?: string;
+  /**
+   * Admin-only. Use the literal string "true" to return archived orders instead of active operational orders.
+   */
+  archived?: ListOrdersArchived;
 };

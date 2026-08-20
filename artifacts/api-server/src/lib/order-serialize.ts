@@ -1,4 +1,4 @@
-import { asc, eq, inArray } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull } from "drizzle-orm";
 import {
   db,
   itemOverridesTable,
@@ -218,6 +218,8 @@ function baseOrderFields(
     tripId: order.tripId,
     tripNumber,
     bundlePickupTime,
+    archivedAt: order.archivedAt,
+    archivedByUserId: order.archivedByUserId,
     createdAt: order.createdAt,
     updatedAt: order.updatedAt,
   };
@@ -302,7 +304,10 @@ async function loadJoins(
       .where(inArray(itemOverridesTable.orderId, orderIds))
       .orderBy(asc(itemOverridesTable.createdAt)),
     tripIds.length > 0
-      ? db.select().from(ordersTable).where(inArray(ordersTable.tripId, tripIds))
+      ? db
+          .select()
+          .from(ordersTable)
+          .where(and(inArray(ordersTable.tripId, tripIds), isNull(ordersTable.archivedAt)))
       : Promise.resolve([] as Order[]),
     tripIds.length > 0
       ? db

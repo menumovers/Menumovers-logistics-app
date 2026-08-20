@@ -37,6 +37,7 @@ import type {
   OrderDetail,
   OrderListItem,
   OriginalOrderItemsResponse,
+  PermanentOrderDeletionConfirmation,
   PushSubscriptionAck,
   PushSubscriptionRequest,
   ReplaceTripStopsRequest,
@@ -659,6 +660,265 @@ export function useGetOrder<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * Admin-only. Requires the order's external order ID as an explicit confirmation.
+ * @summary Permanently delete an archived order
+ */
+export const getDeleteOrderUrl = (id: string) => {
+  return `/api/orders/${id}`;
+};
+
+export const deleteOrder = async (
+  id: string,
+  permanentOrderDeletionConfirmation: PermanentOrderDeletionConfirmation,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getDeleteOrderUrl(id), {
+    ...options,
+    method: "DELETE",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(permanentOrderDeletionConfirmation),
+  });
+};
+
+export const getDeleteOrderMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteOrder>>,
+    TError,
+    { id: string; data: BodyType<PermanentOrderDeletionConfirmation> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteOrder>>,
+  TError,
+  { id: string; data: BodyType<PermanentOrderDeletionConfirmation> },
+  TContext
+> => {
+  const mutationKey = ["deleteOrder"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteOrder>>,
+    { id: string; data: BodyType<PermanentOrderDeletionConfirmation> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return deleteOrder(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteOrderMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteOrder>>
+>;
+export type DeleteOrderMutationBody =
+  BodyType<PermanentOrderDeletionConfirmation>;
+export type DeleteOrderMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Permanently delete an archived order
+ */
+export const useDeleteOrder = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteOrder>>,
+    TError,
+    { id: string; data: BodyType<PermanentOrderDeletionConfirmation> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteOrder>>,
+  TError,
+  { id: string; data: BodyType<PermanentOrderDeletionConfirmation> },
+  TContext
+> => {
+  return useMutation(getDeleteOrderMutationOptions(options));
+};
+
+/**
+ * Admin-only. Removes an order from normal operational views without deleting its audit history.
+ * @summary Archive an order
+ */
+export const getArchiveOrderUrl = (id: string) => {
+  return `/api/orders/${id}/archive`;
+};
+
+export const archiveOrder = async (
+  id: string,
+  options?: RequestInit,
+): Promise<OrderDetail> => {
+  return customFetch<OrderDetail>(getArchiveOrderUrl(id), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getArchiveOrderMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof archiveOrder>>,
+    TError,
+    { id: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof archiveOrder>>,
+  TError,
+  { id: string },
+  TContext
+> => {
+  const mutationKey = ["archiveOrder"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof archiveOrder>>,
+    { id: string }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return archiveOrder(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ArchiveOrderMutationResult = NonNullable<
+  Awaited<ReturnType<typeof archiveOrder>>
+>;
+
+export type ArchiveOrderMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Archive an order
+ */
+export const useArchiveOrder = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof archiveOrder>>,
+    TError,
+    { id: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof archiveOrder>>,
+  TError,
+  { id: string },
+  TContext
+> => {
+  return useMutation(getArchiveOrderMutationOptions(options));
+};
+
+/**
+ * Admin-only. Returns the order to normal operational views in its unchanged delivery state.
+ * @summary Restore an archived order
+ */
+export const getRestoreOrderUrl = (id: string) => {
+  return `/api/orders/${id}/restore`;
+};
+
+export const restoreOrder = async (
+  id: string,
+  options?: RequestInit,
+): Promise<OrderDetail> => {
+  return customFetch<OrderDetail>(getRestoreOrderUrl(id), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getRestoreOrderMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof restoreOrder>>,
+    TError,
+    { id: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof restoreOrder>>,
+  TError,
+  { id: string },
+  TContext
+> => {
+  const mutationKey = ["restoreOrder"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof restoreOrder>>,
+    { id: string }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return restoreOrder(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RestoreOrderMutationResult = NonNullable<
+  Awaited<ReturnType<typeof restoreOrder>>
+>;
+
+export type RestoreOrderMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Restore an archived order
+ */
+export const useRestoreOrder = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof restoreOrder>>,
+    TError,
+    { id: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof restoreOrder>>,
+  TError,
+  { id: string },
+  TContext
+> => {
+  return useMutation(getRestoreOrderMutationOptions(options));
+};
 
 /**
  * @summary Advance the order status

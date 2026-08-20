@@ -1,5 +1,5 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
-import { eq, inArray, sql } from "drizzle-orm";
+import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import {
   db,
   ordersTable,
@@ -52,7 +52,7 @@ async function buildRiderViews(riderIds: string[]) {
       count: sql<number>`count(*)::int`,
     })
     .from(ordersTable)
-    .where(inArray(ordersTable.status, [...ACTIVE_STATUSES]))
+    .where(and(inArray(ordersTable.status, [...ACTIVE_STATUSES]), isNull(ordersTable.archivedAt)))
     .groupBy(ordersTable.riderId, ordersTable.status);
 
   const activeMap = new Map<string, number>();

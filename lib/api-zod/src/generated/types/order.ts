@@ -167,6 +167,13 @@ keeps accepting status reports.
   /** @nullable */
   tripId?: string | null;
   /**
+   * Set when an admin archives the order. Archived orders are excluded from operational views.
+   * @nullable
+   */
+  archivedAt?: Date | null;
+  /** @nullable */
+  archivedByUserId?: string | null;
+  /**
    * Human-friendly trip number for the trip this order belongs to.
    * @nullable
    */

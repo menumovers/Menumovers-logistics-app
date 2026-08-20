@@ -1,5 +1,5 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
-import { and, desc, eq, ilike, or, sql } from "drizzle-orm";
+import { and, desc, eq, ilike, isNotNull, isNull, or, sql } from "drizzle-orm";
 import {
   db,
   ordersTable,
@@ -25,6 +25,7 @@ import {
   HoldOrderBody,
   SetOrderRestaurantBody,
   AcknowledgeOrderBody,
+  DeleteOrderBody,
 } from "@workspace/api-zod";
 import { requireAuth, requireRole, requireInboundCredential, primaryRoleLabel } from "../lib/auth";
 import { httpError } from "../lib/errors";
@@ -75,7 +76,10 @@ const wrap =
  * restaurant), to short-circuit safely without leaking other rows.
  */
 function orderScopeWhere(auth: NonNullable<Request["auth"]>) {
-  if (auth.roles.includes("admin") || auth.roles.includes("coordinator")) return undefined;
+  // Archived orders are an admin-only records area. Coordinators and every
+  // operational role are always restricted to active records.
+  if (auth.roles.includes("admin")) return undefined;
+  if (auth.roles.includes("coordinator")) return isNull(ordersTable.archivedAt);
 
   // Union of what each held role can see — a rider who is also
   // restaurant_staff sees both their own deliveries and their restaurant's orders.
@@ -106,7 +110,7 @@ function orderScopeWhere(auth: NonNullable<Request["auth"]>) {
     );
   }
   if (clauses.length === 0) return sql`false`;
-  return or(...clauses);
+  return and(isNull(ordersTable.archivedAt), or(...clauses));
 }
 
 async function resolveRestaurantByNameCode(
@@ -135,11 +139,15 @@ async function getUnmappedRestaurant(): Promise<Restaurant> {
   return restaurant;
 }
 
-async function loadOrderOr404(id: string) {
+async function loadOrderOr404(id: string, includeArchived = false) {
   const [order] = await db
     .select()
     .from(ordersTable)
-    .where(eq(ordersTable.id, id));
+    .where(
+      includeArchived
+        ? eq(ordersTable.id, id)
+        : and(eq(ordersTable.id, id), isNull(ordersTable.archivedAt)),
+    );
   if (!order) throw httpError(404, "ORDER_NOT_FOUND", "Order not found");
   return order;
 }
@@ -147,11 +155,13 @@ async function loadOrderOr404(id: string) {
 async function loadOrderForAuthOr404(
   auth: NonNullable<Request["auth"]>,
   id: string,
+  includeArchived = false,
 ) {
   const scope = orderScopeWhere(auth);
-  const where = scope
-    ? and(eq(ordersTable.id, id), scope)
-    : eq(ordersTable.id, id);
+  const filters = [eq(ordersTable.id, id)];
+  if (!includeArchived) filters.push(isNull(ordersTable.archivedAt));
+  if (scope) filters.push(scope);
+  const where = and(...filters);
   const [order] = await db.select().from(ordersTable).where(where);
   if (!order) throw httpError(404, "ORDER_NOT_FOUND", "Order not found");
   return order;
@@ -281,7 +291,8 @@ router.post(
     const isNew = Boolean(row);
     if (!row) {
       // Replay: update mutable customer/items/payload fields; never touch
-      // status, riderId, pickupTimeOriginal.
+          // status, riderId, pickupTimeOriginal, or archive metadata. A source
+          // replay must never revive an archived order.
       const updated = await db
         .update(ordersTable)
         .set({
@@ -408,9 +419,14 @@ router.get(
     if (!parsed.success) {
       throw httpError(400, "VALIDATION_ERROR", parsed.error.message);
     }
-    const { status, restaurantId, riderId, q } = parsed.data;
+    const { status, restaurantId, riderId, q, archived } = parsed.data;
+    const showArchived = archived === "true";
+    if (showArchived && !auth.roles.includes("admin")) {
+      throw httpError(403, "FORBIDDEN", "Only admins can view archived orders");
+    }
 
     const filters = [] as ReturnType<typeof eq>[];
+    filters.push(showArchived ? isNotNull(ordersTable.archivedAt) : isNull(ordersTable.archivedAt));
     if (status) filters.push(eq(ordersTable.status, status));
     if (restaurantId) filters.push(eq(ordersTable.restaurantId, restaurantId));
     if (riderId) filters.push(eq(ordersTable.riderId, riderId));
@@ -459,9 +475,88 @@ router.get(
   wrap(async (req, res) => {
     const id = req.params["id"] as string;
     const auth = req.auth!;
-    await loadOrderForAuthOr404(auth, id);
+    await loadOrderForAuthOr404(auth, id, auth.roles.includes("admin"));
     const detail = await serializeOrderDetail(id);
     res.json(detail);
+  }),
+);
+
+// =====================================================================
+// POST /orders/:id/archive — hide from operations while retaining history
+// =====================================================================
+router.post(
+  "/orders/:id/archive",
+  requireAuth,
+  requireRole("admin"),
+  wrap(async (req, res) => {
+    const id = req.params["id"] as string;
+    const auth = req.auth!;
+    await loadOrderOr404(id);
+    const updated = await db
+      .update(ordersTable)
+      .set({ archivedAt: new Date(), archivedByUserId: auth.sub })
+      .where(and(eq(ordersTable.id, id), isNull(ordersTable.archivedAt)))
+      .returning();
+    if (updated.length === 0) {
+      throw httpError(409, "STATE_CONFLICT", "Order was archived concurrently");
+    }
+    res.json(await serializeOrderDetail(id));
+  }),
+);
+
+// =====================================================================
+// POST /orders/:id/restore — make an archived record operational again
+// =====================================================================
+router.post(
+  "/orders/:id/restore",
+  requireAuth,
+  requireRole("admin"),
+  wrap(async (req, res) => {
+    const id = req.params["id"] as string;
+    const order = await loadOrderOr404(id, true);
+    if (!order.archivedAt) {
+      throw httpError(409, "ORDER_NOT_ARCHIVED", "Only archived orders can be restored");
+    }
+    const updated = await db
+      .update(ordersTable)
+      .set({ archivedAt: null, archivedByUserId: null })
+      .where(and(eq(ordersTable.id, id), isNotNull(ordersTable.archivedAt)))
+      .returning();
+    if (updated.length === 0) {
+      throw httpError(409, "STATE_CONFLICT", "Order archive state changed concurrently");
+    }
+    res.json(await serializeOrderDetail(id));
+  }),
+);
+
+// =====================================================================
+// DELETE /orders/:id — permanent removal, deliberately gated by archive
+// =====================================================================
+router.delete(
+  "/orders/:id",
+  requireAuth,
+  requireRole("admin"),
+  wrap(async (req, res) => {
+    const id = req.params["id"] as string;
+    const parsed = DeleteOrderBody.safeParse(req.body);
+    if (!parsed.success) {
+      throw httpError(400, "VALIDATION_ERROR", parsed.error.message);
+    }
+    const order = await loadOrderOr404(id, true);
+    if (!order.archivedAt) {
+      throw httpError(409, "ORDER_NOT_ARCHIVED", "Archive the order before permanently deleting it");
+    }
+    if (parsed.data.externalOrderId !== order.externalOrderId) {
+      throw httpError(409, "DELETE_CONFIRMATION_MISMATCH", "Order ID confirmation does not match");
+    }
+    const deleted = await db
+      .delete(ordersTable)
+      .where(and(eq(ordersTable.id, id), isNotNull(ordersTable.archivedAt)))
+      .returning({ id: ordersTable.id });
+    if (deleted.length === 0) {
+      throw httpError(409, "STATE_CONFLICT", "Order archive state changed concurrently");
+    }
+    res.sendStatus(204);
   }),
 );
 

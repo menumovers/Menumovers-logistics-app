@@ -14,13 +14,16 @@ import("@workspace/db").then(async ({ db, restaurantsTable, usersTable, userRole
   const { eq } = await import("drizzle-orm");
   await db.delete(usersTable).where(eq(usersTable.username, "smoke-admin"));
   await db.delete(usersTable).where(eq(usersTable.username, "smoke-rider"));
+  await db.delete(usersTable).where(eq(usersTable.username, "smoke-coordinator"));
   const RESTAURANT_NAME_CODE = `smoke-resto-${Date.now()}`;
   const [rest] = await db.insert(restaurantsTable).values({ name:"Smoke Resto", nameCode: RESTAURANT_NAME_CODE, address:"Hoofdstraat 1", minDeliveryTime:25 }).returning();
   const [admin] = await db.insert(usersTable).values({ username:"smoke-admin", name:"Admin", passwordHash }).returning();
   const [riderUser] = await db.insert(usersTable).values({ username:"smoke-rider", name:"Rider1", passwordHash }).returning();
+  const [coordinatorUser] = await db.insert(usersTable).values({ username:"smoke-coordinator", name:"Coordinator", passwordHash }).returning();
   await db.insert(userRolesTable).values([
     { userId: admin.id, role: "admin" },
     { userId: riderUser.id, role: "rider" },
+    { userId: coordinatorUser.id, role: "coordinator" },
   ]);
   const [rider] = await db.insert(ridersTable).values({ userId: riderUser.id, nameCode:`smoke-rider-${Date.now()}`, availabilityStatus:"online" }).returning();
   const RAW_SECRET = randomBytes(16).toString("hex");
@@ -103,6 +106,10 @@ import("@workspace/db").then(async ({ db, restaurantsTable, usersTable, userRole
   // Assign rider
   const assign = await j("POST",`/orders/${id}/assign`,{ riderId: rider.id }, { authorization: `Bearer ${token}`});
   console.log("assign:", assign.status, assign.body.status, "riderId:", assign.body.riderId);
+  const trip = await j("POST", "/trips", { riderId: rider.id, orderIds: [id] }, { authorization: `Bearer ${token}` });
+  console.log("create trip:", trip.status, "orders:", trip.body.orders?.length);
+  if (trip.status !== 201) throw new Error("Expected assigned order to be added to a rider trip");
+  const tripId = trip.body.id;
   // Re-assign should 409
   const assignAgain = await j("POST",`/orders/${id}/assign`,{ riderId: rider.id }, { authorization: `Bearer ${token}`});
   console.log("re-assign (expect 409):", assignAgain.status, assignAgain.body.code);
@@ -141,5 +148,76 @@ import("@workspace/db").then(async ({ db, restaurantsTable, usersTable, userRole
   // Riders list
   const riders = await j("GET","/riders", null, { authorization: `Bearer ${token}`});
   console.log("riders:", riders.status, "count:", riders.body.length, "active:", riders.body.find(r=>r.id===rider.id)?.activeOrderCount);
+  // Archiving removes an order from normal operational views, but preserves it
+  // for admins to restore or permanently remove with an explicit ID confirmation.
+  const archived = await j("POST", `/orders/${id}/archive`, null, { authorization: `Bearer ${token}` });
+  console.log("archive:", archived.status, "archived:", Boolean(archived.body.archivedAt));
+  if (archived.status !== 200 || !archived.body.archivedAt) {
+    throw new Error("Expected admin archive to mark the order archived");
+  }
+  const archivedDetail = await j("GET", `/orders/${id}`, null, { authorization: `Bearer ${token}` });
+  if (archivedDetail.status !== 200 || !archivedDetail.body.archivedAt) {
+    throw new Error("Admins must be able to inspect an archived order and its history");
+  }
+  const archivedOriginalItems = await j("GET", `/orders/${id}/items/original`, null, { authorization: `Bearer ${token}` });
+  if (archivedOriginalItems.status !== 200) {
+    throw new Error("Admins must be able to inspect archived original items");
+  }
+  const coordinatorLogin = await j("POST", "/auth/login", { username: "smoke-coordinator", password: "password123" });
+  const coordinatorDetail = await j("GET", `/orders/${id}`, null, { authorization: `Bearer ${coordinatorLogin.body.token}` });
+  const coordinatorOriginalItems = await j("GET", `/orders/${id}/items/original`, null, { authorization: `Bearer ${coordinatorLogin.body.token}` });
+  if (coordinatorDetail.status !== 404 || coordinatorOriginalItems.status !== 404) {
+    throw new Error("Coordinators must not access archived order detail or item subresources");
+  }
+  const activeAfterArchive = await j("GET", "/orders", null, { authorization: `Bearer ${token}` });
+  if (activeAfterArchive.body.some((order) => order.id === id)) {
+    throw new Error("Archived order must be excluded from the normal list");
+  }
+  const literalFalse = await j("GET", "/orders?archived=false", null, { authorization: `Bearer ${token}` });
+  if (literalFalse.status !== 200 || literalFalse.body.some((order) => order.id === id)) {
+    throw new Error('The literal query string "archived=false" must remain an active-order request');
+  }
+  const riderLogin = await j("POST", "/auth/login", { username: "smoke-rider", password: "password123" });
+  const riderArchived = await j("GET", "/orders?archived=true", null, { authorization: `Bearer ${riderLogin.body.token}` });
+  console.log("rider archived list (expect 403):", riderArchived.status);
+  if (riderArchived.status !== 403) {
+    throw new Error("Non-admin must not access archived orders");
+  }
+  const riderActive = await j("GET", "/orders?archived=false", null, { authorization: `Bearer ${riderLogin.body.token}` });
+  if (riderActive.status !== 200) {
+    throw new Error("Non-admin active-order requests must accept archived=false");
+  }
+  const riderTrip = await j("GET", `/trips/${tripId}`, null, { authorization: `Bearer ${riderLogin.body.token}` });
+  if (riderTrip.status !== 200 || riderTrip.body.orders.length !== 0 || riderTrip.body.stops.length !== 0) {
+    throw new Error("Archived orders must be hidden from rider trip detail");
+  }
+  const riderTrips = await j("GET", "/trips", null, { authorization: `Bearer ${riderLogin.body.token}` });
+  const riderTripListItem = riderTrips.body.find((item) => item.id === tripId);
+  if (!riderTripListItem || riderTripListItem.orderCount !== 0 || riderTripListItem.stopCount !== 0) {
+    throw new Error("Archived orders must be excluded from rider trip counts");
+  }
+  const ridersAfterArchive = await j("GET", "/riders", null, { authorization: `Bearer ${token}` });
+  if (ridersAfterArchive.body.find((item) => item.id === rider.id)?.activeOrderCount !== 0) {
+    throw new Error("Archived orders must not count toward rider workload");
+  }
+  const archivedList = await j("GET", "/orders?archived=true", null, { authorization: `Bearer ${token}` });
+  if (!archivedList.body.some((order) => order.id === id)) {
+    throw new Error("Admin archived list must include the archived order");
+  }
+  const restored = await j("POST", `/orders/${id}/restore`, null, { authorization: `Bearer ${token}` });
+  console.log("restore:", restored.status, "archived:", restored.body.archivedAt);
+  if (restored.status !== 200 || restored.body.archivedAt !== null) {
+    throw new Error("Expected admin restore to return the order to active views");
+  }
+  const archivedAgain = await j("POST", `/orders/${id}/archive`, null, { authorization: `Bearer ${token}` });
+  if (archivedAgain.status !== 200) throw new Error("Expected order to archive before permanent deletion");
+  const wrongDelete = await j("DELETE", `/orders/${id}`, { externalOrderId: "wrong-id" }, { authorization: `Bearer ${token}` });
+  console.log("wrong permanent delete (expect 409):", wrongDelete.status);
+  if (wrongDelete.status !== 409) throw new Error("Expected permanent delete confirmation mismatch to fail");
+  const deleted = await j("DELETE", `/orders/${id}`, { externalOrderId: orderId }, { authorization: `Bearer ${token}` });
+  console.log("permanent delete:", deleted.status);
+  if (deleted.status !== 204) throw new Error("Expected archived order to be permanently deleted");
+  const deletedDetail = await j("GET", `/orders/${id}`, null, { authorization: `Bearer ${token}` });
+  if (deletedDetail.status !== 404) throw new Error("Expected permanently deleted order to be absent");
   process.exit(0);
 });

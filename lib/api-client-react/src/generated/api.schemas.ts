@@ -679,6 +679,13 @@ keeps accepting status reports.
   /** @nullable */
   tripId?: string | null;
   /**
+   * Set when an admin archives the order. Archived orders are excluded from operational views.
+   * @nullable
+   */
+  archivedAt?: string | null;
+  /** @nullable */
+  archivedByUserId?: string | null;
+  /**
    * Human-friendly trip number for the trip this order belongs to.
    * @nullable
    */
@@ -807,6 +814,14 @@ export interface UpdateOrderContactRequest {
   country?: string;
   /** @nullable */
   deliveryInstructions?: string | null;
+}
+
+export interface PermanentOrderDeletionConfirmation {
+  /**
+   * Must exactly match the external order ID of the archived order being deleted.
+   * @minLength 1
+   */
+  externalOrderId: string;
 }
 
 export interface RiderWithWorkload {
@@ -1050,7 +1065,19 @@ export type ListOrdersParams = {
   restaurantId?: string;
   riderId?: string;
   q?: string;
+  /**
+   * Admin-only. Use the literal string "true" to return archived orders instead of active operational orders.
+   */
+  archived?: ListOrdersArchived;
 };
+
+export type ListOrdersArchived =
+  (typeof ListOrdersArchived)[keyof typeof ListOrdersArchived];
+
+export const ListOrdersArchived = {
+  true: "true",
+  false: "false",
+} as const;
 
 export type ListTripsParams = {
   status?: TripStatus;

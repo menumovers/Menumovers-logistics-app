@@ -404,6 +404,13 @@ export const IngestOrderResponse = zod.object({
     .nullish()
     .describe("Null for automatic holds (`parked`)."),
   tripId: zod.string().nullish(),
+  archivedAt: zod.coerce
+    .date()
+    .nullish()
+    .describe(
+      "Set when an admin archives the order. Archived orders are excluded from operational views.",
+    ),
+  archivedByUserId: zod.string().nullish(),
   tripNumber: zod
     .number()
     .nullish()
@@ -443,6 +450,12 @@ export const ListOrdersQueryParams = zod.object({
   restaurantId: zod.coerce.string().optional(),
   riderId: zod.coerce.string().optional(),
   q: zod.coerce.string().optional(),
+  archived: zod
+    .enum(["true", "false"])
+    .optional()
+    .describe(
+      'Admin-only. Use the literal string \"true\" to return archived orders instead of active operational orders.',
+    ),
 });
 
 export const ListOrdersResponseItem = zod
@@ -612,6 +625,13 @@ export const ListOrdersResponseItem = zod
       .nullish()
       .describe("Null for automatic holds (`parked`)."),
     tripId: zod.string().nullish(),
+    archivedAt: zod.coerce
+      .date()
+      .nullish()
+      .describe(
+        "Set when an admin archives the order. Archived orders are excluded from operational views.",
+      ),
+    archivedByUserId: zod.string().nullish(),
     tripNumber: zod
       .number()
       .nullish()
@@ -813,6 +833,626 @@ export const GetOrderResponse = zod
       .nullish()
       .describe("Null for automatic holds (`parked`)."),
     tripId: zod.string().nullish(),
+    archivedAt: zod.coerce
+      .date()
+      .nullish()
+      .describe(
+        "Set when an admin archives the order. Archived orders are excluded from operational views.",
+      ),
+    archivedByUserId: zod.string().nullish(),
+    tripNumber: zod
+      .number()
+      .nullish()
+      .describe(
+        "Human-friendly trip number for the trip this order belongs to.",
+      ),
+    bundlePickupTime: zod.coerce
+      .date()
+      .nullish()
+      .describe(
+        "Earliest effective pickup time across same-restaurant orders in\nthe same trip. Null when the order is not part of a trip with\nanother order at the same restaurant.\n",
+      ),
+    createdAt: zod.coerce.date(),
+    updatedAt: zod.coerce
+      .date()
+      .describe(
+        'Bumped on any change to the order row, not only status. A usable\nproxy for \"when did this reach its current state\" only once a\nstatus is terminal (delivered\/failed) and therefore unlikely to\nbe touched again — do not read it as a status-change timestamp\nfor a non-terminal order.\n',
+      ),
+  })
+  .and(
+    zod.object({
+      restaurantName: zod.string().optional(),
+      riderName: zod.string().nullish(),
+    }),
+  )
+  .and(
+    zod.object({
+      statusLog: zod.array(
+        zod.object({
+          id: zod.string(),
+          fromStatus: zod
+            .union([
+              zod.enum([
+                "pending",
+                "rider_assigned",
+                "rider_accepted",
+                "en_route_to_restaurant",
+                "arrived_at_restaurant",
+                "picked_up",
+                "en_route_to_customer",
+                "delivered",
+                "failed",
+                "postponed",
+              ]),
+              zod.null(),
+            ])
+            .optional(),
+          toStatus: zod.enum([
+            "pending",
+            "rider_assigned",
+            "rider_accepted",
+            "en_route_to_restaurant",
+            "arrived_at_restaurant",
+            "picked_up",
+            "en_route_to_customer",
+            "delivered",
+            "failed",
+            "postponed",
+          ]),
+          actorUserId: zod.string().nullish(),
+          actorUserName: zod.string().nullish(),
+          actorRole: zod.string().nullish(),
+          note: zod.string().nullish(),
+          createdAt: zod.coerce.date(),
+        }),
+      ),
+      itemOverrides: zod.array(
+        zod.object({
+          id: zod.string(),
+          type: zod.enum(["hide", "add"]),
+          itemIndex: zod.number().nullish(),
+          addedItem: zod
+            .union([
+              zod.object({
+                name: zod.string(),
+                quantity: zod.number(),
+                price: zod.string(),
+                options: zod
+                  .array(zod.string())
+                  .optional()
+                  .describe(
+                    "Selected item customizations (e.g. size, extras), one entry per option. Structured so an option's own text can safely contain a comma or other punctuation.",
+                  ),
+                notes: zod
+                  .string()
+                  .nullish()
+                  .describe(
+                    "Free-text note about the item, distinct from `options`. Legacy sources that have not migrated to `options` may still send customizations folded into this field as a single string.",
+                  ),
+                totalPrice: zod
+                  .string()
+                  .nullish()
+                  .describe(
+                    "Line total as sent by the source, not computed here. Absent for items added later via the admin add-item flow.",
+                  ),
+                externalId: zod
+                  .string()
+                  .nullish()
+                  .describe(
+                    "POS\/kitchen article id, when the source provides one.",
+                  ),
+              }),
+              zod.null(),
+            ])
+            .optional(),
+          createdAt: zod.coerce.date(),
+        }),
+      ),
+      originalPayload: zod
+        .record(zod.string(), zod.unknown())
+        .describe(
+          "The raw upstream order payload, kept as received for forensic\/replay use.",
+        ),
+    }),
+  );
+
+/**
+ * Admin-only. Requires the order's external order ID as an explicit confirmation.
+ * @summary Permanently delete an archived order
+ */
+export const DeleteOrderParams = zod.object({
+  id: zod.coerce.string(),
+});
+
+export const DeleteOrderBody = zod.object({
+  externalOrderId: zod
+    .string()
+    .min(1)
+    .describe(
+      "Must exactly match the external order ID of the archived order being deleted.",
+    ),
+});
+
+/**
+ * Admin-only. Removes an order from normal operational views without deleting its audit history.
+ * @summary Archive an order
+ */
+export const ArchiveOrderParams = zod.object({
+  id: zod.coerce.string(),
+});
+
+export const ArchiveOrderResponse = zod
+  .object({
+    id: zod.string(),
+    externalOrderId: zod.string(),
+    restaurantId: zod.string(),
+    riderId: zod.string().nullish(),
+    status: zod.enum([
+      "pending",
+      "rider_assigned",
+      "rider_accepted",
+      "en_route_to_restaurant",
+      "arrived_at_restaurant",
+      "picked_up",
+      "en_route_to_customer",
+      "delivered",
+      "failed",
+      "postponed",
+    ]),
+    customerName: zod.string(),
+    customerPhone: zod.string(),
+    customerEmail: zod.string().nullish(),
+    deliveryAddress: zod
+      .string()
+      .describe(
+        "The order's current address as one line, built from the components\nbelow on every read and never stored. This is what screens render.\nCorrections show up here because the components are the only\nwritable copy (D12).\n",
+      ),
+    deliveryAddressOriginal: zod
+      .string()
+      .describe(
+        "The single-line address exactly as the source sent it, immutable\nafter ingestion — the same pattern as `pickupTimeOriginal`. Kept so\na coordinator can see what actually arrived. Nothing operational\nreads it; use `deliveryAddress` for anything the app does.\n",
+      ),
+    street: zod.string(),
+    houseNumber: zod.string().nullish(),
+    addition: zod.string().nullish(),
+    postalCode: zod.string(),
+    city: zod.string(),
+    country: zod.string(),
+    latitude: zod.string().nullish(),
+    longitude: zod.string().nullish(),
+    deliveryInstructions: zod.string().nullish(),
+    subtotal: zod
+      .string()
+      .nullish()
+      .describe(
+        "Sum of the menu items only — before delivery fee, tips, SUP\/statiegeld\nor administration costs. Sent by the source directly (not computed\nhere); receipt data, like the other charge breakdown fields below.\nNullable only because it postdates orders already in the database —\nevery order ingested going forward has one, since the source always\nsends it (see `InboundOrderPayload.subtotal`, which is required).\n",
+      ),
+    deliveryFee: zod.string(),
+    totalAmount: zod.string(),
+    tipRider: zod.string(),
+    tipRestaurant: zod.string(),
+    supTotal: zod.string(),
+    statiegeldTotal: zod.string(),
+    administrationCosts: zod.string(),
+    deliveryMethod: zod.enum(["delivery", "pickup", "happy_hour"]),
+    paymentMethod: zod.string(),
+    cashPayment: zod
+      .object({
+        type: zod.string().nullish(),
+        changeAmount: zod.string().nullish(),
+        changeRequired: zod.string().nullish(),
+        label: zod.string().nullish(),
+      })
+      .nullish(),
+    kitchenNotes: zod.string().nullish(),
+    items: zod.array(
+      zod.object({
+        name: zod.string(),
+        quantity: zod.number(),
+        price: zod.string(),
+        options: zod
+          .array(zod.string())
+          .optional()
+          .describe(
+            "Selected item customizations (e.g. size, extras), one entry per option. Structured so an option's own text can safely contain a comma or other punctuation.",
+          ),
+        notes: zod
+          .string()
+          .nullish()
+          .describe(
+            "Free-text note about the item, distinct from `options`. Legacy sources that have not migrated to `options` may still send customizations folded into this field as a single string.",
+          ),
+        totalPrice: zod
+          .string()
+          .nullish()
+          .describe(
+            "Line total as sent by the source, not computed here. Absent for items added later via the admin add-item flow.",
+          ),
+        externalId: zod
+          .string()
+          .nullish()
+          .describe("POS\/kitchen article id, when the source provides one."),
+      }),
+    ),
+    pickupTimeOriginal: zod.coerce.date(),
+    pickupTimeRider: zod.coerce.date().nullish(),
+    pickupTimeRestaurant: zod.coerce.date().nullish(),
+    pickupTimeOverride: zod.coerce.date().nullish(),
+    sourceCreatedAt: zod.coerce.date(),
+    requestedDeliveryTime: zod.coerce
+      .date()
+      .describe(
+        "The customer's checkout selection resolved to a timestamp, and the\nstorefront's source of truth for fulfilment. For a scheduled order this\nis exactly the time they picked; for an ASAP order it is the storefront's\ncalculated delivery estimate. The user-facing string the customer actually\nsaw (\"Zo snel mogelijk\", \"vandaag om 18:30\") lives in the storefront's\nseparate `deliveryTimeDisplay` field and is NOT sent here — so an ASAP\ntime should be presented as an estimate, never as a promised time.\n",
+      ),
+    deliveryTimeType: zod.enum(["asap", "later_today", "other_day"]),
+    sourceRestaurantReadyTime: zod.coerce.date().nullish(),
+    restaurantMinDeliveryTime: zod.number().nullish(),
+    restaurantMinPickupTime: zod.number().nullish(),
+    restaurantMinPrepTime: zod.number().nullish(),
+    deliveryTeamMinDeliveryTime: zod.number().nullish(),
+    deliveryTeamMinPickupTime: zod.number().nullish(),
+    deliveryTeamMinPrepTime: zod.number().nullish(),
+    effectivePickupTime: zod.coerce.date(),
+    effectivePickupSource: zod
+      .enum(["rider", "restaurant", "override"])
+      .optional(),
+    pendingRiderNotification: zod.string().nullish(),
+    failureReason: zod.string().nullish(),
+    allowedTransitions: zod
+      .array(
+        zod.enum([
+          "pending",
+          "rider_assigned",
+          "rider_accepted",
+          "en_route_to_restaurant",
+          "arrived_at_restaurant",
+          "picked_up",
+          "en_route_to_customer",
+          "delivered",
+          "failed",
+          "postponed",
+        ]),
+      )
+      .describe(
+        "Statuses reportable from the order's current one, derived server-side from\nthe state machine. Status is a report rather than a gate: skipping ahead\nand correcting a mis-tap are both accepted. `pending` and `rider_assigned`\nnever appear — they are coupled to `riderId` and written by\n`POST \/orders\/{id}\/assign`. `rider_accepted` appears only when the current\nstatus is `rider_assigned` — it is otherwise reachable solely via\n`POST \/orders\/{id}\/assign` (rider self-claim). Clients should render these\nrather than keep their own transition table.\n",
+      ),
+    itemsAdjustment: zod
+      .string()
+      .nullish()
+      .describe(
+        "Value of the delivered items minus the value of the ordered items, when a\ncoordinator has hidden or added anything. Null when untouched. `totalAmount`\nis written once at ingestion and never recomputed, so this is the amount by\nwhich the delivered list no longer matches what was charged — surfaced on the\nreceipt rather than silently producing a breakdown that doesn't add up.\n",
+      ),
+    restaurantAcceptedAt: zod.coerce
+      .date()
+      .nullish()
+      .describe(
+        "When the restaurant acknowledged the order. Null means not yet acknowledged,\nwhich blocks nothing — it is a read receipt, not a gate.\n",
+      ),
+    restaurantReadyAt: zod.coerce
+      .date()
+      .nullish()
+      .describe(
+        "When the kitchen reported the food was done. A status on the\nrestaurant's own journey (seen\/accepted → ready → picked up), which\nis informational — it is not a pickup time and nothing waits on it.\n",
+      ),
+    restaurantAcceptedByName: zod.string().nullish(),
+    holdState: zod
+      .union([zod.enum(["parked", "on_hold"]), zod.null()])
+      .optional()
+      .describe(
+        "The hold family — the only mechanism that gates an order. Null means not\nheld. A hold blocks new assignment only; an order already being worked\nkeeps accepting status reports.\n",
+      ),
+    holdReason: zod.string().nullish(),
+    heldAt: zod.coerce.date().nullish(),
+    heldByUserName: zod
+      .string()
+      .nullish()
+      .describe("Null for automatic holds (`parked`)."),
+    tripId: zod.string().nullish(),
+    archivedAt: zod.coerce
+      .date()
+      .nullish()
+      .describe(
+        "Set when an admin archives the order. Archived orders are excluded from operational views.",
+      ),
+    archivedByUserId: zod.string().nullish(),
+    tripNumber: zod
+      .number()
+      .nullish()
+      .describe(
+        "Human-friendly trip number for the trip this order belongs to.",
+      ),
+    bundlePickupTime: zod.coerce
+      .date()
+      .nullish()
+      .describe(
+        "Earliest effective pickup time across same-restaurant orders in\nthe same trip. Null when the order is not part of a trip with\nanother order at the same restaurant.\n",
+      ),
+    createdAt: zod.coerce.date(),
+    updatedAt: zod.coerce
+      .date()
+      .describe(
+        'Bumped on any change to the order row, not only status. A usable\nproxy for \"when did this reach its current state\" only once a\nstatus is terminal (delivered\/failed) and therefore unlikely to\nbe touched again — do not read it as a status-change timestamp\nfor a non-terminal order.\n',
+      ),
+  })
+  .and(
+    zod.object({
+      restaurantName: zod.string().optional(),
+      riderName: zod.string().nullish(),
+    }),
+  )
+  .and(
+    zod.object({
+      statusLog: zod.array(
+        zod.object({
+          id: zod.string(),
+          fromStatus: zod
+            .union([
+              zod.enum([
+                "pending",
+                "rider_assigned",
+                "rider_accepted",
+                "en_route_to_restaurant",
+                "arrived_at_restaurant",
+                "picked_up",
+                "en_route_to_customer",
+                "delivered",
+                "failed",
+                "postponed",
+              ]),
+              zod.null(),
+            ])
+            .optional(),
+          toStatus: zod.enum([
+            "pending",
+            "rider_assigned",
+            "rider_accepted",
+            "en_route_to_restaurant",
+            "arrived_at_restaurant",
+            "picked_up",
+            "en_route_to_customer",
+            "delivered",
+            "failed",
+            "postponed",
+          ]),
+          actorUserId: zod.string().nullish(),
+          actorUserName: zod.string().nullish(),
+          actorRole: zod.string().nullish(),
+          note: zod.string().nullish(),
+          createdAt: zod.coerce.date(),
+        }),
+      ),
+      itemOverrides: zod.array(
+        zod.object({
+          id: zod.string(),
+          type: zod.enum(["hide", "add"]),
+          itemIndex: zod.number().nullish(),
+          addedItem: zod
+            .union([
+              zod.object({
+                name: zod.string(),
+                quantity: zod.number(),
+                price: zod.string(),
+                options: zod
+                  .array(zod.string())
+                  .optional()
+                  .describe(
+                    "Selected item customizations (e.g. size, extras), one entry per option. Structured so an option's own text can safely contain a comma or other punctuation.",
+                  ),
+                notes: zod
+                  .string()
+                  .nullish()
+                  .describe(
+                    "Free-text note about the item, distinct from `options`. Legacy sources that have not migrated to `options` may still send customizations folded into this field as a single string.",
+                  ),
+                totalPrice: zod
+                  .string()
+                  .nullish()
+                  .describe(
+                    "Line total as sent by the source, not computed here. Absent for items added later via the admin add-item flow.",
+                  ),
+                externalId: zod
+                  .string()
+                  .nullish()
+                  .describe(
+                    "POS\/kitchen article id, when the source provides one.",
+                  ),
+              }),
+              zod.null(),
+            ])
+            .optional(),
+          createdAt: zod.coerce.date(),
+        }),
+      ),
+      originalPayload: zod
+        .record(zod.string(), zod.unknown())
+        .describe(
+          "The raw upstream order payload, kept as received for forensic\/replay use.",
+        ),
+    }),
+  );
+
+/**
+ * Admin-only. Returns the order to normal operational views in its unchanged delivery state.
+ * @summary Restore an archived order
+ */
+export const RestoreOrderParams = zod.object({
+  id: zod.coerce.string(),
+});
+
+export const RestoreOrderResponse = zod
+  .object({
+    id: zod.string(),
+    externalOrderId: zod.string(),
+    restaurantId: zod.string(),
+    riderId: zod.string().nullish(),
+    status: zod.enum([
+      "pending",
+      "rider_assigned",
+      "rider_accepted",
+      "en_route_to_restaurant",
+      "arrived_at_restaurant",
+      "picked_up",
+      "en_route_to_customer",
+      "delivered",
+      "failed",
+      "postponed",
+    ]),
+    customerName: zod.string(),
+    customerPhone: zod.string(),
+    customerEmail: zod.string().nullish(),
+    deliveryAddress: zod
+      .string()
+      .describe(
+        "The order's current address as one line, built from the components\nbelow on every read and never stored. This is what screens render.\nCorrections show up here because the components are the only\nwritable copy (D12).\n",
+      ),
+    deliveryAddressOriginal: zod
+      .string()
+      .describe(
+        "The single-line address exactly as the source sent it, immutable\nafter ingestion — the same pattern as `pickupTimeOriginal`. Kept so\na coordinator can see what actually arrived. Nothing operational\nreads it; use `deliveryAddress` for anything the app does.\n",
+      ),
+    street: zod.string(),
+    houseNumber: zod.string().nullish(),
+    addition: zod.string().nullish(),
+    postalCode: zod.string(),
+    city: zod.string(),
+    country: zod.string(),
+    latitude: zod.string().nullish(),
+    longitude: zod.string().nullish(),
+    deliveryInstructions: zod.string().nullish(),
+    subtotal: zod
+      .string()
+      .nullish()
+      .describe(
+        "Sum of the menu items only — before delivery fee, tips, SUP\/statiegeld\nor administration costs. Sent by the source directly (not computed\nhere); receipt data, like the other charge breakdown fields below.\nNullable only because it postdates orders already in the database —\nevery order ingested going forward has one, since the source always\nsends it (see `InboundOrderPayload.subtotal`, which is required).\n",
+      ),
+    deliveryFee: zod.string(),
+    totalAmount: zod.string(),
+    tipRider: zod.string(),
+    tipRestaurant: zod.string(),
+    supTotal: zod.string(),
+    statiegeldTotal: zod.string(),
+    administrationCosts: zod.string(),
+    deliveryMethod: zod.enum(["delivery", "pickup", "happy_hour"]),
+    paymentMethod: zod.string(),
+    cashPayment: zod
+      .object({
+        type: zod.string().nullish(),
+        changeAmount: zod.string().nullish(),
+        changeRequired: zod.string().nullish(),
+        label: zod.string().nullish(),
+      })
+      .nullish(),
+    kitchenNotes: zod.string().nullish(),
+    items: zod.array(
+      zod.object({
+        name: zod.string(),
+        quantity: zod.number(),
+        price: zod.string(),
+        options: zod
+          .array(zod.string())
+          .optional()
+          .describe(
+            "Selected item customizations (e.g. size, extras), one entry per option. Structured so an option's own text can safely contain a comma or other punctuation.",
+          ),
+        notes: zod
+          .string()
+          .nullish()
+          .describe(
+            "Free-text note about the item, distinct from `options`. Legacy sources that have not migrated to `options` may still send customizations folded into this field as a single string.",
+          ),
+        totalPrice: zod
+          .string()
+          .nullish()
+          .describe(
+            "Line total as sent by the source, not computed here. Absent for items added later via the admin add-item flow.",
+          ),
+        externalId: zod
+          .string()
+          .nullish()
+          .describe("POS\/kitchen article id, when the source provides one."),
+      }),
+    ),
+    pickupTimeOriginal: zod.coerce.date(),
+    pickupTimeRider: zod.coerce.date().nullish(),
+    pickupTimeRestaurant: zod.coerce.date().nullish(),
+    pickupTimeOverride: zod.coerce.date().nullish(),
+    sourceCreatedAt: zod.coerce.date(),
+    requestedDeliveryTime: zod.coerce
+      .date()
+      .describe(
+        "The customer's checkout selection resolved to a timestamp, and the\nstorefront's source of truth for fulfilment. For a scheduled order this\nis exactly the time they picked; for an ASAP order it is the storefront's\ncalculated delivery estimate. The user-facing string the customer actually\nsaw (\"Zo snel mogelijk\", \"vandaag om 18:30\") lives in the storefront's\nseparate `deliveryTimeDisplay` field and is NOT sent here — so an ASAP\ntime should be presented as an estimate, never as a promised time.\n",
+      ),
+    deliveryTimeType: zod.enum(["asap", "later_today", "other_day"]),
+    sourceRestaurantReadyTime: zod.coerce.date().nullish(),
+    restaurantMinDeliveryTime: zod.number().nullish(),
+    restaurantMinPickupTime: zod.number().nullish(),
+    restaurantMinPrepTime: zod.number().nullish(),
+    deliveryTeamMinDeliveryTime: zod.number().nullish(),
+    deliveryTeamMinPickupTime: zod.number().nullish(),
+    deliveryTeamMinPrepTime: zod.number().nullish(),
+    effectivePickupTime: zod.coerce.date(),
+    effectivePickupSource: zod
+      .enum(["rider", "restaurant", "override"])
+      .optional(),
+    pendingRiderNotification: zod.string().nullish(),
+    failureReason: zod.string().nullish(),
+    allowedTransitions: zod
+      .array(
+        zod.enum([
+          "pending",
+          "rider_assigned",
+          "rider_accepted",
+          "en_route_to_restaurant",
+          "arrived_at_restaurant",
+          "picked_up",
+          "en_route_to_customer",
+          "delivered",
+          "failed",
+          "postponed",
+        ]),
+      )
+      .describe(
+        "Statuses reportable from the order's current one, derived server-side from\nthe state machine. Status is a report rather than a gate: skipping ahead\nand correcting a mis-tap are both accepted. `pending` and `rider_assigned`\nnever appear — they are coupled to `riderId` and written by\n`POST \/orders\/{id}\/assign`. `rider_accepted` appears only when the current\nstatus is `rider_assigned` — it is otherwise reachable solely via\n`POST \/orders\/{id}\/assign` (rider self-claim). Clients should render these\nrather than keep their own transition table.\n",
+      ),
+    itemsAdjustment: zod
+      .string()
+      .nullish()
+      .describe(
+        "Value of the delivered items minus the value of the ordered items, when a\ncoordinator has hidden or added anything. Null when untouched. `totalAmount`\nis written once at ingestion and never recomputed, so this is the amount by\nwhich the delivered list no longer matches what was charged — surfaced on the\nreceipt rather than silently producing a breakdown that doesn't add up.\n",
+      ),
+    restaurantAcceptedAt: zod.coerce
+      .date()
+      .nullish()
+      .describe(
+        "When the restaurant acknowledged the order. Null means not yet acknowledged,\nwhich blocks nothing — it is a read receipt, not a gate.\n",
+      ),
+    restaurantReadyAt: zod.coerce
+      .date()
+      .nullish()
+      .describe(
+        "When the kitchen reported the food was done. A status on the\nrestaurant's own journey (seen\/accepted → ready → picked up), which\nis informational — it is not a pickup time and nothing waits on it.\n",
+      ),
+    restaurantAcceptedByName: zod.string().nullish(),
+    holdState: zod
+      .union([zod.enum(["parked", "on_hold"]), zod.null()])
+      .optional()
+      .describe(
+        "The hold family — the only mechanism that gates an order. Null means not\nheld. A hold blocks new assignment only; an order already being worked\nkeeps accepting status reports.\n",
+      ),
+    holdReason: zod.string().nullish(),
+    heldAt: zod.coerce.date().nullish(),
+    heldByUserName: zod
+      .string()
+      .nullish()
+      .describe("Null for automatic holds (`parked`)."),
+    tripId: zod.string().nullish(),
+    archivedAt: zod.coerce
+      .date()
+      .nullish()
+      .describe(
+        "Set when an admin archives the order. Archived orders are excluded from operational views.",
+      ),
+    archivedByUserId: zod.string().nullish(),
     tripNumber: zod
       .number()
       .nullish()
@@ -1120,6 +1760,13 @@ export const TransitionOrderStatusResponse = zod
       .nullish()
       .describe("Null for automatic holds (`parked`)."),
     tripId: zod.string().nullish(),
+    archivedAt: zod.coerce
+      .date()
+      .nullish()
+      .describe(
+        "Set when an admin archives the order. Archived orders are excluded from operational views.",
+      ),
+    archivedByUserId: zod.string().nullish(),
     tripNumber: zod
       .number()
       .nullish()
@@ -1414,6 +2061,13 @@ export const ResumeOrderResponse = zod
       .nullish()
       .describe("Null for automatic holds (`parked`)."),
     tripId: zod.string().nullish(),
+    archivedAt: zod.coerce
+      .date()
+      .nullish()
+      .describe(
+        "Set when an admin archives the order. Archived orders are excluded from operational views.",
+      ),
+    archivedByUserId: zod.string().nullish(),
     tripNumber: zod
       .number()
       .nullish()
@@ -1708,6 +2362,13 @@ export const AssignOrderResponse = zod
       .nullish()
       .describe("Null for automatic holds (`parked`)."),
     tripId: zod.string().nullish(),
+    archivedAt: zod.coerce
+      .date()
+      .nullish()
+      .describe(
+        "Set when an admin archives the order. Archived orders are excluded from operational views.",
+      ),
+    archivedByUserId: zod.string().nullish(),
     tripNumber: zod
       .number()
       .nullish()
@@ -2003,6 +2664,13 @@ export const UpdatePickupTimeResponse = zod
       .nullish()
       .describe("Null for automatic holds (`parked`)."),
     tripId: zod.string().nullish(),
+    archivedAt: zod.coerce
+      .date()
+      .nullish()
+      .describe(
+        "Set when an admin archives the order. Archived orders are excluded from operational views.",
+      ),
+    archivedByUserId: zod.string().nullish(),
     tripNumber: zod
       .number()
       .nullish()
@@ -2297,6 +2965,13 @@ export const HideOrderItemResponse = zod
       .nullish()
       .describe("Null for automatic holds (`parked`)."),
     tripId: zod.string().nullish(),
+    archivedAt: zod.coerce
+      .date()
+      .nullish()
+      .describe(
+        "Set when an admin archives the order. Archived orders are excluded from operational views.",
+      ),
+    archivedByUserId: zod.string().nullish(),
     tripNumber: zod
       .number()
       .nullish()
@@ -2617,6 +3292,13 @@ export const AddOrderItemResponse = zod
       .nullish()
       .describe("Null for automatic holds (`parked`)."),
     tripId: zod.string().nullish(),
+    archivedAt: zod.coerce
+      .date()
+      .nullish()
+      .describe(
+        "Set when an admin archives the order. Archived orders are excluded from operational views.",
+      ),
+    archivedByUserId: zod.string().nullish(),
     tripNumber: zod
       .number()
       .nullish()
@@ -2972,6 +3654,13 @@ export const SetRiderNotificationResponse = zod
       .nullish()
       .describe("Null for automatic holds (`parked`)."),
     tripId: zod.string().nullish(),
+    archivedAt: zod.coerce
+      .date()
+      .nullish()
+      .describe(
+        "Set when an admin archives the order. Archived orders are excluded from operational views.",
+      ),
+    archivedByUserId: zod.string().nullish(),
     tripNumber: zod
       .number()
       .nullish()
@@ -3279,6 +3968,13 @@ export const UpdateOrderContactResponse = zod
       .nullish()
       .describe("Null for automatic holds (`parked`)."),
     tripId: zod.string().nullish(),
+    archivedAt: zod.coerce
+      .date()
+      .nullish()
+      .describe(
+        "Set when an admin archives the order. Archived orders are excluded from operational views.",
+      ),
+    archivedByUserId: zod.string().nullish(),
     tripNumber: zod
       .number()
       .nullish()
@@ -3582,6 +4278,13 @@ export const MarkOrderReadyResponse = zod
       .nullish()
       .describe("Null for automatic holds (`parked`)."),
     tripId: zod.string().nullish(),
+    archivedAt: zod.coerce
+      .date()
+      .nullish()
+      .describe(
+        "Set when an admin archives the order. Archived orders are excluded from operational views.",
+      ),
+    archivedByUserId: zod.string().nullish(),
     tripNumber: zod
       .number()
       .nullish()
@@ -3890,6 +4593,13 @@ export const AcknowledgeOrderResponse = zod
       .nullish()
       .describe("Null for automatic holds (`parked`)."),
     tripId: zod.string().nullish(),
+    archivedAt: zod.coerce
+      .date()
+      .nullish()
+      .describe(
+        "Set when an admin archives the order. Archived orders are excluded from operational views.",
+      ),
+    archivedByUserId: zod.string().nullish(),
     tripNumber: zod
       .number()
       .nullish()
@@ -4188,6 +4898,13 @@ export const HoldOrderResponse = zod
       .nullish()
       .describe("Null for automatic holds (`parked`)."),
     tripId: zod.string().nullish(),
+    archivedAt: zod.coerce
+      .date()
+      .nullish()
+      .describe(
+        "Set when an admin archives the order. Archived orders are excluded from operational views.",
+      ),
+    archivedByUserId: zod.string().nullish(),
     tripNumber: zod
       .number()
       .nullish()
@@ -4478,6 +5195,13 @@ export const ReleaseOrderResponse = zod
       .nullish()
       .describe("Null for automatic holds (`parked`)."),
     tripId: zod.string().nullish(),
+    archivedAt: zod.coerce
+      .date()
+      .nullish()
+      .describe(
+        "Set when an admin archives the order. Archived orders are excluded from operational views.",
+      ),
+    archivedByUserId: zod.string().nullish(),
     tripNumber: zod
       .number()
       .nullish()
@@ -4776,6 +5500,13 @@ export const SetOrderRestaurantResponse = zod
       .nullish()
       .describe("Null for automatic holds (`parked`)."),
     tripId: zod.string().nullish(),
+    archivedAt: zod.coerce
+      .date()
+      .nullish()
+      .describe(
+        "Set when an admin archives the order. Archived orders are excluded from operational views.",
+      ),
+    archivedByUserId: zod.string().nullish(),
     tripNumber: zod
       .number()
       .nullish()
@@ -5504,6 +6235,13 @@ export const GetTripResponse = zod
               .nullish()
               .describe("Null for automatic holds (`parked`)."),
             tripId: zod.string().nullish(),
+            archivedAt: zod.coerce
+              .date()
+              .nullish()
+              .describe(
+                "Set when an admin archives the order. Archived orders are excluded from operational views.",
+              ),
+            archivedByUserId: zod.string().nullish(),
             tripNumber: zod
               .number()
               .nullish()
@@ -5788,6 +6526,13 @@ export const UpdateTripResponse = zod
               .nullish()
               .describe("Null for automatic holds (`parked`)."),
             tripId: zod.string().nullish(),
+            archivedAt: zod.coerce
+              .date()
+              .nullish()
+              .describe(
+                "Set when an admin archives the order. Archived orders are excluded from operational views.",
+              ),
+            archivedByUserId: zod.string().nullish(),
             tripNumber: zod
               .number()
               .nullish()
@@ -6072,6 +6817,13 @@ export const ReplaceTripStopsResponse = zod
               .nullish()
               .describe("Null for automatic holds (`parked`)."),
             tripId: zod.string().nullish(),
+            archivedAt: zod.coerce
+              .date()
+              .nullish()
+              .describe(
+                "Set when an admin archives the order. Archived orders are excluded from operational views.",
+              ),
+            archivedByUserId: zod.string().nullish(),
             tripNumber: zod
               .number()
               .nullish()
@@ -6345,6 +7097,13 @@ export const DissolveTripResponse = zod
               .nullish()
               .describe("Null for automatic holds (`parked`)."),
             tripId: zod.string().nullish(),
+            archivedAt: zod.coerce
+              .date()
+              .nullish()
+              .describe(
+                "Set when an admin archives the order. Archived orders are excluded from operational views.",
+              ),
+            archivedByUserId: zod.string().nullish(),
             tripNumber: zod
               .number()
               .nullish()

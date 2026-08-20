@@ -7,7 +7,7 @@ import {
   useListRestaurants, useCreateRestaurant, useUpdateRestaurant, useDeleteRestaurant,
   useListRiders, useUpdateRider,
   useGetSettings, useUpdateSettings,
-  useListOrders,
+  useListOrders, useArchiveOrder, useRestoreOrder, useDeleteOrder,
   getListUsersQueryKey,
   getListRestaurantsQueryKey, getListRidersQueryKey, getGetSettingsQueryKey,
   getListOrdersQueryKey,
@@ -30,11 +30,15 @@ import {
   DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuTrigger, DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { Spinner } from "@/components/ui/spinner";
-import { Plus, Trash2, CheckCircle2, AlertCircle, Filter, SlidersHorizontal, ChevronDown, ChevronRight } from "lucide-react";
+import { Plus, Trash2, CheckCircle2, AlertCircle, Filter, SlidersHorizontal, ChevronDown, ChevronRight, Archive, ArchiveRestore } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { formatDateTime, formatTime, effectivePickup, minutesUntil } from "@/lib/format";
 import { RequestedTimeLabel } from "@/components/delivery-expectation";
 import { cn } from "@/lib/utils";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 export default function AdminPage() {
   const { t } = useTranslation();
@@ -154,6 +158,7 @@ function matchesRiderQuickFilters(rider: RiderWithWorkload, quickFilters: Set<Ri
 
 function OrdersPanel() {
   const { t, i18n } = useTranslation();
+  const qc = useQueryClient();
   const lang = i18n.resolvedLanguage ?? "nl";
   const [sortBy, setSortBy] = useState<SortKey>("pickup");
   const [quickFilters, setQuickFilters] = useState<Set<QuickFilterKey>>(new Set());
@@ -163,15 +168,17 @@ function OrdersPanel() {
   const [restaurantId, setRestaurantId] = useState<string>(ALL);
   const [riderId, setRiderId] = useState<string>(ALL);
   const [q, setQ] = useState("");
+  const [showArchived, setShowArchived] = useState(false);
 
   const params = useMemo(() => {
     const p: Record<string, string> = {};
+    if (showArchived) p.archived = "true";
     if (status !== ALL) p.status = status;
     if (restaurantId !== ALL) p.restaurantId = restaurantId;
     if (riderId !== ALL) p.riderId = riderId;
     if (q.trim()) p.q = q.trim();
     return p;
-  }, [status, restaurantId, riderId, q]);
+  }, [status, restaurantId, riderId, q, showArchived]);
 
   const orders = useListOrders(params, {
     query: { queryKey: getListOrdersQueryKey(params), refetchInterval: 30_000 },
@@ -229,6 +236,15 @@ function OrdersPanel() {
             <SlidersHorizontal className="size-3.5 mr-1.5" />
             {t("admin.ordersFilters")}
             <ChevronDown className={cn("size-3.5 ml-1 transition-transform", filtersOpen && "rotate-180")} />
+          </Button>
+          <Button
+            variant={showArchived ? "secondary" : "outline"}
+            size="sm"
+            onClick={() => setShowArchived((value) => !value)}
+            data-testid="button-toggle-archived-orders"
+          >
+            <Archive className="size-3.5 mr-1.5" />
+            {showArchived ? t("admin.showActiveOrders") : t("admin.showArchivedOrders")}
           </Button>
 
           <div className="ml-auto text-sm text-muted-foreground tabular-nums" data-testid="text-admin-orders-count">
@@ -386,11 +402,14 @@ function OrdersPanel() {
                       <TableCell className="truncate max-w-[180px]">{o.restaurantName ?? "—"}</TableCell>
                       <TableCell className="truncate max-w-[240px]">{o.deliveryAddress}</TableCell>
                       <TableCell className="text-right">
-                        <Button asChild variant="outline" size="sm" data-testid={`button-admin-order-detail-${o.id}`}>
-                          <Link href={`/coordinator/orders/${o.id}`}>
-                            {t("common.details")} <ChevronRight className="size-3.5 ml-1" />
-                          </Link>
-                        </Button>
+                        <div className="flex justify-end gap-2">
+                          <OrderArchiveActions order={o} onChanged={() => qc.invalidateQueries({ queryKey: getListOrdersQueryKey() })} />
+                          <Button asChild variant="outline" size="sm" data-testid={`button-admin-order-detail-${o.id}`}>
+                            <Link href={`/coordinator/orders/${o.id}`}>
+                              {t("common.details")} <ChevronRight className="size-3.5 ml-1" />
+                            </Link>
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   );
@@ -401,6 +420,110 @@ function OrdersPanel() {
         </Card>
       )}
     </div>
+  );
+}
+
+function OrderArchiveActions({ order, onChanged }: { order: OrderListItem; onChanged: () => void }) {
+  const { t } = useTranslation();
+  const { toast } = useToast();
+  const archive = useArchiveOrder();
+  const restore = useRestoreOrder();
+  const remove = useDeleteOrder();
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmation, setConfirmation] = useState("");
+  const archived = order.archivedAt != null;
+
+  function handlePermanentDelete() {
+    remove.mutate(
+      { id: order.id, data: { externalOrderId: confirmation } },
+      {
+        onSuccess: () => {
+          setConfirmOpen(false);
+          setConfirmation("");
+          toast({ title: t("admin.orderPermanentlyDeleted") });
+          onChanged();
+        },
+        onError: () => toast({ title: t("errors.generic"), variant: "destructive" }),
+      },
+    );
+  }
+
+  if (!archived) {
+    return (
+      <Button
+        variant="ghost"
+        size="sm"
+        disabled={archive.isPending}
+        onClick={() => archive.mutate({ id: order.id }, {
+          onSuccess: () => { toast({ title: t("admin.orderArchived") }); onChanged(); },
+          onError: () => toast({ title: t("errors.generic"), variant: "destructive" }),
+        })}
+        data-testid={`button-archive-order-${order.id}`}
+      >
+        <Archive className="size-3.5 mr-1.5" /> {t("admin.archiveOrder")}
+      </Button>
+    );
+  }
+
+  return (
+    <>
+      <Button
+        variant="ghost"
+        size="sm"
+        disabled={restore.isPending}
+        onClick={() => restore.mutate({ id: order.id }, {
+          onSuccess: () => { toast({ title: t("admin.orderRestored") }); onChanged(); },
+          onError: () => toast({ title: t("errors.generic"), variant: "destructive" }),
+        })}
+        data-testid={`button-restore-order-${order.id}`}
+      >
+        <ArchiveRestore className="size-3.5 mr-1.5" /> {t("admin.restoreOrder")}
+      </Button>
+      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <Button
+          variant="destructive"
+          size="sm"
+          onClick={() => setConfirmOpen(true)}
+          data-testid={`button-delete-order-${order.id}`}
+        >
+          <Trash2 className="size-3.5 mr-1.5" /> {t("admin.deleteOrder")}
+        </Button>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("admin.deleteOrderTitle")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("admin.deleteOrderDescription", { orderId: order.externalOrderId })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor={`delete-order-confirm-${order.id}`}>
+              {t("admin.deleteOrderConfirmationLabel", { orderId: order.externalOrderId })}
+            </Label>
+            <Input
+              id={`delete-order-confirm-${order.id}`}
+              value={confirmation}
+              onChange={(event) => setConfirmation(event.target.value)}
+              autoComplete="off"
+              data-testid={`input-delete-order-confirm-${order.id}`}
+            />
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={remove.isPending}>{t("common.cancel")}</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={remove.isPending || confirmation !== order.externalOrderId}
+              onClick={(event) => {
+                event.preventDefault();
+                handlePermanentDelete();
+              }}
+              data-testid={`button-confirm-delete-order-${order.id}`}
+            >
+              {t("admin.deleteOrder")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }
 

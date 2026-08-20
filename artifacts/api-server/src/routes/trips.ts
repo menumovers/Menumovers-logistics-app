@@ -5,7 +5,7 @@ import {
   type Response,
   type NextFunction,
 } from "express";
-import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import {
   db,
   ordersTable,
@@ -92,7 +92,7 @@ async function statusesFor(
   const rows = await db
     .select({ id: ordersTable.id, status: ordersTable.status })
     .from(ordersTable)
-    .where(inArray(ordersTable.id, [...orderIds]));
+    .where(and(inArray(ordersTable.id, [...orderIds]), isNull(ordersTable.archivedAt)));
   return new Map(rows.map((r) => [r.id, r.status]));
 }
 
@@ -115,7 +115,7 @@ async function loadTripDetail(tripId: string) {
       ? await db
           .select()
           .from(ordersTable)
-          .where(inArray(ordersTable.id, orderIds))
+          .where(and(inArray(ordersTable.id, orderIds), isNull(ordersTable.archivedAt)))
       : ([] as Order[]);
   const serializedOrders = await serializeOrderListItems(orders);
   const orderById = new Map<string, SerializedOrderListItem>(
@@ -148,7 +148,8 @@ async function loadTripDetail(tripId: string) {
     riderName = r?.name ?? null;
   }
 
-  const stopsWithOrder = stops.map((s) => {
+  const visibleStops = stops.filter((s) => orderById.has(s.orderId));
+  const stopsWithOrder = visibleStops.map((s) => {
     const o = orderById.get(s.orderId);
     const status = o?.status ?? "pending";
     return {
@@ -170,13 +171,13 @@ async function loadTripDetail(tripId: string) {
   });
 
   const progress = tripProgress(
-    stops,
+    visibleStops,
     new Map(serializedOrders.map((o) => [o.id, o.status])),
   );
   const list = tripListItemFromRow({
     trip,
     riderName,
-    orderCount: orderIds.length,
+    orderCount: new Set(visibleStops.map((s) => s.orderId)).size,
     ...progress,
   });
 
@@ -291,7 +292,9 @@ router.get(
     );
 
     const views = rows.map((trip) => {
-      const tripStops = stops.filter((s) => s.tripId === trip.id);
+      const tripStops = stops.filter(
+        (s) => s.tripId === trip.id && statusByOrderId.has(s.orderId),
+      );
       const orderCount = new Set(tripStops.map((s) => s.orderId)).size;
       return tripListItemFromRow({
         trip,
@@ -360,7 +363,7 @@ router.post(
       const orders = await tx
         .select()
         .from(ordersTable)
-        .where(inArray(ordersTable.id, uniqueOrderIds));
+        .where(and(inArray(ordersTable.id, uniqueOrderIds), isNull(ordersTable.archivedAt)));
       if (orders.length !== uniqueOrderIds.length) {
         throw httpError(404, "ORDER_NOT_FOUND", "One or more orders missing");
       }
@@ -424,6 +427,7 @@ router.post(
                 eq(ordersTable.id, o.id),
                 eq(ordersTable.status, "pending"),
                 sql`${ordersTable.tripId} is null`,
+                isNull(ordersTable.archivedAt),
               ),
             )
             .returning();
@@ -457,6 +461,7 @@ router.post(
                 eq(ordersTable.id, o.id),
                 eq(ordersTable.status, o.status),
                 sql`${ordersTable.tripId} is null`,
+                isNull(ordersTable.archivedAt),
               ),
             )
             .returning();
@@ -555,7 +560,7 @@ router.patch(
         const tripOrders = await tx
           .select()
           .from(ordersTable)
-          .where(eq(ordersTable.tripId, id));
+          .where(and(eq(ordersTable.tripId, id), isNull(ordersTable.archivedAt)));
         tripOrdersCount = tripOrders.length;
 
         // Identify in-flight orders: past the pre-flight stage but not yet in
@@ -601,6 +606,7 @@ router.patch(
                     eq(ordersTable.id, o.id),
                     eq(ordersTable.tripId, id),
                     eq(ordersTable.status, o.status),
+                isNull(ordersTable.archivedAt),
                   ),
                 )
                 .returning();
@@ -659,6 +665,7 @@ router.patch(
                   eq(ordersTable.id, o.id),
                   eq(ordersTable.tripId, id),
                   inArray(ordersTable.status, PRE_FLIGHT_STATUSES),
+                isNull(ordersTable.archivedAt),
                 ),
               )
               .returning();
@@ -733,7 +740,7 @@ router.put(
       const tripOrders = await tx
         .select({ id: ordersTable.id })
         .from(ordersTable)
-        .where(eq(ordersTable.tripId, id));
+        .where(and(eq(ordersTable.tripId, id), isNull(ordersTable.archivedAt)));
       const allowedOrderIds = new Set(tripOrders.map((o) => o.id));
       for (const s of inputStops) {
         if (!allowedOrderIds.has(s.orderId)) {
@@ -799,7 +806,7 @@ router.post(
       const tripOrders = await tx
         .select()
         .from(ordersTable)
-        .where(eq(ordersTable.tripId, id));
+        .where(and(eq(ordersTable.tripId, id), isNull(ordersTable.archivedAt)));
 
       for (const o of tripOrders) {
         // Pre-flight orders revert to pending; in-flight keep status/rider
@@ -816,6 +823,7 @@ router.post(
                 eq(ordersTable.id, o.id),
                 eq(ordersTable.tripId, id),
                 inArray(ordersTable.status, PRE_FLIGHT_STATUSES),
+                isNull(ordersTable.archivedAt),
               ),
             )
             .returning();
@@ -826,7 +834,13 @@ router.post(
             await tx
               .update(ordersTable)
               .set({ tripId: null })
-              .where(and(eq(ordersTable.id, o.id), eq(ordersTable.tripId, id)));
+              .where(
+                and(
+                  eq(ordersTable.id, o.id),
+                  eq(ordersTable.tripId, id),
+                  isNull(ordersTable.archivedAt),
+                ),
+              );
             continue;
           }
           if (o.status !== "pending") {
@@ -851,7 +865,13 @@ router.post(
           await tx
             .update(ordersTable)
             .set({ tripId: null })
-            .where(and(eq(ordersTable.id, o.id), eq(ordersTable.tripId, id)));
+            .where(
+              and(
+                eq(ordersTable.id, o.id),
+                eq(ordersTable.tripId, id),
+                isNull(ordersTable.archivedAt),
+              ),
+            );
         }
       }
 
