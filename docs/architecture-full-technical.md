@@ -235,6 +235,34 @@ What the system explicitly does not do:
 
 - The web client polls every 30 s using TanStack Query `refetchInterval`. Push notifications are a low-latency supplement, not a replacement.
 
+### 5.10 Receipt rendering and print flow
+
+- The receipt route is `/orders/:id/receipt`, protected for admin,
+  coordinator, and restaurant-staff roles. `pages/order-receipt.tsx` renders a
+  kitchen document from the order detail plus the matching restaurant record.
+  It is not the customer's tax invoice; the storefront remains responsible for
+  that.
+- The receipt page owns the print presentation. Its `@media print` rules hide
+  the application chrome and leave the receipt sheet, while the page's manual
+  Print button remains available for normal receipt navigation. The restaurant
+  order detail (`pages/restaurant-order.tsx`) links with the one-shot
+  `?autoprint=true` query when staff choose **Bon/Receipt**.
+- Auto-print is readiness-gated. The page must have both the order and a
+  restaurant row matching `order.restaurantId` before it schedules printing.
+  This prevents the browser dialog from opening with a missing restaurant name
+  or address when the two queries resolve in different orders. Once ready,
+  `lib/receipt-autoprint.ts` schedules the print callback for the next
+  animation frame, after the complete receipt has committed to the DOM.
+- Before calling `window.print()`, the page removes the one-shot query with
+  `history.replaceState`. Cancelling the dialog or refreshing the receipt then
+  does not trigger another automatic print. A restaurant lookup error does not
+  auto-print an incomplete sheet; the ordinary page remains available with its
+  manual fallback.
+- This is a frontend-only interaction change: it adds no API endpoint, schema
+  field, or generated client contract. The race guard is covered by
+  `src/lib/receipt-autoprint.test.ts`, which verifies that an order resolving
+  before the restaurant does not schedule `window.print()` until both are ready.
+
 ## 6. External integrations
 
 | Integration | Direction | Auth | Failure handling |

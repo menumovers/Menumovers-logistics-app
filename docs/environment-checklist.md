@@ -190,10 +190,15 @@ with what was observed — those verify the code, not the deployment.
       screen and the restaurant screen. All three should keep the date you
       chose. This was B1 — previously the date could only ever be today or
       tomorrow, and the wrong value outranked the correct computed one.
-- [ ] **Print a receipt** from the restaurant card and from the order detail.
-      The app chrome should not appear in the printed output, and item lines
-      should be unnumbered with room to write on — the kitchen annotates by
-      hand when it labels packaging.
+- [ ] **Print a receipt** from the restaurant order detail and from the
+      coordinator order detail. The restaurant detail's Bon/Receipt action
+      should open the browser print dialog automatically after the complete
+      receipt loads; the coordinator flow should still open the receipt page
+      with its manual Print button. In both flows the app chrome should not
+      appear in the printed output, and item lines should be unnumbered with
+      room to write on — the kitchen annotates by hand when it labels
+      packaging. A missing restaurant name/address must never be printed while
+      the restaurant lookup is still loading.
 - [ ] **Hide an item, then reprint.** An "items changed after ordering" line
       should appear with the difference; the charged total must not move.
 - [ ] **Build a two-order trip and assign it to a rider.** The trip should

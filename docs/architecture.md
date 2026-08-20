@@ -76,6 +76,19 @@ confirm its external order ID exactly. See
 [the full flow reference](architecture-full-technical.md#53a-postponement-and-resume)
 and [the source-of-truth registry](architecture-sources-of-truth.md).
 
+## Receipt rendering and printing
+
+The receipt at `/orders/:id/receipt` is a kitchen document, not a customer
+invoice. Its print CSS removes the application chrome, and the page retains a
+manual Print button for ordinary navigation. From the restaurant order detail,
+the receipt link carries a one-shot `autoprint=true` intent: the receipt waits
+until both the order and its matching restaurant record are available, renders
+the complete sheet, and then opens `window.print()` on the next animation frame.
+The query flag is removed before printing so cancelling or refreshing does not
+repeat the print unexpectedly. The readiness and scheduling rule lives in
+`artifacts/bestellenbij/src/lib/receipt-autoprint.ts`; it is a frontend-only
+flow with no API or schema change.
+
 ## Working references
 
 - [Sources of truth](architecture-sources-of-truth.md) — centralized helpers,

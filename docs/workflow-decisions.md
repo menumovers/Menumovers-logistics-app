@@ -459,7 +459,9 @@ per-setting cost is worth removing before it multiplies.
 
 ## D10. The money breakdown is receipt data, not operational data
 
-**Decided 2026-08-14. Receipt built 2026-08-14** — `pages/order-receipt.tsx`.
+**Decided 2026-08-14. Receipt built 2026-08-14; restaurant immediate-print
+flow built 2026-08-20** — `pages/order-receipt.tsx`,
+`pages/restaurant-order.tsx`.
 The fields remain absent from every operational screen; the receipt is the one
 place they appear. No schema change.
 
@@ -517,6 +519,14 @@ Consequences that shaped the build:
   receipt shows it as its own line. The charged amount stands — we are not the
   payment authority — and the discrepancy is surfaced rather than reconciled
   away.
+- **Immediate printing is a restaurant-detail convenience, not a new receipt
+  route.** The restaurant detail links to the existing receipt route with a
+  one-shot `autoprint=true` query. The receipt page must wait for both the order
+  and matching restaurant data, render the complete sheet, and then call
+  `window.print()` after the next animation frame. It removes the query before
+  printing, and retains the manual Print button as a fallback. This avoids
+  partial prints when the two queries resolve at different times and avoids
+  reprinting after a cancelled dialog or refresh.
 
 ---
 

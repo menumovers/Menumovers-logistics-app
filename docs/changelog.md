@@ -1,5 +1,18 @@
 # Changelog
 
+## 2026-08-20 — Restaurant receipt action prints immediately
+
+The Bon/Receipt action on the restaurant order detail now opens the existing
+receipt route with a one-shot `autoprint=true` intent, so staff no longer need
+to click a second Print button. The receipt keeps that manual button for
+normal navigation and fallback.
+
+Automatic printing waits for both the order and its matching restaurant record,
+then runs after the complete sheet has rendered. The one-shot query is removed
+before `window.print()` so cancelling or refreshing does not print again. This
+is frontend-only and adds no API or schema change. A focused regression test
+covers the order-first/restaurant-later loading race.
+
 ## 2026-08-20 — Postponed orders resume; admins gain archive and safe deletion
 
 Resuming now restores the actual pre-postpone state from the status audit trail:
