@@ -73,15 +73,12 @@
     "heading": "Bestellenbij",
     "sub": "Choose how you'll sign in today.",
     "footer": "Tip: install the app on your home screen for the best experience.",
-    "live": {
-      "title": "LIVE - Log in on live app"
-    },
     "rider": {
-      "title": "TEST - I'm a rider",
+      "title": "I'm a Rider",
       "sub": "Internal team — riders, coordination, admin"
     },
     "restaurant": {
-      "title": "TEST - I'm a restaurant",
+      "title": "I'm a restaurant",
       "sub": "Manage pickups for your restaurant"
     }
   },
@@ -97,15 +94,12 @@
     "password": "Password",
     "submit": "Sign in",
     "submitting": "Signing in...",
-    "demo": "Demo accounts",
-    "demoHint": "Tap a role to fill the form",
     "invalid": "Invalid credentials",
     "wrongApp": "That account doesn't belong to this app. Try the other sign-in.",
     "signOutOther": "Sign out current account",
     "back": "Back",
     "switchToRestaurant": "Restaurant staff? Sign in here",
     "switchToRider": "Rider or coordinator? Sign in here",
-    "footer": "All accounts use password 'password'",
     "logoLabel": "Bestellenbij logo"
   },
   "roles": {

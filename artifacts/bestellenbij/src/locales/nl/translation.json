@@ -73,15 +73,12 @@
     "heading": "Bestellenbij",
     "sub": "Kies hoe je vandaag inlogt.",
     "footer": "Tip: installeer de app op je beginscherm voor de beste ervaring.",
-    "live": {
-      "title": "LIVE - Log in on live app"
-    },
     "rider": {
-      "title": "TEST - I'm a rider",
+      "title": "Ik ben een rijder",
       "sub": "Intern team — rijders, coördinatie, beheer"
     },
     "restaurant": {
-      "title": "TEST - I'm a restaurant",
+      "title": "Ik ben een restaurant",
       "sub": "Beheer afhalingen voor je restaurant"
     }
   },
@@ -97,15 +94,12 @@
     "password": "Wachtwoord",
     "submit": "Aanmelden",
     "submitting": "Bezig met aanmelden...",
-    "demo": "Demo-accounts",
-    "demoHint": "Klik op een rol om de velden in te vullen",
     "invalid": "Ongeldige inloggegevens",
     "wrongApp": "Dit account hoort niet bij deze app. Probeer de andere inlog.",
     "signOutOther": "Huidig account uitloggen",
     "back": "Terug",
     "switchToRestaurant": "Restaurantmedewerker? Log hier in",
     "switchToRider": "Rijder of coördinator? Log hier in",
-    "footer": "Alle accounts gebruiken het wachtwoord 'password'",
     "logoLabel": "Bestellenbij-logo"
   },
   "roles": {

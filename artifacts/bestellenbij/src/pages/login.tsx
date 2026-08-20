@@ -18,16 +18,6 @@ import { motion } from "framer-motion";
 import { ArrowLeft, Bike, Store } from "lucide-react";
 import { setToken } from "@/lib/api";
 
-const RIDER_DEMO = [
-  { roleKey: "admin", username: "admin" },
-  { roleKey: "coordinator", username: "coordinator" },
-  { roleKey: "rider", username: "rider1" },
-] as const;
-
-const RESTAURANT_DEMO = [
-  { roleKey: "restaurant_staff", username: "restaurant1" },
-] as const;
-
 type Props = { variant: AppContext };
 
 export default function LoginPage({ variant }: Props) {
@@ -74,7 +64,6 @@ export default function LoginPage({ variant }: Props) {
   }
 
   const isRider = variant === "rider";
-  const demos = isRider ? RIDER_DEMO : RESTAURANT_DEMO;
   const Icon = isRider ? Bike : Store;
   const otherCtx: AppContext = isRider ? "restaurant" : "rider";
   const otherLabel = isRider
@@ -181,40 +170,6 @@ export default function LoginPage({ variant }: Props) {
               </button>
             </div>
           ) : null}
-          <div className="mt-6 rounded-lg border border-dashed border-border p-4">
-            <div className="flex items-baseline justify-between mb-2">
-              <span className="text-sm font-medium">{t("login.demo")}</span>
-              <span className="text-xs text-muted-foreground">
-                {t("login.demoHint")}
-              </span>
-            </div>
-            <div
-              className={
-                demos.length > 1
-                  ? "grid grid-cols-3 gap-2"
-                  : "grid grid-cols-1 gap-2"
-              }
-            >
-              {demos.map((d) => (
-                <button
-                  type="button"
-                  key={d.username}
-                  onClick={() => {
-                    setUsername(d.username);
-                    setPassword("password");
-                  }}
-                  className="rounded-md border border-border bg-background hover:bg-muted px-3 py-2 text-xs text-left transition-colors"
-                  data-testid={`button-demo-${d.roleKey}`}
-                >
-                  <div className="font-medium">{t(`roles.${d.roleKey}`)}</div>
-                  <div className="text-muted-foreground truncate">{d.username}</div>
-                </button>
-              ))}
-            </div>
-            <p className="mt-3 text-xs text-muted-foreground">
-              {t("login.footer")}
-            </p>
-          </div>
           <div className="mt-4 text-center">
             <Link
               href={getLoginPath(otherCtx)}

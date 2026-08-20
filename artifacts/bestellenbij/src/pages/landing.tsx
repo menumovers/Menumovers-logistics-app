@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useLocation } from "wouter";
 import { motion } from "framer-motion";
-import { Bike, Store, ArrowRight, ExternalLink } from "lucide-react";
+import { Bike, Store, ArrowRight } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { getHomeForRoles } from "@/lib/role-homes";
 import { getContextForPath } from "@/lib/app-context";
@@ -51,19 +51,6 @@ export default function LandingPage() {
             <p className="mt-2 text-muted-foreground">{t("landing.sub")}</p>
           </div>
           <div className="grid gap-3">
-            <a
-              href="http://menumovers.hugati.com/"
-              className="group flex items-center gap-4 rounded-xl border border-primary/30 bg-primary/5 p-5 shadow-md shadow-primary/5 hover:border-primary hover:bg-primary/10 hover:shadow-lg transition-all"
-              data-testid="link-landing-live"
-            >
-              <div className="size-12 rounded-lg bg-primary text-primary-foreground grid place-items-center">
-                <ExternalLink className="size-6" />
-              </div>
-              <div className="flex-1 text-left">
-                <div className="font-semibold">{t("landing.live.title")}</div>
-              </div>
-              <ArrowRight className="size-5 text-muted-foreground group-hover:text-primary transition-colors" />
-            </a>
             <Link
               href="/rider/login"
               className="group flex items-center gap-4 rounded-xl border border-border bg-card p-5 shadow-md shadow-primary/5 hover:border-primary hover:shadow-lg transition-all"
