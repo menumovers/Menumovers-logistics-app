@@ -31,7 +31,7 @@ import { PaymentPanel } from "@/components/payment-panel";
 import { ArrowLeft, Phone, MapPin, Navigation, Bell, BellOff, Store, ChevronRight, Clock, Layers, CheckCircle2, ClipboardList } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/lib/auth";
-import { effectivePickup, formatCurrency, formatTime } from "@/lib/format";
+import { effectivePickup, formatTime } from "@/lib/format";
 
 /**
  * The expected order of events, used purely to pick which button is the big
@@ -189,20 +189,18 @@ export default function RiderOrderPage() {
             <div className="text-xs uppercase tracking-wide text-muted-foreground mb-2">{t("coordinator.items")}</div>
             <ul className="text-sm space-y-1">
               {o.items.map((it, i) => (
-                <li key={i} className="flex justify-between gap-2">
-                  <span><span className="text-muted-foreground tabular-nums">{it.quantity}× </span>{it.name}</span>
-                  <span className="tabular-nums text-muted-foreground">{formatCurrency(it.price, lang)}</span>
+                <li key={i}>
+                  <span className="text-muted-foreground tabular-nums">{it.quantity}× </span>{it.name}
                 </li>
               ))}
             </ul>
-            <div className="flex justify-between text-sm font-medium mt-2 pt-2 border-t border-border">
-              <span>{t("common.actions")}</span><span className="tabular-nums">{formatCurrency(o.totalAmount, lang)}</span>
+          </div>
+          {o.cashPayment ? (
+            <div className="border-t border-border pt-3">
+              <div className="text-xs uppercase tracking-wide text-muted-foreground mb-2">{t("payment.title")}</div>
+              <PaymentPanel order={o} lang={lang} />
             </div>
-          </div>
-          <div className="border-t border-border pt-3">
-            <div className="text-xs uppercase tracking-wide text-muted-foreground mb-2">{t("payment.title")}</div>
-            <PaymentPanel order={o} lang={lang} />
-          </div>
+          ) : null}
         </CardContent>
       </Card>
 
