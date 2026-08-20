@@ -46,6 +46,7 @@ export * from "./pickupTimeSource";
 export * from "./pushSubscriptionAck";
 export * from "./pushSubscriptionRequest";
 export * from "./pushSubscriptionRequestKeys";
+export * from "./reassignOrderRequest";
 export * from "./replaceTripStopsRequest";
 export * from "./restaurant";
 export * from "./restaurantAcceptanceMode";

@@ -346,6 +346,44 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+  /orders/{id}/reassign:
+    post:
+      operationId: reassignOrder
+      tags: [orders]
+      summary: Unassign or swap the rider on an already-assigned order
+      description: |
+        For orders that already have a rider (anything past `pending`).
+        Passing a `riderId` swaps in that rider — while the current rider
+        hasn't left for the restaurant yet the order is treated as a fresh
+        assignment (`rider_accepted`); once en route or later, only the
+        rider changes and the current status is preserved. Omitting
+        `riderId` (or passing null) unassigns the order back to `pending`,
+        which is only allowed before the rider has left for the restaurant.
+        Terminal (`delivered`/`failed`) and held orders are rejected.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReassignOrderRequest"
+      responses:
+        "200":
+          description: Reassigned or unassigned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrderDetail"
+        "409":
+          description: Order is terminal, held, not assigned, already on that rider, or too far along to unassign
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /orders/{id}/pickup-time:
     post:
       operationId: updatePickupTime
@@ -1937,6 +1975,15 @@ components:
       properties:
         riderId:
           type: string
+    ReassignOrderRequest:
+      type: object
+      properties:
+        riderId:
+          description: |
+            The rider to swap onto the order. Omitted or null unassigns the
+            order back to `pending` — only allowed while the current rider
+            hasn't yet left for the restaurant.
+          type: ["string", "null"]
     UpdatePickupTimeRequest:
       type: object
       required: [source, pickupTime]

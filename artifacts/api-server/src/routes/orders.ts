@@ -16,6 +16,7 @@ import {
   IngestOrderBody,
   TransitionOrderStatusBody,
   AssignOrderBody,
+  ReassignOrderBody,
   UpdatePickupTimeBody,
   HideOrderItemBody,
   AddOrderItemBody,
@@ -29,7 +30,7 @@ import {
 } from "@workspace/api-zod";
 import { requireAuth, requireRole, requireInboundCredential, primaryRoleLabel } from "../lib/auth";
 import { httpError } from "../lib/errors";
-import { assertValidTransition } from "../lib/state-machine";
+import { assertValidTransition, isTerminal } from "../lib/state-machine";
 import {
   serializeOrderDetail,
   serializeOrderListItems,
@@ -957,6 +958,136 @@ router.post(
         correlationId: String(req.id),
       }),
     ]);
+
+    const detail = await serializeOrderDetail(id);
+    res.json(detail);
+  }),
+);
+
+// =====================================================================
+// POST /orders/:id/reassign — unassign to pending, or swap in a new rider
+// =====================================================================
+
+// Hasn't left for the restaurant yet — the rider can still be swapped or
+// dropped without leaving the order in an inconsistent state. Matches the
+// cutoff trip reassignment already uses (see PRE_FLIGHT_STATUSES in trips.ts).
+const REASSIGNABLE_TO_PENDING: ReadonlyArray<OrderStatus> = ["rider_assigned", "rider_accepted"];
+
+router.post(
+  "/orders/:id/reassign",
+  requireAuth,
+  requireRole("admin", "coordinator"),
+  wrap(async (req, res) => {
+    const id = req.params["id"] as string;
+    const auth = req.auth!;
+    const parsed = ReassignOrderBody.safeParse(req.body ?? {});
+    if (!parsed.success) throw httpError(400, "VALIDATION_ERROR", parsed.error.message);
+    const newRiderId = parsed.data.riderId ?? null;
+
+    const [order] = await db.select().from(ordersTable).where(eq(ordersTable.id, id));
+    if (!order) throw httpError(404, "ORDER_NOT_FOUND", "Order not found");
+    if (isTerminal(order.status)) {
+      throw httpError(409, "ORDER_TERMINAL", "Order is delivered or failed");
+    }
+    if (order.holdState) {
+      throw httpError(409, "ORDER_ON_HOLD", "Order is on hold");
+    }
+    if (!order.riderId) {
+      throw httpError(409, "ORDER_NOT_ASSIGNED", "Order has no rider to unassign or reassign");
+    }
+    if (newRiderId === order.riderId) {
+      throw httpError(409, "SAME_RIDER", "Order is already assigned to that rider");
+    }
+
+    if (newRiderId) {
+      const [rider] = await db.select().from(ridersTable).where(eq(ridersTable.id, newRiderId));
+      if (!rider) throw httpError(404, "RIDER_NOT_FOUND", "Rider not found");
+    } else if (!REASSIGNABLE_TO_PENDING.includes(order.status)) {
+      throw httpError(
+        409,
+        "CANNOT_UNASSIGN_IN_FLIGHT",
+        "Rider has already left for the restaurant — reassign to a different rider instead of unassigning",
+      );
+    }
+
+    // Pre-flight: a swap is a fresh assignment (the new rider hasn't accepted
+    // yet). Once the rider has left, only the rider changes — the reported
+    // status is preserved rather than rewinding an in-flight leg.
+    const newStatus: OrderStatus = newRiderId
+      ? REASSIGNABLE_TO_PENDING.includes(order.status)
+        ? "rider_accepted"
+        : order.status
+      : "pending";
+
+    const updated = await db
+      .update(ordersTable)
+      .set({ status: newStatus, riderId: newRiderId })
+      .where(
+        and(
+          eq(ordersTable.id, id),
+          eq(ordersTable.status, order.status),
+          eq(ordersTable.riderId, order.riderId),
+          notHeld(),
+        ),
+      )
+      .returning();
+    if (updated.length === 0) {
+      throw httpError(409, "STATE_CONFLICT", "Order state changed concurrently");
+    }
+
+    const note = newRiderId ? "Reassigned by coordinator" : "Unassigned by coordinator";
+    await Promise.all([
+      newStatus !== order.status
+        ? db.insert(orderStatusLogsTable).values({
+            orderId: id,
+            fromStatus: order.status,
+            toStatus: newStatus,
+            actorUserId: auth.sub,
+            actorRole: primaryRoleLabel(auth.roles),
+            note,
+          })
+        : Promise.resolve(),
+      db.insert(riderAssignmentsTable).values({
+        orderId: id,
+        riderId: newRiderId ?? order.riderId,
+        outcome: newRiderId ? "reassigned" : "unassigned",
+        assignedByUserId: auth.sub,
+      }),
+    ]);
+
+    if (newRiderId) {
+      const updatedOrder = updated[0]!;
+      const audience = audienceForAssignment();
+      await Promise.all([
+        audience.notifyAssignedRider
+          ? sendPushToRider(newRiderId, {
+              title: "Rit toegewezen",
+              body: updatedOrder.customerName,
+              data: { orderId: id, type: "order.assigned" },
+            })
+          : Promise.resolve(),
+        audience.notifyOrderRestaurantStaff
+          ? sendPushToRestaurantStaff(updatedOrder.restaurantId, {
+              title: "Bezorger gewijzigd",
+              body: updatedOrder.customerName,
+              data: { orderId: id, type: "order.assigned" },
+            })
+          : Promise.resolve(),
+        enqueueOutboundEvent({
+          eventType: "order.assigned",
+          orderId: id,
+          payload: { riderId: newRiderId },
+          correlationId: String(req.id),
+        }),
+      ]);
+    } else {
+      await enqueueOutboundEvent({
+        eventType: "order.status_changed",
+        orderId: id,
+        payload: { fromStatus: order.status, toStatus: "pending", note },
+        correlationId: String(req.id),
+      });
+    }
 
     const detail = await serializeOrderDetail(id);
     res.json(detail);

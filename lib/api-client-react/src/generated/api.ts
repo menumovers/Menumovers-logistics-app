@@ -40,6 +40,7 @@ import type {
   PermanentOrderDeletionConfirmation,
   PushSubscriptionAck,
   PushSubscriptionRequest,
+  ReassignOrderRequest,
   ReplaceTripStopsRequest,
   Restaurant,
   RiderWithWorkload,
@@ -1182,6 +1183,102 @@ export const useAssignOrder = <
   TContext
 > => {
   return useMutation(getAssignOrderMutationOptions(options));
+};
+
+/**
+ * For orders that already have a rider (anything past `pending`).
+Passing a `riderId` swaps in that rider — while the current rider
+hasn't left for the restaurant yet the order is treated as a fresh
+assignment (`rider_accepted`); once en route or later, only the
+rider changes and the current status is preserved. Omitting
+`riderId` (or passing null) unassigns the order back to `pending`,
+which is only allowed before the rider has left for the restaurant.
+Terminal (`delivered`/`failed`) and held orders are rejected.
+
+ * @summary Unassign or swap the rider on an already-assigned order
+ */
+export const getReassignOrderUrl = (id: string) => {
+  return `/api/orders/${id}/reassign`;
+};
+
+export const reassignOrder = async (
+  id: string,
+  reassignOrderRequest: ReassignOrderRequest,
+  options?: RequestInit,
+): Promise<OrderDetail> => {
+  return customFetch<OrderDetail>(getReassignOrderUrl(id), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(reassignOrderRequest),
+  });
+};
+
+export const getReassignOrderMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof reassignOrder>>,
+    TError,
+    { id: string; data: BodyType<ReassignOrderRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof reassignOrder>>,
+  TError,
+  { id: string; data: BodyType<ReassignOrderRequest> },
+  TContext
+> => {
+  const mutationKey = ["reassignOrder"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof reassignOrder>>,
+    { id: string; data: BodyType<ReassignOrderRequest> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return reassignOrder(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ReassignOrderMutationResult = NonNullable<
+  Awaited<ReturnType<typeof reassignOrder>>
+>;
+export type ReassignOrderMutationBody = BodyType<ReassignOrderRequest>;
+export type ReassignOrderMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Unassign or swap the rider on an already-assigned order
+ */
+export const useReassignOrder = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof reassignOrder>>,
+    TError,
+    { id: string; data: BodyType<ReassignOrderRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof reassignOrder>>,
+  TError,
+  { id: string; data: BodyType<ReassignOrderRequest> },
+  TContext
+> => {
+  return useMutation(getReassignOrderMutationOptions(options));
 };
 
 /**
