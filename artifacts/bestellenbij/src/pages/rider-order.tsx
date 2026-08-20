@@ -28,7 +28,7 @@ import { PickupCountdown, PickupSourceBadge } from "@/components/pickup-countdow
 import { DeliveryMethodBadge, RequestedTimeLabel } from "@/components/delivery-expectation";
 import { PickupTimeInput } from "@/components/pickup-time-input";
 import { PaymentPanel } from "@/components/payment-panel";
-import { ArrowLeft, Phone, MapPin, Navigation, Bell, BellOff, Store, ChevronRight, Clock, Layers, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, Phone, MapPin, Navigation, Bell, BellOff, Store, ChevronRight, Clock, Layers, CheckCircle2, ClipboardList } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/lib/auth";
 import { effectivePickup, formatCurrency, formatTime } from "@/lib/format";
@@ -64,6 +64,7 @@ export default function RiderOrderPage() {
   const { toast } = useToast();
   const { user } = useAuth();
   const riderId = user?.riderId ?? undefined;
+  const isCoordinator = !!user?.roles.includes("coordinator") || !!user?.roles.includes("admin");
 
   const [failureReason, setFailureReason] = useState("");
   const [postponeReason, setPostponeReason] = useState("");
@@ -92,9 +93,18 @@ export default function RiderOrderPage() {
 
   return (
     <div className="space-y-5 max-w-2xl mx-auto">
-      <Link href="/rider" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground" data-testid="link-back-rider">
-        <ArrowLeft className="size-4" /> {t("common.back")}
-      </Link>
+      <div className="flex items-center justify-between gap-2">
+        <Link href="/rider" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground" data-testid="link-back-rider">
+          <ArrowLeft className="size-4" /> {t("common.back")}
+        </Link>
+        {isCoordinator ? (
+          <Button asChild variant="ghost" size="sm" data-testid="button-open-coordinator-view">
+            <Link href={`/coordinator/orders/${orderId}`}>
+              <ClipboardList className="size-4 mr-1.5" /> {t("rider.coordinatorView")}
+            </Link>
+          </Button>
+        ) : null}
+      </div>
 
       {o.tripId && o.tripNumber != null ? (
         <div className="rounded-lg border border-primary/40 bg-primary/[0.04] px-3 py-2 text-sm flex items-center gap-2" data-testid="banner-trip-context">

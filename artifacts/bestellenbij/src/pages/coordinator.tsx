@@ -331,7 +331,7 @@ function CustomerPickupSection({
           {orders.map((o) => (
             <li key={o.id}>
               <Link
-                href={`/coordinator/orders/${o.id}`}
+                href={`/rider/orders/${o.id}`}
                 className="flex items-center gap-3 rounded-md border border-border px-3 py-2 hover:border-primary/50"
                 data-testid={`customer-pickup-row-${o.id}`}
               >
@@ -381,7 +381,7 @@ function NeedsAttentionSection({
           {orders.map((o) => (
             <li key={o.id}>
               <Link
-                href={`/coordinator/orders/${o.id}`}
+                href={`/rider/orders/${o.id}`}
                 className="flex items-center gap-3 rounded-md border border-border bg-card px-3 py-2 hover:border-primary/50"
                 data-testid={`needs-attention-row-${o.id}`}
               >
@@ -494,7 +494,7 @@ function HeldRow({
           </div>
         </div>
         <Link
-          href={`/coordinator/orders/${order.id}`}
+          href={`/rider/orders/${order.id}`}
           className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1 shrink-0"
         >
           {t("common.details")} <ChevronRight className="size-3" />
@@ -683,7 +683,7 @@ function CoordinatorOrderCard({ order, lang }: { order: OrderListItem; lang: str
   const { t } = useTranslation();
   const eff = effectivePickup(order);
   return (
-    <Link href={`/coordinator/orders/${order.id}`}>
+    <Link href={`/rider/orders/${order.id}`}>
       <Card
         className="hover:border-primary/40 hover:shadow-md transition cursor-pointer"
         data-testid={`card-order-${order.id}`}

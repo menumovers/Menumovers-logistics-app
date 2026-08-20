@@ -204,6 +204,7 @@
     "callRestaurant": "Call restaurant",
     "callCustomer": "Call customer",
     "mapsDirections": "Maps",
+    "coordinatorView": "Coordinator view",
     "advance": "Next step",
     "fail": "Mark failed",
     "failureReason": "Failure reason",
