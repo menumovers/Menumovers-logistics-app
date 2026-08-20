@@ -1,5 +1,54 @@
 # Changelog
 
+## 2026-08-19 — Coordinator overview rebuilt as a three-column board
+
+Same list/detail split as the rider and restaurant overviews: `pages/coordinator.tsx`
+is now compact cards linking to the existing order detail page, instead of
+full order detail rendered inline. Nothing changed on the detail page itself.
+
+Three columns (stack on mobile): **Your orders** (assigned to the
+coordinator's own `riderId`, for a coordinator who is also a rider) + **Open
+orders** on the left; **Active orders** (`rider_assigned`/`rider_accepted`/
+`en_route_to_restaurant`/`arrived_at_restaurant`) in the middle; **In
+delivery** (`picked_up`/`en_route_to_customer`) + **Completed orders**
+(`delivered` in the last hour) on the right. A new **Needs attention** section
+pulls `postponed` orders and recent `failed` deliveries out of the board
+entirely — same principle as the existing Held section, since neither status
+fits a single column.
+
+Card layout: pickup countdown + restaurant name with a 2-character
+restaurant-acceptance pill; pickup time with an asap/scheduled icon +
+customer address; assigned rider + the order's full status text. Rider
+overview cards gained the same asap/scheduled icon next to their pickup time.
+
+## 2026-08-19 — `driver_assigned` renamed `rider_assigned`; `rider_accepted` and `arrived_at_restaurant` added
+
+Order lifecycle is now `pending → rider_assigned → rider_accepted →
+en_route_to_restaurant → arrived_at_restaurant → picked_up →
+en_route_to_customer → delivered`.
+
+A coordinator/admin assignment lands on `rider_assigned` and now waits for the
+rider to accept (a new status report, gated to only be reportable from
+`rider_assigned`). A rider claiming an open order for themselves, or a trip
+assigning one, lands directly on `rider_accepted` — claiming already implies
+acceptance, and trips get no separate accept step for now. Everything else
+about the state machine (D1) is unchanged: skip-ahead and backwards
+correction still work everywhere else, and the frontend still renders
+`allowedTransitions` rather than keeping its own transition table.
+
+`driver_assigned` is purely a rename (terminology consistency with "rider"
+elsewhere in the app) — no behavior change.
+
+`trips.ts` had six call sites hand-spelling `{pending, driver_assigned}` as
+"not yet in motion"; replaced with a shared `PRE_FLIGHT_STATUSES` constant
+(now three statuses). `Order` gained a serialized `updatedAt` field (the
+column already existed, just wasn't exposed), which the new coordinator board
+uses for its "delivered in the last hour" window.
+
+**Needs a schema push**, and the rename half is not purely additive — see D16
+in `workflow-decisions.md` for why a plain `drizzle-kit push` against a
+database with real orders needs a careful look first.
+
 ## 2026-08-19 — Restaurant order scope stops leaking held orders
 
 **Bug fix:** `orderScopeWhere`'s `restaurant_staff` clause was a bare

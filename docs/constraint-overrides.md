@@ -20,8 +20,9 @@ nothing to discuss.
 difference matters:
 
 - **Hard.** Protects correctness, safety or data integrity. The atomic
-  `WHERE status = <observed>` guard. `pending` / `driver_assigned` staying
-  coupled to `riderId`. Immutability of `pickupTimeOriginal` after insert.
+  `WHERE status = <observed>` guard. `pending` / `rider_assigned` staying
+  coupled to `riderId`, and `rider_accepted` reportable only from
+  `rider_assigned` (D16). Immutability of `pickupTimeOriginal` after insert.
   Crossing one of these needs a real reason and a deliberate decision — and
   usually means the invariant should be re-stated rather than removed.
 - **Soft.** Accumulated preference: the conclusion of an earlier conversation,
