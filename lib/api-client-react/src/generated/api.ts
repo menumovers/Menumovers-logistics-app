@@ -749,6 +749,94 @@ export const useTransitionOrderStatus = <
 };
 
 /**
+ * Restores the status that was recorded immediately before the order was
+postponed. This returns unassigned work to `pending` and preserves the
+existing rider for orders that were already assigned.
+
+ * @summary Resume a postponed order
+ */
+export const getResumeOrderUrl = (id: string) => {
+  return `/api/orders/${id}/resume`;
+};
+
+export const resumeOrder = async (
+  id: string,
+  options?: RequestInit,
+): Promise<OrderDetail> => {
+  return customFetch<OrderDetail>(getResumeOrderUrl(id), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getResumeOrderMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof resumeOrder>>,
+    TError,
+    { id: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof resumeOrder>>,
+  TError,
+  { id: string },
+  TContext
+> => {
+  const mutationKey = ["resumeOrder"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof resumeOrder>>,
+    { id: string }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return resumeOrder(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ResumeOrderMutationResult = NonNullable<
+  Awaited<ReturnType<typeof resumeOrder>>
+>;
+
+export type ResumeOrderMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Resume a postponed order
+ */
+export const useResumeOrder = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof resumeOrder>>,
+    TError,
+    { id: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof resumeOrder>>,
+  TError,
+  { id: string },
+  TContext
+> => {
+  return useMutation(getResumeOrderMutationOptions(options));
+};
+
+/**
  * @summary Assign a rider to an order (atomic)
  */
 export const getAssignOrderUrl = (id: string) => {

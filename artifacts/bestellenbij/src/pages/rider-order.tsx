@@ -5,6 +5,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import {
   useGetOrder,
   useTransitionOrderStatus,
+  useResumeOrder,
   useUpdatePickupTime,
   useAssignOrder,
   useGetSettingsFlags,
@@ -57,6 +58,7 @@ export default function RiderOrderPage() {
   const { t, i18n } = useTranslation();
   const lang = i18n.resolvedLanguage ?? "nl";
   const transition = useTransitionOrderStatus();
+  const resume = useResumeOrder();
   const updatePickup = useUpdatePickupTime();
   const qc = useQueryClient();
   const { toast } = useToast();
@@ -178,6 +180,27 @@ export default function RiderOrderPage() {
 
       {isMine ? (
         <>
+          {o.status === "postponed" ? (
+            <Button
+              size="lg"
+              className="w-full h-16 text-lg font-semibold"
+              disabled={resume.isPending}
+              onClick={() =>
+                resume.mutate(
+                  { id: o.id },
+                  {
+                    onSuccess: () => {
+                      toast({ title: t("postpone.resume") });
+                      invalidate();
+                    },
+                  },
+                )
+              }
+              data-testid="button-rider-resume"
+            >
+              {t("postpone.resume")} <ChevronRight className="size-5 ml-2" />
+            </Button>
+          ) : null}
           {next ? (
             <Button
               size="lg"

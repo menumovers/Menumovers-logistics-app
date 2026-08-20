@@ -582,6 +582,155 @@ router.post(
 );
 
 // =====================================================================
+// POST /orders/:id/resume — restore the state before postponement
+// =====================================================================
+router.post(
+  "/orders/:id/resume",
+  requireAuth,
+  wrap(async (req, res) => {
+    const id = req.params["id"] as string;
+    const auth = req.auth!;
+    const order = await loadOrderForAuthOr404(auth, id);
+    let authorizedRiderId: string | null = null;
+
+    if (order.status !== "postponed") {
+      throw httpError(409, "ORDER_NOT_POSTPONED", "Only postponed orders can be resumed");
+    }
+
+    // Keep the same permission model as status reports: a coordinator/admin can
+    // resolve any order, while a rider can resume only work assigned to them.
+    if (auth.roles.includes("admin") || auth.roles.includes("coordinator")) {
+      // unrestricted
+    } else if (auth.roles.includes("rider")) {
+      const [rider] = await db
+        .select({ id: ridersTable.id })
+        .from(ridersTable)
+        .where(eq(ridersTable.userId, auth.sub));
+      if (!rider || rider.id !== order.riderId) {
+        throw httpError(403, "FORBIDDEN", "Rider can only resume their own orders");
+      }
+      authorizedRiderId = rider.id;
+    } else {
+      throw httpError(403, "FORBIDDEN", "Forbidden");
+    }
+
+    // A postpone transition is logged with the status it replaced. Restoring
+    // that exact value returns unassigned work to the dispatch queue and keeps
+    // in-motion work with its current rider, without inventing a second status
+    // field that can drift from the audit trail.
+    const [postponeLog] = await db
+      .select({ fromStatus: orderStatusLogsTable.fromStatus })
+      .from(orderStatusLogsTable)
+      .where(
+        and(
+          eq(orderStatusLogsTable.orderId, id),
+          eq(orderStatusLogsTable.toStatus, "postponed"),
+          // A forced mid-flight trip reassignment records a same-status audit
+          // row. It must not replace the actual transition that postponed the
+          // order as the source for a later resume.
+          sql`${orderStatusLogsTable.fromStatus} IS NOT NULL AND ${orderStatusLogsTable.fromStatus} <> 'postponed'`,
+        ),
+      )
+      .orderBy(desc(orderStatusLogsTable.createdAt))
+      .limit(1);
+    const resumeStatus = postponeLog?.fromStatus;
+
+    if (!resumeStatus || resumeStatus === "postponed") {
+      throw httpError(
+        409,
+        "POSTPONE_ORIGIN_NOT_FOUND",
+        "The status before postponement is unavailable",
+      );
+    }
+    if (resumeStatus === "pending" && order.riderId !== null) {
+      throw httpError(
+        409,
+        "RESUME_STATE_CONFLICT",
+        "Cannot resume to pending while a rider is assigned",
+      );
+    }
+    if (resumeStatus !== "pending" && order.riderId === null) {
+      throw httpError(
+        409,
+        "RESUME_STATE_CONFLICT",
+        "Cannot resume assigned work without a rider",
+      );
+    }
+
+    // Both status and rider assignment are guarded by this write. A concurrent
+    // trip reassignment can keep the order postponed while changing its rider;
+    // resuming must never pair pending with a rider or active work without one.
+    const riderInvariant =
+      resumeStatus === "pending"
+        ? sql`${ordersTable.riderId} IS NULL`
+        : sql`${ordersTable.riderId} IS NOT NULL`;
+    const resumeWhere = authorizedRiderId
+      ? and(
+          eq(ordersTable.id, id),
+          eq(ordersTable.status, "postponed"),
+          riderInvariant,
+          eq(ordersTable.riderId, authorizedRiderId),
+        )
+      : and(eq(ordersTable.id, id), eq(ordersTable.status, "postponed"), riderInvariant);
+    const updated = await db
+      .update(ordersTable)
+      .set({ status: resumeStatus })
+      .where(resumeWhere)
+      .returning();
+    if (updated.length === 0) {
+      throw httpError(409, "STATE_CONFLICT", "Order state changed concurrently");
+    }
+
+    const note = "Resumed from postponement";
+    await db.insert(orderStatusLogsTable).values({
+      orderId: id,
+      fromStatus: "postponed",
+      toStatus: resumeStatus,
+      actorUserId: auth.sub,
+      actorRole: primaryRoleLabel(auth.roles),
+      note,
+    });
+
+    const audience = audienceForStatus(resumeStatus);
+    if (audience) {
+      const updatedOrder = updated[0]!;
+      await Promise.all([
+        audience.roles.length > 0
+          ? sendPushToRoles(audience.roles, {
+              title: `Status: ${resumeStatus}`,
+              body: `${order.customerName}`,
+              data: { orderId: id, type: "order.status_changed", status: resumeStatus },
+            })
+          : Promise.resolve(),
+        audience.notifyAssignedRider && updatedOrder.riderId
+          ? sendPushToRider(updatedOrder.riderId, {
+              title: `Status: ${resumeStatus}`,
+              body: order.customerName,
+              data: { orderId: id, type: "order.status_changed", status: resumeStatus },
+            })
+          : Promise.resolve(),
+        audience.notifyOrderRestaurantStaff
+          ? sendPushToRestaurantStaff(order.restaurantId, {
+              title: `Status: ${resumeStatus}`,
+              body: order.customerName,
+              data: { orderId: id, type: "order.status_changed", status: resumeStatus },
+            })
+          : Promise.resolve(),
+      ]);
+    }
+    await enqueueOutboundEvent({
+      eventType: "order.status_changed",
+      orderId: id,
+      payload: { fromStatus: "postponed", toStatus: resumeStatus, note },
+      correlationId: String(req.id),
+    });
+
+    const detail = await serializeOrderDetail(id);
+    res.json(detail);
+  }),
+);
+
+// =====================================================================
 // POST /orders/:id/assign — atomic rider assignment
 // =====================================================================
 router.post(

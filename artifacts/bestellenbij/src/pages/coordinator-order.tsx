@@ -6,6 +6,7 @@ import {
   useGetOrder,
   useAssignOrder,
   useTransitionOrderStatus,
+  useResumeOrder,
   useUpdatePickupTime,
   useHideOrderItem,
   useUnhideOrderItem,
@@ -320,6 +321,7 @@ function AssignCard({ order }: { order: OrderDetail }) {
 function TransitionCard({ order }: { order: OrderDetail }) {
   const { t } = useTranslation();
   const transition = useTransitionOrderStatus();
+  const resume = useResumeOrder();
   const invalidate = useInvalidateOrder(order.id);
   const [failureReason, setFailureReason] = useState("");
   // Server-derived: status is a report, not a gate, so the options are
@@ -331,6 +333,26 @@ function TransitionCard({ order }: { order: OrderDetail }) {
     <Card>
       <CardHeader><CardTitle className="text-base flex items-center gap-2"><History className="size-4" /> {t("coordinator.transition")}</CardTitle></CardHeader>
       <CardContent className="space-y-2">
+        {order.status === "postponed" ? (
+          <Button
+            className="w-full justify-start"
+            disabled={resume.isPending}
+            onClick={() =>
+              resume.mutate(
+                { id: order.id },
+                {
+                  onSuccess: () => {
+                    toast({ title: t("postpone.resume") });
+                    invalidate();
+                  },
+                },
+              )
+            }
+            data-testid="button-resume-order"
+          >
+            <PlayCircle className="size-4 mr-2" /> {t("postpone.resume")}
+          </Button>
+        ) : null}
         {targets.includes("failed") ? (
           <Textarea
             placeholder={t("rider.failureReason")}

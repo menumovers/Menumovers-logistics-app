@@ -214,6 +214,34 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+  /orders/{id}/resume:
+    post:
+      operationId: resumeOrder
+      tags: [orders]
+      summary: Resume a postponed order
+      description: |
+        Restores the status that was recorded immediately before the order was
+        postponed. This returns unassigned work to `pending` and preserves the
+        existing rider for orders that were already assigned.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Resumed order
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrderDetail"
+        "409":
+          description: The order is no longer postponed or cannot be resumed safely
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /orders/{id}/assign:
     post:
       operationId: assignOrder
