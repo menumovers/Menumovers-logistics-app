@@ -30,8 +30,8 @@ export function PickupCountdown({
   const lang = i18n.resolvedLanguage ?? "nl";
   const now = useNow(15_000);
   const eff = effectivePickup(order);
-  const urgency = urgencyFor(eff.iso, now);
-  const desc = pickupCountdownLabel(eff.iso, lang, now);
+  const urgency = urgencyFor(eff.iso, now, order.status);
+  const desc = pickupCountdownLabel(eff.iso, lang, now, order.status);
   const label =
     desc.kind === "literal"
       ? desc.text
@@ -56,7 +56,7 @@ export function PickupCountdown({
       data-testid="badge-pickup-countdown"
       data-urgency={urgency}
     >
-      {urgency === "late" || urgency === "danger" ? (
+      {urgency === "late" || urgency === "lateAtRestaurant" || urgency === "danger" ? (
         <AlertTriangle className="size-3.5" />
       ) : (
         <Clock className="size-3.5" />

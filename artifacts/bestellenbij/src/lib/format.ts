@@ -1,4 +1,4 @@
-import type { Order, PickupTimeSource } from "@workspace/api-client-react";
+import type { Order, OrderStatus, PickupTimeSource } from "@workspace/api-client-react";
 
 export type AnyOrder = Pick<
   Order,
@@ -6,6 +6,7 @@ export type AnyOrder = Pick<
   | "pickupTimeRider"
   | "pickupTimeRestaurant"
   | "pickupTimeOverride"
+  | "status"
 > &
   Partial<Pick<Order, "effectivePickupTime" | "effectivePickupSource">>;
 
@@ -159,11 +160,24 @@ export function combineDateAndTime(
   return combined.toISOString();
 }
 
-export type Urgency = "neutral" | "warn" | "danger" | "late";
+export type Urgency = "neutral" | "warn" | "danger" | "late" | "lateAtRestaurant";
 
-export function urgencyFor(iso: string, now: Date = new Date()): Urgency {
+/**
+ * Once the rider has arrived, a late pickup is the restaurant's problem, not
+ * the rider's — "late" (red) becomes "lateAtRestaurant" (orange). Once the
+ * order is actually picked up, the countdown against pickup time is moot, so
+ * it reads neutral from then on regardless of the clock.
+ */
+const STOPS_COUNTDOWN: ReadonlySet<OrderStatus> = new Set([
+  "picked_up",
+  "en_route_to_customer",
+  "delivered",
+]);
+
+export function urgencyFor(iso: string, now: Date = new Date(), status?: OrderStatus): Urgency {
+  if (status && STOPS_COUNTDOWN.has(status)) return "neutral";
   const m = minutesUntil(iso, now);
-  if (m < 0) return "late";
+  if (m < 0) return status === "arrived_at_restaurant" ? "lateAtRestaurant" : "late";
   if (m < 5) return "danger";
   if (m < 20) return "warn";
   return "neutral";
@@ -183,7 +197,11 @@ export function pickupCountdownLabel(
   iso: string,
   lang: string,
   now: Date = new Date(),
+  status?: OrderStatus,
 ): PickupLabelDescriptor {
+  // Once picked up, stop counting elapsed lateness — always show the fixed
+  // pickup time rather than a number that keeps growing forever.
+  if (status && STOPS_COUNTDOWN.has(status)) return { kind: "literal", text: formatTime(iso, lang) };
   const m = minutesUntil(iso, now);
   const absM = Math.abs(m);
   if (absM >= 60) return { kind: "literal", text: formatTime(iso, lang) };
