@@ -3,9 +3,12 @@ import { useTranslation } from "react-i18next";
 import { Clock, AlertTriangle } from "lucide-react";
 import {
   effectivePickup,
+  formatTime,
+  minutesSince,
   pickupCountdownLabel,
   urgencyFor,
   type AnyOrder,
+  type Urgency,
 } from "@/lib/format";
 import { URGENCY_CLASS } from "@/lib/status";
 import { cn } from "@/lib/utils";
@@ -29,15 +32,29 @@ export function PickupCountdown({
   const { t, i18n } = useTranslation();
   const lang = i18n.resolvedLanguage ?? "nl";
   const now = useNow(15_000);
-  const eff = effectivePickup(order);
-  const urgency = urgencyFor(eff.iso, now, order.status);
-  const desc = pickupCountdownLabel(eff.iso, lang, now, order.status);
-  const label =
-    desc.kind === "literal"
-      ? desc.text
-      : "values" in desc
-        ? t(desc.key, desc.values)
-        : t(desc.key);
+
+  let urgency: Urgency;
+  let label: string;
+  // Neither is a pickup-time countdown, so both bypass it entirely: once
+  // delivered there's nothing left to count down, and once en route to the
+  // customer the useful number is how long the rider has been underway.
+  if (order.status === "delivered") {
+    urgency = "neutral";
+    label = formatTime(order.updatedAt, lang);
+  } else if (order.status === "en_route_to_customer" && order.enRouteToCustomerAt) {
+    urgency = "neutral";
+    label = t("pickup.enRoute", { minutes: minutesSince(order.enRouteToCustomerAt, now) });
+  } else {
+    const eff = effectivePickup(order);
+    urgency = urgencyFor(eff.iso, now, order.status);
+    const desc = pickupCountdownLabel(eff.iso, lang, now, order.status);
+    label =
+      desc.kind === "literal"
+        ? desc.text
+        : "values" in desc
+          ? t(desc.key, desc.values)
+          : t(desc.key);
+  }
 
   const sizeCls =
     size === "lg"

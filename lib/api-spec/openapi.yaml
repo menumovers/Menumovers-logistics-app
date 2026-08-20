@@ -1842,6 +1842,16 @@ components:
             When the kitchen reported the food was done. A status on the
             restaurant's own journey (seen/accepted → ready → picked up), which
             is informational — it is not a pickup time and nothing waits on it.
+        enRouteToCustomerAt:
+          type: ["string", "null"]
+          format: date-time
+          description: |
+            When the order most recently entered `en_route_to_customer`. Set by
+            the transition itself rather than derived from `updatedAt`, which
+            the order can still pick up further writes after while the rider is
+            underway. Lets clients show "underway for N min" without fetching
+            the full status log. Moves forward again if the order is reported
+            back into this status after leaving it.
         restaurantAcceptedByName:
           type: ["string", "null"]
         holdState:

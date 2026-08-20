@@ -7,6 +7,8 @@ export type AnyOrder = Pick<
   | "pickupTimeRestaurant"
   | "pickupTimeOverride"
   | "status"
+  | "updatedAt"
+  | "enRouteToCustomerAt"
 > &
   Partial<Pick<Order, "effectivePickupTime" | "effectivePickupSource">>;
 
@@ -83,6 +85,11 @@ export function formatDateTime(iso: string | null | undefined, lang: string): st
 /** Returns minutes (signed): positive = future, negative = past. */
 export function minutesUntil(iso: string, now: Date = new Date()): number {
   return Math.round((new Date(iso).getTime() - now.getTime()) / 60000);
+}
+
+/** Whole minutes elapsed since `iso`, floored at 0 (never negative). */
+export function minutesSince(iso: string, now: Date = new Date()): number {
+  return Math.max(0, Math.round((now.getTime() - new Date(iso).getTime()) / 60000));
 }
 
 /**

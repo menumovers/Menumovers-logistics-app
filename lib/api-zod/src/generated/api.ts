@@ -390,6 +390,12 @@ export const IngestOrderResponse = zod.object({
     .describe(
       "When the kitchen reported the food was done. A status on the\nrestaurant's own journey (seen\/accepted → ready → picked up), which\nis informational — it is not a pickup time and nothing waits on it.\n",
     ),
+  enRouteToCustomerAt: zod.coerce
+    .date()
+    .nullish()
+    .describe(
+      'When the order most recently entered `en_route_to_customer`. Set by\nthe transition itself rather than derived from `updatedAt`, which\nthe order can still pick up further writes after while the rider is\nunderway. Lets clients show \"underway for N min\" without fetching\nthe full status log. Moves forward again if the order is reported\nback into this status after leaving it.\n',
+    ),
   restaurantAcceptedByName: zod.string().nullish(),
   holdState: zod
     .union([zod.enum(["parked", "on_hold"]), zod.null()])
@@ -611,6 +617,12 @@ export const ListOrdersResponseItem = zod
       .describe(
         "When the kitchen reported the food was done. A status on the\nrestaurant's own journey (seen\/accepted → ready → picked up), which\nis informational — it is not a pickup time and nothing waits on it.\n",
       ),
+    enRouteToCustomerAt: zod.coerce
+      .date()
+      .nullish()
+      .describe(
+        'When the order most recently entered `en_route_to_customer`. Set by\nthe transition itself rather than derived from `updatedAt`, which\nthe order can still pick up further writes after while the rider is\nunderway. Lets clients show \"underway for N min\" without fetching\nthe full status log. Moves forward again if the order is reported\nback into this status after leaving it.\n',
+      ),
     restaurantAcceptedByName: zod.string().nullish(),
     holdState: zod
       .union([zod.enum(["parked", "on_hold"]), zod.null()])
@@ -819,6 +831,12 @@ export const GetOrderResponse = zod
       .nullish()
       .describe(
         "When the kitchen reported the food was done. A status on the\nrestaurant's own journey (seen\/accepted → ready → picked up), which\nis informational — it is not a pickup time and nothing waits on it.\n",
+      ),
+    enRouteToCustomerAt: zod.coerce
+      .date()
+      .nullish()
+      .describe(
+        'When the order most recently entered `en_route_to_customer`. Set by\nthe transition itself rather than derived from `updatedAt`, which\nthe order can still pick up further writes after while the rider is\nunderway. Lets clients show \"underway for N min\" without fetching\nthe full status log. Moves forward again if the order is reported\nback into this status after leaving it.\n',
       ),
     restaurantAcceptedByName: zod.string().nullish(),
     holdState: zod
@@ -1136,6 +1154,12 @@ export const ArchiveOrderResponse = zod
       .describe(
         "When the kitchen reported the food was done. A status on the\nrestaurant's own journey (seen\/accepted → ready → picked up), which\nis informational — it is not a pickup time and nothing waits on it.\n",
       ),
+    enRouteToCustomerAt: zod.coerce
+      .date()
+      .nullish()
+      .describe(
+        'When the order most recently entered `en_route_to_customer`. Set by\nthe transition itself rather than derived from `updatedAt`, which\nthe order can still pick up further writes after while the rider is\nunderway. Lets clients show \"underway for N min\" without fetching\nthe full status log. Moves forward again if the order is reported\nback into this status after leaving it.\n',
+      ),
     restaurantAcceptedByName: zod.string().nullish(),
     holdState: zod
       .union([zod.enum(["parked", "on_hold"]), zod.null()])
@@ -1434,6 +1458,12 @@ export const RestoreOrderResponse = zod
       .nullish()
       .describe(
         "When the kitchen reported the food was done. A status on the\nrestaurant's own journey (seen\/accepted → ready → picked up), which\nis informational — it is not a pickup time and nothing waits on it.\n",
+      ),
+    enRouteToCustomerAt: zod.coerce
+      .date()
+      .nullish()
+      .describe(
+        'When the order most recently entered `en_route_to_customer`. Set by\nthe transition itself rather than derived from `updatedAt`, which\nthe order can still pick up further writes after while the rider is\nunderway. Lets clients show \"underway for N min\" without fetching\nthe full status log. Moves forward again if the order is reported\nback into this status after leaving it.\n',
       ),
     restaurantAcceptedByName: zod.string().nullish(),
     holdState: zod
@@ -1750,6 +1780,12 @@ export const TransitionOrderStatusResponse = zod
       .describe(
         "When the kitchen reported the food was done. A status on the\nrestaurant's own journey (seen\/accepted → ready → picked up), which\nis informational — it is not a pickup time and nothing waits on it.\n",
       ),
+    enRouteToCustomerAt: zod.coerce
+      .date()
+      .nullish()
+      .describe(
+        'When the order most recently entered `en_route_to_customer`. Set by\nthe transition itself rather than derived from `updatedAt`, which\nthe order can still pick up further writes after while the rider is\nunderway. Lets clients show \"underway for N min\" without fetching\nthe full status log. Moves forward again if the order is reported\nback into this status after leaving it.\n',
+      ),
     restaurantAcceptedByName: zod.string().nullish(),
     holdState: zod
       .union([zod.enum(["parked", "on_hold"]), zod.null()])
@@ -2052,6 +2088,12 @@ export const ResumeOrderResponse = zod
       .describe(
         "When the kitchen reported the food was done. A status on the\nrestaurant's own journey (seen\/accepted → ready → picked up), which\nis informational — it is not a pickup time and nothing waits on it.\n",
       ),
+    enRouteToCustomerAt: zod.coerce
+      .date()
+      .nullish()
+      .describe(
+        'When the order most recently entered `en_route_to_customer`. Set by\nthe transition itself rather than derived from `updatedAt`, which\nthe order can still pick up further writes after while the rider is\nunderway. Lets clients show \"underway for N min\" without fetching\nthe full status log. Moves forward again if the order is reported\nback into this status after leaving it.\n',
+      ),
     restaurantAcceptedByName: zod.string().nullish(),
     holdState: zod
       .union([zod.enum(["parked", "on_hold"]), zod.null()])
@@ -2353,6 +2395,12 @@ export const AssignOrderResponse = zod
       .nullish()
       .describe(
         "When the kitchen reported the food was done. A status on the\nrestaurant's own journey (seen\/accepted → ready → picked up), which\nis informational — it is not a pickup time and nothing waits on it.\n",
+      ),
+    enRouteToCustomerAt: zod.coerce
+      .date()
+      .nullish()
+      .describe(
+        'When the order most recently entered `en_route_to_customer`. Set by\nthe transition itself rather than derived from `updatedAt`, which\nthe order can still pick up further writes after while the rider is\nunderway. Lets clients show \"underway for N min\" without fetching\nthe full status log. Moves forward again if the order is reported\nback into this status after leaving it.\n',
       ),
     restaurantAcceptedByName: zod.string().nullish(),
     holdState: zod
@@ -2671,6 +2719,12 @@ export const ReassignOrderResponse = zod
       .describe(
         "When the kitchen reported the food was done. A status on the\nrestaurant's own journey (seen\/accepted → ready → picked up), which\nis informational — it is not a pickup time and nothing waits on it.\n",
       ),
+    enRouteToCustomerAt: zod.coerce
+      .date()
+      .nullish()
+      .describe(
+        'When the order most recently entered `en_route_to_customer`. Set by\nthe transition itself rather than derived from `updatedAt`, which\nthe order can still pick up further writes after while the rider is\nunderway. Lets clients show \"underway for N min\" without fetching\nthe full status log. Moves forward again if the order is reported\nback into this status after leaving it.\n',
+      ),
     restaurantAcceptedByName: zod.string().nullish(),
     holdState: zod
       .union([zod.enum(["parked", "on_hold"]), zod.null()])
@@ -2974,6 +3028,12 @@ export const UpdatePickupTimeResponse = zod
       .describe(
         "When the kitchen reported the food was done. A status on the\nrestaurant's own journey (seen\/accepted → ready → picked up), which\nis informational — it is not a pickup time and nothing waits on it.\n",
       ),
+    enRouteToCustomerAt: zod.coerce
+      .date()
+      .nullish()
+      .describe(
+        'When the order most recently entered `en_route_to_customer`. Set by\nthe transition itself rather than derived from `updatedAt`, which\nthe order can still pick up further writes after while the rider is\nunderway. Lets clients show \"underway for N min\" without fetching\nthe full status log. Moves forward again if the order is reported\nback into this status after leaving it.\n',
+      ),
     restaurantAcceptedByName: zod.string().nullish(),
     holdState: zod
       .union([zod.enum(["parked", "on_hold"]), zod.null()])
@@ -3275,6 +3335,12 @@ export const HideOrderItemResponse = zod
       .nullish()
       .describe(
         "When the kitchen reported the food was done. A status on the\nrestaurant's own journey (seen\/accepted → ready → picked up), which\nis informational — it is not a pickup time and nothing waits on it.\n",
+      ),
+    enRouteToCustomerAt: zod.coerce
+      .date()
+      .nullish()
+      .describe(
+        'When the order most recently entered `en_route_to_customer`. Set by\nthe transition itself rather than derived from `updatedAt`, which\nthe order can still pick up further writes after while the rider is\nunderway. Lets clients show \"underway for N min\" without fetching\nthe full status log. Moves forward again if the order is reported\nback into this status after leaving it.\n',
       ),
     restaurantAcceptedByName: zod.string().nullish(),
     holdState: zod
@@ -3603,6 +3669,12 @@ export const AddOrderItemResponse = zod
       .nullish()
       .describe(
         "When the kitchen reported the food was done. A status on the\nrestaurant's own journey (seen\/accepted → ready → picked up), which\nis informational — it is not a pickup time and nothing waits on it.\n",
+      ),
+    enRouteToCustomerAt: zod.coerce
+      .date()
+      .nullish()
+      .describe(
+        'When the order most recently entered `en_route_to_customer`. Set by\nthe transition itself rather than derived from `updatedAt`, which\nthe order can still pick up further writes after while the rider is\nunderway. Lets clients show \"underway for N min\" without fetching\nthe full status log. Moves forward again if the order is reported\nback into this status after leaving it.\n',
       ),
     restaurantAcceptedByName: zod.string().nullish(),
     holdState: zod
@@ -3968,6 +4040,12 @@ export const SetRiderNotificationResponse = zod
       .describe(
         "When the kitchen reported the food was done. A status on the\nrestaurant's own journey (seen\/accepted → ready → picked up), which\nis informational — it is not a pickup time and nothing waits on it.\n",
       ),
+    enRouteToCustomerAt: zod.coerce
+      .date()
+      .nullish()
+      .describe(
+        'When the order most recently entered `en_route_to_customer`. Set by\nthe transition itself rather than derived from `updatedAt`, which\nthe order can still pick up further writes after while the rider is\nunderway. Lets clients show \"underway for N min\" without fetching\nthe full status log. Moves forward again if the order is reported\nback into this status after leaving it.\n',
+      ),
     restaurantAcceptedByName: zod.string().nullish(),
     holdState: zod
       .union([zod.enum(["parked", "on_hold"]), zod.null()])
@@ -4283,6 +4361,12 @@ export const UpdateOrderContactResponse = zod
       .describe(
         "When the kitchen reported the food was done. A status on the\nrestaurant's own journey (seen\/accepted → ready → picked up), which\nis informational — it is not a pickup time and nothing waits on it.\n",
       ),
+    enRouteToCustomerAt: zod.coerce
+      .date()
+      .nullish()
+      .describe(
+        'When the order most recently entered `en_route_to_customer`. Set by\nthe transition itself rather than derived from `updatedAt`, which\nthe order can still pick up further writes after while the rider is\nunderway. Lets clients show \"underway for N min\" without fetching\nthe full status log. Moves forward again if the order is reported\nback into this status after leaving it.\n',
+      ),
     restaurantAcceptedByName: zod.string().nullish(),
     holdState: zod
       .union([zod.enum(["parked", "on_hold"]), zod.null()])
@@ -4593,6 +4677,12 @@ export const MarkOrderReadyResponse = zod
       .nullish()
       .describe(
         "When the kitchen reported the food was done. A status on the\nrestaurant's own journey (seen\/accepted → ready → picked up), which\nis informational — it is not a pickup time and nothing waits on it.\n",
+      ),
+    enRouteToCustomerAt: zod.coerce
+      .date()
+      .nullish()
+      .describe(
+        'When the order most recently entered `en_route_to_customer`. Set by\nthe transition itself rather than derived from `updatedAt`, which\nthe order can still pick up further writes after while the rider is\nunderway. Lets clients show \"underway for N min\" without fetching\nthe full status log. Moves forward again if the order is reported\nback into this status after leaving it.\n',
       ),
     restaurantAcceptedByName: zod.string().nullish(),
     holdState: zod
@@ -4910,6 +5000,12 @@ export const AcknowledgeOrderResponse = zod
       .describe(
         "When the kitchen reported the food was done. A status on the\nrestaurant's own journey (seen\/accepted → ready → picked up), which\nis informational — it is not a pickup time and nothing waits on it.\n",
       ),
+    enRouteToCustomerAt: zod.coerce
+      .date()
+      .nullish()
+      .describe(
+        'When the order most recently entered `en_route_to_customer`. Set by\nthe transition itself rather than derived from `updatedAt`, which\nthe order can still pick up further writes after while the rider is\nunderway. Lets clients show \"underway for N min\" without fetching\nthe full status log. Moves forward again if the order is reported\nback into this status after leaving it.\n',
+      ),
     restaurantAcceptedByName: zod.string().nullish(),
     holdState: zod
       .union([zod.enum(["parked", "on_hold"]), zod.null()])
@@ -5216,6 +5312,12 @@ export const HoldOrderResponse = zod
       .describe(
         "When the kitchen reported the food was done. A status on the\nrestaurant's own journey (seen\/accepted → ready → picked up), which\nis informational — it is not a pickup time and nothing waits on it.\n",
       ),
+    enRouteToCustomerAt: zod.coerce
+      .date()
+      .nullish()
+      .describe(
+        'When the order most recently entered `en_route_to_customer`. Set by\nthe transition itself rather than derived from `updatedAt`, which\nthe order can still pick up further writes after while the rider is\nunderway. Lets clients show \"underway for N min\" without fetching\nthe full status log. Moves forward again if the order is reported\nback into this status after leaving it.\n',
+      ),
     restaurantAcceptedByName: zod.string().nullish(),
     holdState: zod
       .union([zod.enum(["parked", "on_hold"]), zod.null()])
@@ -5513,6 +5615,12 @@ export const ReleaseOrderResponse = zod
       .nullish()
       .describe(
         "When the kitchen reported the food was done. A status on the\nrestaurant's own journey (seen\/accepted → ready → picked up), which\nis informational — it is not a pickup time and nothing waits on it.\n",
+      ),
+    enRouteToCustomerAt: zod.coerce
+      .date()
+      .nullish()
+      .describe(
+        'When the order most recently entered `en_route_to_customer`. Set by\nthe transition itself rather than derived from `updatedAt`, which\nthe order can still pick up further writes after while the rider is\nunderway. Lets clients show \"underway for N min\" without fetching\nthe full status log. Moves forward again if the order is reported\nback into this status after leaving it.\n',
       ),
     restaurantAcceptedByName: zod.string().nullish(),
     holdState: zod
@@ -5819,6 +5927,12 @@ export const SetOrderRestaurantResponse = zod
       .nullish()
       .describe(
         "When the kitchen reported the food was done. A status on the\nrestaurant's own journey (seen\/accepted → ready → picked up), which\nis informational — it is not a pickup time and nothing waits on it.\n",
+      ),
+    enRouteToCustomerAt: zod.coerce
+      .date()
+      .nullish()
+      .describe(
+        'When the order most recently entered `en_route_to_customer`. Set by\nthe transition itself rather than derived from `updatedAt`, which\nthe order can still pick up further writes after while the rider is\nunderway. Lets clients show \"underway for N min\" without fetching\nthe full status log. Moves forward again if the order is reported\nback into this status after leaving it.\n',
       ),
     restaurantAcceptedByName: zod.string().nullish(),
     holdState: zod
@@ -6556,6 +6670,12 @@ export const GetTripResponse = zod
               .describe(
                 "When the kitchen reported the food was done. A status on the\nrestaurant's own journey (seen\/accepted → ready → picked up), which\nis informational — it is not a pickup time and nothing waits on it.\n",
               ),
+            enRouteToCustomerAt: zod.coerce
+              .date()
+              .nullish()
+              .describe(
+                'When the order most recently entered `en_route_to_customer`. Set by\nthe transition itself rather than derived from `updatedAt`, which\nthe order can still pick up further writes after while the rider is\nunderway. Lets clients show \"underway for N min\" without fetching\nthe full status log. Moves forward again if the order is reported\nback into this status after leaving it.\n',
+              ),
             restaurantAcceptedByName: zod.string().nullish(),
             holdState: zod
               .union([zod.enum(["parked", "on_hold"]), zod.null()])
@@ -6846,6 +6966,12 @@ export const UpdateTripResponse = zod
               .nullish()
               .describe(
                 "When the kitchen reported the food was done. A status on the\nrestaurant's own journey (seen\/accepted → ready → picked up), which\nis informational — it is not a pickup time and nothing waits on it.\n",
+              ),
+            enRouteToCustomerAt: zod.coerce
+              .date()
+              .nullish()
+              .describe(
+                'When the order most recently entered `en_route_to_customer`. Set by\nthe transition itself rather than derived from `updatedAt`, which\nthe order can still pick up further writes after while the rider is\nunderway. Lets clients show \"underway for N min\" without fetching\nthe full status log. Moves forward again if the order is reported\nback into this status after leaving it.\n',
               ),
             restaurantAcceptedByName: zod.string().nullish(),
             holdState: zod
@@ -7138,6 +7264,12 @@ export const ReplaceTripStopsResponse = zod
               .describe(
                 "When the kitchen reported the food was done. A status on the\nrestaurant's own journey (seen\/accepted → ready → picked up), which\nis informational — it is not a pickup time and nothing waits on it.\n",
               ),
+            enRouteToCustomerAt: zod.coerce
+              .date()
+              .nullish()
+              .describe(
+                'When the order most recently entered `en_route_to_customer`. Set by\nthe transition itself rather than derived from `updatedAt`, which\nthe order can still pick up further writes after while the rider is\nunderway. Lets clients show \"underway for N min\" without fetching\nthe full status log. Moves forward again if the order is reported\nback into this status after leaving it.\n',
+              ),
             restaurantAcceptedByName: zod.string().nullish(),
             holdState: zod
               .union([zod.enum(["parked", "on_hold"]), zod.null()])
@@ -7417,6 +7549,12 @@ export const DissolveTripResponse = zod
               .nullish()
               .describe(
                 "When the kitchen reported the food was done. A status on the\nrestaurant's own journey (seen\/accepted → ready → picked up), which\nis informational — it is not a pickup time and nothing waits on it.\n",
+              ),
+            enRouteToCustomerAt: zod.coerce
+              .date()
+              .nullish()
+              .describe(
+                'When the order most recently entered `en_route_to_customer`. Set by\nthe transition itself rather than derived from `updatedAt`, which\nthe order can still pick up further writes after while the rider is\nunderway. Lets clients show \"underway for N min\" without fetching\nthe full status log. Moves forward again if the order is reported\nback into this status after leaving it.\n',
               ),
             restaurantAcceptedByName: zod.string().nullish(),
             holdState: zod

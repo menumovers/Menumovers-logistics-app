@@ -1,5 +1,27 @@
 # Changelog
 
+## 2026-08-20 — Pickup countdown becomes an underway timer once a rider is en route
+
+`orders` gains a nullable `en_route_to_customer_at` timestamp, set by
+`POST /orders/:id/status` when `toStatus` is `en_route_to_customer` (and by
+`/orders/:id/resume` when resuming into that status — postponement pauses
+the clock, so resuming restarts the anchor rather than counting the pause).
+It is not derived from `updatedAt`: the order can still be touched after the
+rider leaves (notes, pickup-time edits), which would corrupt `updatedAt` as
+an anchor for "how long has the rider been underway." Read cost is free —
+existing whole-row selects already return it, no new query or join.
+
+The shared `PickupCountdown` badge now branches on status ahead of the
+pickup-time countdown it already had: `en_route_to_customer` shows a live
+up-count in minutes since `enRouteToCustomerAt` instead of a stale "N min
+late"; `delivered` shows the fixed delivered clock time, reusing `updatedAt`
+under the same "safe proxy once terminal" reasoning documented on that
+column. `picked_up` is unchanged — still frozen/neutral.
+
+Needs `pnpm --filter @workspace/db run push` against the live database
+before this lands there; the column is purely additive (nullable, no
+backfill) so the push should be a no-prompt no-op-on-existing-rows change.
+
 ## 2026-08-20 — Restaurant receipt action prints immediately
 
 The Bon/Receipt action on the restaurant order detail now opens the existing

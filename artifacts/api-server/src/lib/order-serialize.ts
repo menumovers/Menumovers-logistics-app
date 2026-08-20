@@ -210,6 +210,7 @@ function baseOrderFields(
     itemsAdjustment,
     restaurantAcceptedAt: order.restaurantAcceptedAt,
     restaurantReadyAt: order.restaurantReadyAt,
+    enRouteToCustomerAt: order.enRouteToCustomerAt,
     restaurantAcceptedByName,
     holdState: order.holdState,
     holdReason: order.holdReason,

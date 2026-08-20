@@ -135,6 +135,7 @@
     "in": "over {{minutes}} min",
     "ago": "{{minutes}} min geleden",
     "late": "{{minutes}} min te laat",
+    "enRoute": "{{minutes}} min onderweg",
     "date": "Datum",
     "time": "Tijd"
   },

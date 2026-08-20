@@ -135,6 +135,7 @@
     "in": "in {{minutes}} min",
     "ago": "{{minutes}} min ago",
     "late": "{{minutes}} min late",
+    "enRoute": "{{minutes}} min underway",
     "date": "Date",
     "time": "Time"
   },

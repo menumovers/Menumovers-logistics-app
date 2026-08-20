@@ -611,6 +611,12 @@ router.post(
     if (toStatus === "failed") {
       updates.failureReason = parsed.data.failureReason ?? "Unspecified";
     }
+    // Anchor for "underway for N min" — set on entry to the status, not
+    // derived from updatedAt, which the order can still pick up further
+    // writes after (notes, pickup-time edits) while the rider is en route.
+    if (toStatus === "en_route_to_customer") {
+      updates.enRouteToCustomerAt = new Date();
+    }
     // Both roles are made to type a failure reason, but it was written only to
     // orders.failureReason while the status log recorded `note` — leaving the
     // timeline saying an order failed and staying silent on why. Carry it into
@@ -770,7 +776,12 @@ router.post(
       : and(eq(ordersTable.id, id), eq(ordersTable.status, "postponed"), riderInvariant);
     const updated = await db
       .update(ordersTable)
-      .set({ status: resumeStatus })
+      .set({
+        status: resumeStatus,
+        // Postponement pauses the clock — resuming into en-route restarts
+        // the "underway for N min" anchor rather than counting the pause.
+        ...(resumeStatus === "en_route_to_customer" ? { enRouteToCustomerAt: new Date() } : {}),
+      })
       .where(resumeWhere)
       .returning();
     if (updated.length === 0) {
