@@ -1907,6 +1907,8 @@ components:
         - type: object
           required: [statusLog, itemOverrides, originalPayload]
           properties:
+            restaurantAddress:
+              type: string
             statusLog:
               type: array
               items:

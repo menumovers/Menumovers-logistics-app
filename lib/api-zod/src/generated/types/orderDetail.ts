@@ -11,6 +11,7 @@ import type { OrderListItem } from "./orderListItem";
 import type { OrderStatusLog } from "./orderStatusLog";
 
 export type OrderDetail = OrderListItem & {
+  restaurantAddress?: string;
   statusLog: OrderStatusLog[];
   itemOverrides: ItemOverride[];
   /** The raw upstream order payload, kept as received for forensic/replay use. */

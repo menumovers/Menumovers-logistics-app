@@ -203,6 +203,7 @@
     "noOrders": "No orders assigned yet",
     "callRestaurant": "Call restaurant",
     "callCustomer": "Call customer",
+    "mapsDirections": "Maps",
     "advance": "Next step",
     "fail": "Mark failed",
     "failureReason": "Failure reason",

@@ -28,7 +28,7 @@ import { PickupCountdown, PickupSourceBadge } from "@/components/pickup-countdow
 import { DeliveryMethodBadge, RequestedTimeLabel } from "@/components/delivery-expectation";
 import { PickupTimeInput } from "@/components/pickup-time-input";
 import { PaymentPanel } from "@/components/payment-panel";
-import { ArrowLeft, Phone, MapPin, Bell, BellOff, Store, ChevronRight, Clock, Layers, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, Phone, MapPin, Navigation, Bell, BellOff, Store, ChevronRight, Clock, Layers, CheckCircle2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/lib/auth";
 import { effectivePickup, formatCurrency, formatTime } from "@/lib/format";
@@ -153,8 +153,17 @@ export default function RiderOrderPage() {
             </div>
           </div>
           <div className="flex gap-2">
-            <Button asChild variant="outline" className="flex-1" data-testid="button-call-customer">
-              <a href={`tel:${o.customerPhone}`}><Phone className="size-4 mr-2" />{t("rider.callCustomer")}</a>
+            <Button asChild variant="outline" className="flex-1" data-testid="button-maps-directions">
+              <a
+                href={`https://www.google.com/maps/dir/${encodeURIComponent(o.restaurantAddress ?? "")}/${encodeURIComponent(o.deliveryAddress)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <Navigation className="size-4 mr-2" />{t("rider.mapsDirections")}
+              </a>
+            </Button>
+            <Button asChild variant="outline" className="shrink-0" data-testid="button-call-customer">
+              <a href={`tel:${o.customerPhone}`} aria-label={t("rider.callCustomer")}><Phone className="size-4" /></a>
             </Button>
           </div>
           <div className="border-t border-border pt-3">

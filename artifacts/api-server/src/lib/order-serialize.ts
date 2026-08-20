@@ -228,7 +228,7 @@ function baseOrderFields(
 async function loadJoins(
   orders: Order[],
 ): Promise<{
-  restaurantsById: Map<string, { id: string; name: string }>;
+  restaurantsById: Map<string, { id: string; name: string; address: string }>;
   ridersById: Map<string, { id: string; name: string }>;
   overridesByOrder: Map<string, ItemOverride[]>;
   /**
@@ -244,7 +244,7 @@ async function loadJoins(
    */
   holdActorsById: Map<string, string>;
 }> {
-  const restaurantsById = new Map<string, { id: string; name: string }>();
+  const restaurantsById = new Map<string, { id: string; name: string; address: string }>();
   const ridersById = new Map<string, { id: string; name: string }>();
   const overridesByOrder = new Map<string, ItemOverride[]>();
   const bundlePickupByOrder = new Map<string, Date>();
@@ -287,10 +287,10 @@ async function loadJoins(
   const [restaurants, riders, overrides, tripMates, tripRows, holdActors] = await Promise.all([
     restaurantIds.length > 0
       ? db
-          .select({ id: restaurantsTable.id, name: restaurantsTable.name })
+          .select({ id: restaurantsTable.id, name: restaurantsTable.name, address: restaurantsTable.address })
           .from(restaurantsTable)
           .where(inArray(restaurantsTable.id, restaurantIds))
-      : Promise.resolve([] as { id: string; name: string }[]),
+      : Promise.resolve([] as { id: string; name: string; address: string }[]),
     riderIds.length > 0
       ? db
           .select({ id: ridersTable.id, name: usersTable.name })
@@ -475,6 +475,7 @@ export async function serializeOrderDetail(orderId: string) {
       itemsAdjustmentOf(order.items ?? [], items, overrides.length > 0),
     ),
     restaurantName: restaurant?.name,
+    restaurantAddress: restaurant?.address,
     riderName: rider?.name ?? null,
     statusLog: statusLogRows.map(({ log, actorName }) => ({
       id: log.id,

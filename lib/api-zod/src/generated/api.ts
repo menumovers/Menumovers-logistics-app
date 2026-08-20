@@ -868,6 +868,7 @@ export const GetOrderResponse = zod
   )
   .and(
     zod.object({
+      restaurantAddress: zod.string().optional(),
       statusLog: zod.array(
         zod.object({
           id: zod.string(),
@@ -1183,6 +1184,7 @@ export const ArchiveOrderResponse = zod
   )
   .and(
     zod.object({
+      restaurantAddress: zod.string().optional(),
       statusLog: zod.array(
         zod.object({
           id: zod.string(),
@@ -1481,6 +1483,7 @@ export const RestoreOrderResponse = zod
   )
   .and(
     zod.object({
+      restaurantAddress: zod.string().optional(),
       statusLog: zod.array(
         zod.object({
           id: zod.string(),
@@ -1795,6 +1798,7 @@ export const TransitionOrderStatusResponse = zod
   )
   .and(
     zod.object({
+      restaurantAddress: zod.string().optional(),
       statusLog: zod.array(
         zod.object({
           id: zod.string(),
@@ -2096,6 +2100,7 @@ export const ResumeOrderResponse = zod
   )
   .and(
     zod.object({
+      restaurantAddress: zod.string().optional(),
       statusLog: zod.array(
         zod.object({
           id: zod.string(),
@@ -2397,6 +2402,7 @@ export const AssignOrderResponse = zod
   )
   .and(
     zod.object({
+      restaurantAddress: zod.string().optional(),
       statusLog: zod.array(
         zod.object({
           id: zod.string(),
@@ -2699,6 +2705,7 @@ export const UpdatePickupTimeResponse = zod
   )
   .and(
     zod.object({
+      restaurantAddress: zod.string().optional(),
       statusLog: zod.array(
         zod.object({
           id: zod.string(),
@@ -3000,6 +3007,7 @@ export const HideOrderItemResponse = zod
   )
   .and(
     zod.object({
+      restaurantAddress: zod.string().optional(),
       statusLog: zod.array(
         zod.object({
           id: zod.string(),
@@ -3327,6 +3335,7 @@ export const AddOrderItemResponse = zod
   )
   .and(
     zod.object({
+      restaurantAddress: zod.string().optional(),
       statusLog: zod.array(
         zod.object({
           id: zod.string(),
@@ -3690,6 +3699,7 @@ export const SetRiderNotificationResponse = zod
   )
   .and(
     zod.object({
+      restaurantAddress: zod.string().optional(),
       statusLog: zod.array(
         zod.object({
           id: zod.string(),
@@ -4004,6 +4014,7 @@ export const UpdateOrderContactResponse = zod
   )
   .and(
     zod.object({
+      restaurantAddress: zod.string().optional(),
       statusLog: zod.array(
         zod.object({
           id: zod.string(),
@@ -4314,6 +4325,7 @@ export const MarkOrderReadyResponse = zod
   )
   .and(
     zod.object({
+      restaurantAddress: zod.string().optional(),
       statusLog: zod.array(
         zod.object({
           id: zod.string(),
@@ -4629,6 +4641,7 @@ export const AcknowledgeOrderResponse = zod
   )
   .and(
     zod.object({
+      restaurantAddress: zod.string().optional(),
       statusLog: zod.array(
         zod.object({
           id: zod.string(),
@@ -4934,6 +4947,7 @@ export const HoldOrderResponse = zod
   )
   .and(
     zod.object({
+      restaurantAddress: zod.string().optional(),
       statusLog: zod.array(
         zod.object({
           id: zod.string(),
@@ -5231,6 +5245,7 @@ export const ReleaseOrderResponse = zod
   )
   .and(
     zod.object({
+      restaurantAddress: zod.string().optional(),
       statusLog: zod.array(
         zod.object({
           id: zod.string(),
@@ -5536,6 +5551,7 @@ export const SetOrderRestaurantResponse = zod
   )
   .and(
     zod.object({
+      restaurantAddress: zod.string().optional(),
       statusLog: zod.array(
         zod.object({
           id: zod.string(),
