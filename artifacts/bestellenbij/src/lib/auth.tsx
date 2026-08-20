@@ -74,9 +74,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Send the user back to the login page of the app they were using, so
     // each PWA stays self-contained after sign-out (rider PWA → /rider/login,
     // restaurant PWA → /restaurant/login).
-    const ctx = getContextForPath(window.location.pathname);
+    // Settings is shared by both apps and currently lives at /settings, so a
+    // restaurant-only account needs its role to disambiguate that route.
+    const pathContext = getContextForPath(window.location.pathname);
+    const isRestaurantOnly =
+      meQuery.data?.roles.length === 1 &&
+      meQuery.data.roles[0] === "restaurant_staff";
+    const ctx = isRestaurantOnly ? "restaurant" : pathContext;
     navigate(getLoginPath(ctx));
-  }, [queryClient, navigate]);
+  }, [meQuery.data?.roles, queryClient, navigate]);
 
   const applyToken = useCallback(
     async (token: string) => {
