@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Link, useParams } from "wouter";
+import { Link, useParams, useSearchParams } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   useGetOrder,
@@ -52,6 +52,11 @@ const HAPPY_PATH: Partial<Record<OrderStatusType, OrderStatusType>> = {
 export default function RiderOrderPage() {
   const { id } = useParams();
   const orderId = id!;
+  // Coordinators land here by default from the coordinator overview (see
+  // coordinator.tsx); `from=coordinator` on the URL means "back" should
+  // return them there instead of the rider's own order list.
+  const [searchParams] = useSearchParams();
+  const cameFromCoordinator = searchParams.get("from") === "coordinator";
   const order = useGetOrder(orderId, {
     query: { queryKey: getGetOrderQueryKey(orderId), refetchInterval: 30_000, enabled: !!orderId },
   });
@@ -94,12 +99,16 @@ export default function RiderOrderPage() {
   return (
     <div className="space-y-5 max-w-2xl mx-auto">
       <div className="flex items-center justify-between gap-2">
-        <Link href="/rider" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground" data-testid="link-back-rider">
+        <Link
+          href={cameFromCoordinator ? "/coordinator" : "/rider"}
+          className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+          data-testid="link-back-rider"
+        >
           <ArrowLeft className="size-4" /> {t("common.back")}
         </Link>
         {isCoordinator ? (
           <Button asChild variant="ghost" size="sm" data-testid="button-open-coordinator-view">
-            <Link href={`/coordinator/orders/${orderId}`}>
+            <Link href={`/coordinator/orders/${orderId}?from=rider`}>
               <ClipboardList className="size-4 mr-1.5" /> {t("rider.coordinatorView")}
             </Link>
           </Button>

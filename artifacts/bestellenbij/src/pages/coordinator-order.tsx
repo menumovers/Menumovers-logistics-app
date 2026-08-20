@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Link, useParams } from "wouter";
+import { Link, useParams, useSearchParams } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   useGetOrder,
@@ -54,6 +54,10 @@ export default function CoordinatorOrderPage() {
   const orderId = id!;
   const { t, i18n } = useTranslation();
   const lang = i18n.resolvedLanguage ?? "nl";
+  // Reached from the rider detail page's "Coordinator view" button (see
+  // rider-order.tsx) means "back" should return there, not to the overview.
+  const [searchParams] = useSearchParams();
+  const cameFromRider = searchParams.get("from") === "rider";
   const order = useGetOrder(orderId, {
     query: { queryKey: getGetOrderQueryKey(orderId), refetchInterval: 30_000, enabled: !!orderId },
   });
@@ -66,7 +70,11 @@ export default function CoordinatorOrderPage() {
   return (
     <div className="space-y-5">
       <div>
-        <Link href="/coordinator" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground" data-testid="link-back-coordinator">
+        <Link
+          href={cameFromRider ? `/rider/orders/${orderId}` : "/coordinator"}
+          className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+          data-testid="link-back-coordinator"
+        >
           <ArrowLeft className="size-4" /> {t("common.back")}
         </Link>
       </div>
