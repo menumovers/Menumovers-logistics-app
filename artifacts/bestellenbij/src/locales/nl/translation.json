@@ -243,6 +243,12 @@
     "hiddenItem": "Verborgen door coördinator",
     "extraItem": "Toegevoegd door coördinator",
     "kitchenNotes": "Notitie voor de keuken",
+    "sectionNeedsAction": "Wacht op jouw actie",
+    "sectionNeedsActionEmpty": "Niets wacht op jou",
+    "sectionAccepted": "Geaccepteerd",
+    "sectionAcceptedEmpty": "Nog geen geaccepteerde orders",
+    "sectionInDeliveryOrDone": "Onderweg of afgerond",
+    "sectionInDeliveryOrDoneEmpty": "Niets onderweg of recent afgerond",
     "status": {
       "new": "Nieuwe order",
       "accepted": "Geaccepteerd"

@@ -243,6 +243,12 @@
     "hiddenItem": "Hidden by coordinator",
     "extraItem": "Added by coordinator",
     "kitchenNotes": "Note for the kitchen",
+    "sectionNeedsAction": "Needs your action",
+    "sectionNeedsActionEmpty": "Nothing waiting on you",
+    "sectionAccepted": "Accepted",
+    "sectionAcceptedEmpty": "No accepted orders yet",
+    "sectionInDeliveryOrDone": "In delivery or completed",
+    "sectionInDeliveryOrDoneEmpty": "Nothing in delivery or completed recently",
     "status": {
       "new": "New order",
       "accepted": "Accepted"
