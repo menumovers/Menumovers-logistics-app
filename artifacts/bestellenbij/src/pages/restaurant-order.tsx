@@ -17,14 +17,15 @@ import { Label } from "@/components/ui/label";
 import { Spinner } from "@/components/ui/spinner";
 import { StatusBadge } from "@/components/status-badge";
 import { AcceptanceStatusBadge } from "@/components/acceptance-status-badge";
-import { PickupCountdown, PickupSourceBadge } from "@/components/pickup-countdown";
+import { PickupCountdown } from "@/components/pickup-countdown";
 import { AcknowledgeCard } from "@/components/acknowledge-card";
 import { PickupTimeInput } from "@/components/pickup-time-input";
 import { useAuth } from "@/lib/auth";
 import { effectivePickup, formatTime } from "@/lib/format";
+import { URGENCY_CLASS } from "@/lib/status";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import { ArrowLeft, CheckCircle2, ChefHat, Layers, Printer } from "lucide-react";
+import { ArrowLeft, CheckCircle2, ChefHat, Clock, Layers, Printer } from "lucide-react";
 
 export default function RestaurantOrderPage() {
   const { id } = useParams();
@@ -119,9 +120,18 @@ export default function RestaurantOrderPage() {
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-2">
+            <span
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-lg font-semibold",
+                URGENCY_CLASS.neutral,
+              )}
+              data-testid="badge-pickup-time-absolute"
+            >
+              <Clock className="size-3.5" />
+              {formatTime(eff.iso, lang)}
+            </span>
             <PickupCountdown order={o} size="lg" />
-            <PickupSourceBadge source={eff.source} />
           </div>
 
           <Button asChild variant="outline" size="sm" className="w-full" data-testid={`button-receipt-${o.id}`}>
