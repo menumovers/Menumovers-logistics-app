@@ -340,22 +340,24 @@ export default function RiderOrderPage() {
             </Card>
           ) : null}
 
-          <Card>
-            <CardHeader><CardTitle className="text-base">{t("rider.suggestPickup")}</CardTitle></CardHeader>
-            <CardContent>
-              <PickupTimeInput
-                currentIso={effectivePickup(o).iso}
-                pending={updatePickup.isPending}
-                submitLabel={t("common.save")}
-                onSubmit={(pickupTime) =>
-                  updatePickup.mutate(
-                    { id: o.id, data: { source: "rider", pickupTime } },
-                    { onSuccess: () => { toast({ title: t("rider.suggestPickup") }); invalidate(); } },
-                  )
-                }
-              />
-            </CardContent>
-          </Card>
+          {o.status !== "delivered" && o.status !== "failed" ? (
+            <Card>
+              <CardHeader><CardTitle className="text-base">{t("rider.suggestPickup")}</CardTitle></CardHeader>
+              <CardContent>
+                <PickupTimeInput
+                  currentIso={effectivePickup(o).iso}
+                  pending={updatePickup.isPending}
+                  submitLabel={t("common.save")}
+                  onSubmit={(pickupTime) =>
+                    updatePickup.mutate(
+                      { id: o.id, data: { source: "rider", pickupTime } },
+                      { onSuccess: () => { toast({ title: t("rider.suggestPickup") }); invalidate(); } },
+                    )
+                  }
+                />
+              </CardContent>
+            </Card>
+          ) : null}
         </>
       ) : (
         <ClaimCard order={o} riderId={riderId} onClaimed={invalidate} />
