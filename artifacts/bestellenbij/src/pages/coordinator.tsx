@@ -106,12 +106,15 @@ export default function CoordinatorPage() {
     (tr) => tr.status !== "completed" && tr.status !== "dissolved",
   );
 
+  const isMine = (o: OrderListItem) => !!myRiderId && o.riderId === myRiderId;
   const yourOrders = dispatch.filter(
-    (o) => !!myRiderId && o.riderId === myRiderId && o.status !== "delivered" && o.status !== "failed",
+    (o) => isMine(o) && o.status !== "delivered" && o.status !== "failed",
   );
   const openOrders = dispatch.filter((o) => o.status === "pending" && !o.riderId);
-  const activeOrders = dispatch.filter((o) => ACTIVE_STATUSES.includes(o.status));
-  const inDelivery = dispatch.filter((o) => IN_DELIVERY_STATUSES.includes(o.status));
+  // A coordinator who is also a rider already sees their own orders under
+  // "Your orders" above — don't list them again here.
+  const activeOrders = dispatch.filter((o) => ACTIVE_STATUSES.includes(o.status) && !isMine(o));
+  const inDelivery = dispatch.filter((o) => IN_DELIVERY_STATUSES.includes(o.status) && !isMine(o));
   const completedOrders = dispatch.filter((o) => o.status === "delivered" && isRecent(o.updatedAt));
 
   return (
