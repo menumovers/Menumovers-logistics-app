@@ -35,8 +35,9 @@ What the system does:
   unassigned work to `pending` and preserving the rider on assigned/in-motion
   work. Admins and coordinators can resume any eligible order; riders can
   resume only their own assigned work.
-- Lets coordinators bundle multiple orders into a `Trip` so one rider executes them as a single pickup pass; restaurants see a unified bundled pickup time per trip.
-- Lets coordinators and admins assign riders atomically, override pickup times, override delivery contact info, and add or hide items per order.
+- Lets coordinators bundle multiple orders into a `Trip` so one rider executes them as a single pickup pass; restaurants see a unified bundled pickup time per trip. Trip membership can be edited after creation (orders added or removed, not just create-time-only), and a trip completes itself once every order on it is delivered or failed.
+- Lets coordinators and admins assign riders atomically, override pickup times, override delivery contact info, and add or hide items per order. Once an order is past `pending`, a separate reassign/unassign endpoint lets a coordinator swap in a different rider or unassign back to `pending`, at any non-terminal, non-held stage.
+- Gives restaurant and rider apps a paginated order history (delivered/failed orders, 10/page, date-range filterable), with customer name, phone, and full address redacted server-side once 24 hours have passed since delivery.
 - Lets admins archive an order out of day-to-day operations without losing its
   audit history, restore it later, or permanently delete it only after archival
   and an exact external-order-ID confirmation.
@@ -92,6 +93,7 @@ What the system explicitly does not do:
 │   │       ├── middlewares/       error-handler.ts, rate-limit.ts
 │   │       └── lib/               auth, errors, logger, state-machine, pickup-time,
 │   │                              push, push-triggers, webhook, order-serialize,
+│   │                              trip-completion (completeTripIfDone),
 │   │                              janitor (revoked-token sweeper),
 │   │                              settings-readers (typed system_settings reads)
 │   ├── bestellenbij/      The web PWA. Single deployable; two installable PWAs.
@@ -104,11 +106,12 @@ What the system explicitly does not do:
 │   │       ├── pages/             landing, login, admin, coordinator,
 │   │       │                       coordinator-order, coordinator-trip,
 │   │       │                       coordinator-trip-builder, rider, rider-order,
-│   │       │                       rider-trip, restaurant, restaurant-order,
+│   │       │                       rider-trip, rider-history, restaurant,
+│   │       │                       restaurant-order, restaurant-history,
 │   │       │                       order-receipt, settings, not-found
 │   │       ├── components/        layout, status-badge, acceptance-status-badge,
 │   │       │                       pickup-countdown, delivery-expectation,
-│   │       │                       acknowledge-card, payment-panel,
+│   │       │                       acknowledge-card, payment-panel, order-history,
 │   │       │                       pickup-time-input, searchable-select,
 │   │       │                       locale-switch, push-opt-in, ui/* (shadcn)
 │   │       └── locales/           nl/translation.json, en/translation.json
@@ -144,13 +147,22 @@ What the system explicitly does not do:
 4. `audienceForAssignment()` (the assigned rider + the order's restaurant staff) receives a push.
 5. `enqueueOutbound("order.assigned", ...)` fires.
 
+### 5.2a Rider reassignment and unassignment
+
+1. Once an order is past `pending`, `/assign` can no longer touch its rider — a coordinator/admin instead calls `POST /api/orders/:id/reassign` with an optional `riderId`. Rejected outright for terminal (`delivered`/`failed`) or held orders, and if the order has no rider to begin with (that's what `/assign` is for) or the target rider matches the current one.
+2. Passing a `riderId` swaps in that rider. If the order is still pre-flight (`rider_assigned`/`rider_accepted`), it's treated as a fresh assignment and lands on `rider_accepted` (same accept-skip convention as trip creation and `PATCH /trips/:id`'s in-motion swap). Once en route or later, only `riderId` changes — the reported status is preserved rather than rewound.
+3. Omitting `riderId` (or passing `null`) unassigns back to `pending`, at any non-terminal, non-held stage — no additional status cutoff. See D18 for why an earlier, more conservative version of this was deliberately loosened.
+4. Either way, a `rider_assignments` row is written (`outcome: "reassigned"` or `"unassigned"`) and, if the status actually changed, an `order_status_logs` row too.
+5. The coordinator order detail's rider card reflects whichever state applies: "Assign rider" while `pending`, "Reassign rider" (pick someone else, or unassign) once a rider is attached.
+
 ### 5.3 Status transition
 
 1. An authorized caller hits `POST /api/orders/:id/status` with the reported target status. Riders may update only their own assigned orders; restaurant staff cannot use this endpoint.
 2. The handler calls `assertValidTransition(from, to)`. Status is a report rather than a strict linear gate: skipping ahead and corrections are allowed. Same-state changes are rejected; `rider_assigned` must go through `/assign`; `rider_accepted` is only accepted here when `from` is `rider_assigned`; terminal-state invariants still apply.
-3. The update is guarded by the previously-read status so concurrent changes return `409 STATE_CONFLICT`. The accepted transition is logged in `order_status_logs` with actor, role, from/to status, timestamp, and any note/failure reason.
-4. `audienceForStatus(to)` resolves the audience (e.g. coordinators+admins for `picked_up`, all coordinators+admins for `failed`); `push.ts` sends.
-5. `enqueueOutbound("order.status_changed", ...)` fires.
+3. The update is guarded by the previously-read status so concurrent changes return `409 STATE_CONFLICT`. The accepted transition is logged in `order_status_logs` with actor, role, from/to status, timestamp, and any note/failure reason. Landing on `en_route_to_customer` also stamps `enRouteToCustomerAt` (an "underway since" anchor independent of `updatedAt` — see the SSOT entry).
+4. If the new status is `delivered` or `failed` and the order is on a trip, `completeTripIfDone(order.tripId)` re-checks whether the trip's other orders are also all terminal and, if so, moves the trip to `completed` (see 5.8).
+5. `audienceForStatus(to)` resolves the audience (e.g. coordinators+admins for `picked_up`, all coordinators+admins for `failed`); `push.ts` sends.
+6. `enqueueOutbound("order.status_changed", ...)` fires.
 
 ### 5.3a Postponement and resume
 
@@ -230,6 +242,34 @@ What the system explicitly does not do:
    documented in section 5.3a above and in the SSOT — `postponed` is reachable
    from `en_route_to_restaurant` and `en_route_to_customer`, resumes back to
    either, and accepts `failed` from there.
+8. `POST /api/trips/:id/orders` (admin/coordinator) adds more bundleable orders
+   to an already-created trip — the trip is no longer a fixed set decided at
+   creation time. Eligibility matches trip creation (pending or assigned,
+   untripped, unarchived orders); the transaction takes `SELECT ... FOR
+   UPDATE` on the trip and the incoming orders, appends new `trip_stops` after
+   the trip's current maximum sequence, and stamps `orders.tripId`, sharing
+   the `attachOrdersToTrip` helper with `POST /api/trips`'s create path.
+   `DELETE /api/trips/:id/orders/:orderId` removes a single order the same way
+   dissolve does per-order — a pre-flight order reverts to `pending` with
+   `riderId`/`tripId` cleared and an audit `rider_assignments` row, an
+   in-flight order just loses `tripId` and keeps its status and rider — via
+   the shared `detachOrderFromTrip` helper, then calls `completeTripIfDone`
+   (§5.3 point 4) since removing a trip's last active order can itself
+   complete it. Both endpoints refuse on a terminal trip (`dissolved` or
+   `completed`), same as `PATCH /api/trips/:id`. The frontend
+   (`pages/coordinator-trip.tsx`) exposes this as an `AddOrdersCard` and a
+   per-order remove button, both hidden once `data.status === "completed" ||
+   data.status === "dissolved"` — as are the rename/reassign and dissolve
+   controls, now that a trip can actually reach `completed` (D19).
+9. A trip completes itself rather than staying `planned`/`in_progress`
+   forever once its last order finishes. `completeTripIfDone`
+   (`lib/trip-completion.ts`) loads a trip's orders and, if every one is
+   terminal (`delivered`, `failed`, or archived/detached away) and the trip
+   isn't already `completed`/`dissolved`, sets `status = "completed"`. It is
+   called from both `POST /orders/:id/status`'s transition handler (when an
+   order lands on `delivered` or `failed` while still on a trip) and from the
+   remove-order endpoint above (§5.3 point 4, D19) — the two ways a trip's
+   last order can stop being active.
 
 ### 5.9 Frontend polling
 
@@ -262,6 +302,39 @@ What the system explicitly does not do:
   field, or generated client contract. The race guard is covered by
   `src/lib/receipt-autoprint.test.ts`, which verifies that an order resolving
   before the restaurant does not schedule `window.print()` until both are ready.
+
+### 5.11 Order history and privacy redaction
+
+- `GET /orders/history` (restaurant-staff and rider roles) is registered
+  ahead of `GET /orders/:id` in `orders.ts` so the literal `history` segment
+  isn't swallowed by the `:id` param route. It returns `OrderHistoryPage` —
+  10 orders per page (`page`/`pageSize` query params), filterable by an
+  optional `from`/`to` date-time range, scoped the same way the live overview
+  is scoped (a restaurant sees its own orders, a rider sees orders assigned
+  to them), and ordered newest-first by pickup time.
+- Redaction is computed at read time, not stored: each `OrderHistoryItem` is
+  built from the same order row as the live views, but if more than 24 hours
+  have passed since `updatedAt` on a `delivered` or `failed` order,
+  `customerName`/`customerPhone` are nulled and `deliveryAddress` is reduced
+  to postal code + city. Orders newer than the 24-hour cutoff, or not yet
+  terminal, pass through unredacted. This reuses `updatedAt` as a trustworthy
+  "when did this become terminal" timestamp — see "`updatedAt` as a terminal
+  timestamp" in the SSOT — the same reasoning the delivered-clock-time
+  countdown display relies on.
+- `OrderHistoryItem` is a standalone schema in the OpenAPI spec rather than an
+  `allOf` extension of `OrderListItem`, because re-declaring a field's type
+  inside an `allOf` branch intersects with the base schema instead of
+  overriding it — a nullable override would generate as non-nullable
+  `string`, not `string | null`. See the SSOT "Order history and PII
+  redaction" entry and D20 for the full reasoning.
+- The frontend is a shared `components/order-history.tsx` list plus two thin
+  route wrappers, `pages/rider-history.tsx` and
+  `pages/restaurant-history.tsx`, both reachable from the header nav
+  (`components/layout.tsx`). A date-range filter converts `YYYY-MM-DD` inputs
+  to UTC instants at local-timezone day boundaries via
+  `lib/format.ts`'s `localDayBoundaryIso`, matching how the rest of the app
+  already converts local date/time input to ISO instants
+  (`combineDateAndTime`).
 
 ## 6. External integrations
 

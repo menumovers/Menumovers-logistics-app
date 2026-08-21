@@ -88,11 +88,11 @@ Both sections exist because a decision log alone did not stop settled things res
 
 One line per domain — go check the registry before writing anything in a covered area. Full registry → `docs/architecture-sources-of-truth.md`.
 
-- **Calculations** (effective pickup time, countdown label, urgency, status visuals, state machine, postponement resume, trip bundling, item overrides, currency rendering) → `docs/architecture-sources-of-truth.md` §Calculations
+- **Calculations** (effective pickup time, countdown label, urgency, en-route timer, pickup-time sort ordering, status visuals, state machine, postponement resume, rider reassignment/unassignment, trip bundling, item overrides, currency rendering) → `docs/architecture-sources-of-truth.md` §Calculations
 - **Auth** (password hashing, JWT sign/verify, auth middlewares, JTI revocation, user serialization) → `docs/architecture-sources-of-truth.md` §Auth
 - **Time / Locale** (active locale resolution, locale-aware UI mapping) → `docs/architecture-sources-of-truth.md` §Time/Locale
 - **External Services** (outbound webhook dispatch + retry, push dispatch, push audiences, typed settings readers, revoked-token janitor) → `docs/architecture-sources-of-truth.md` §External Services
-- **Data Access** (Drizzle client, order serialization, archive lifecycle/visibility boundary, HTTP errors, logger, rate limits) → `docs/architecture-sources-of-truth.md` §Data Access
+- **Data Access** (Drizzle client, order serialization, `updatedAt` as a terminal timestamp, order history/PII redaction, archive lifecycle/visibility boundary, HTTP errors, logger, rate limits) → `docs/architecture-sources-of-truth.md` §Data Access
 - **Frontend Plumbing** (API client config, auth context, app context, PWA manifests, generated hooks + Zods, searchable filter select, receipt rendering and auto-print) → `docs/architecture-sources-of-truth.md` §Frontend Plumbing
 
 ---

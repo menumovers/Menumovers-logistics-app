@@ -71,6 +71,18 @@ would have 400'd. Fixed in `orval.config.ts`; regenerating confirmed zero
 diff to any other generated query/param type, since this is the first one
 that needed it.
 
+## 2026-08-21 — Order overview pages now sort by pickup time
+
+None of the three overview pages (restaurant, rider, coordinator) applied
+any ordering of their own — the list API returns rows by `createdAt`
+(insertion order), so cards appeared in whatever order the database
+happened to return them. Added `comparePickupTime` (ascending by each
+order's effective pickup time) to `lib/format.ts` and applied it once,
+right after each page reads its order list, before any section/bucket
+filtering. `Array.prototype.filter` preserves relative order, so every
+section, board column, and bundle group on all three pages now reads
+soonest-pickup-first for free, without sorting inside each one separately.
+
 ## 2026-08-20 — Pickup countdown becomes an underway timer once a rider is en route
 
 `orders` gains a nullable `en_route_to_customer_at` timestamp, set by
@@ -92,6 +104,43 @@ column. `picked_up` is unchanged — still frozen/neutral.
 Needs `pnpm --filter @workspace/db run push` against the live database
 before this lands there; the column is purely additive (nullable, no
 backfill) so the push should be a no-prompt no-op-on-existing-rows change.
+
+## 2026-08-20 — Coordinators can unassign or reassign a rider on an order
+
+Previously there was no way to change who's on an order once it left
+`pending` — `POST /orders/:id/assign` only works pending → assigned, and
+plain status reports can't touch `pending`/`rider_assigned` by design (see
+D1). Added `POST /orders/:id/reassign`: swaps in a different rider (a
+fresh assignment while pre-flight, or just a rider swap with status
+preserved once en route or later — same convention `PATCH /trips/:id`'s
+in-motion swap already uses), or unassigns back to `pending`. Both are
+blocked for terminal and held orders.
+
+Unassign initially carried a "hasn't left for the restaurant yet" cutoff,
+matching reassign's own pre-flight/in-flight status-preservation split.
+Removed after review: coordinators are trusted to have a reason for
+correcting an assignment at any non-terminal, non-held stage, rather than
+being blocked by a default-safe guess about when that's legitimate. See
+D18.
+
+The coordinator order detail's "Assign rider" card now shows a "Reassign
+rider" variant once an order has a rider — pick someone else, or unassign
+back to pending — instead of disappearing once assigned.
+
+## 2026-08-20 — Pickup countdown color now follows rider status; stops once picked up
+
+The countdown badge used to turn solid red purely on "later than the
+pickup time," regardless of where the rider actually was — including
+still counting up well after delivery. Split by rider status instead:
+late reads red only through `en_route_to_restaurant`; once the rider has
+reported `arrived_at_restaurant`, a late pickup reads orange
+(`lateAtRestaurant`, a new urgency tier) instead — the restaurant's delay
+by that point, not the rider's. Once `picked_up` or later, the badge goes
+neutral and stops counting altogether, rather than displaying an
+ever-growing "N min late" for a pickup that already happened. (Superseded
+in part the same day — see "underway timer" above, which gives
+`en_route_to_customer` and `delivered` their own non-neutral displays;
+`picked_up` alone still goes neutral per this entry.)
 
 ## 2026-08-20 — Restaurant receipt action prints immediately
 
