@@ -415,7 +415,13 @@
     "statusDissolved": "Ontbonden",
     "reassignWarningTitle": "Rijder wisselen op een lopende rit?",
     "reassignWarningBody": "Deze orders zijn al onderweg. De nieuwe rijder neemt ze over bij hun huidige stap — er wordt geen status teruggedraaid.",
-    "reassignConfirm": "Toch wisselen"
+    "reassignConfirm": "Toch wisselen",
+    "addOrders": "Orders toevoegen",
+    "addOrdersPending": "Bezig met toevoegen...",
+    "ordersAdded": "Orders toegevoegd",
+    "removeOrder": "Verwijder uit rit",
+    "removeOrderConfirm": "Deze order uit de rit verwijderen? Een order die nog niet onderweg is gaat terug naar de open wachtrij; een order die al onderweg is behoudt zijn rijder en status.",
+    "orderRemoved": "Order verwijderd uit rit"
   },
   "bundle": {
     "title": "Gebundelde ophaling",

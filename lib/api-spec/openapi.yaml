@@ -1093,6 +1093,97 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/TripDetail"
+  /trips/{id}/orders:
+    post:
+      operationId: addOrdersToTrip
+      tags: [trips]
+      summary: Add one or more bundleable orders to an existing trip
+      description: |
+        Same bundling rules `POST /trips` applies at creation: each order
+        must not already be on a trip, and must be pre-flight
+        (pending/rider_assigned/rider_accepted). New stops are appended
+        after the trip's existing ones — reorder them afterward with
+        `PUT /trips/{id}/stops` if needed. If the trip has a rider, orders
+        are attached to them the same way creation does (a pending order
+        skips straight to rider_accepted, same as self-claim).
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddOrdersToTripRequest"
+      responses:
+        "200":
+          description: Trip updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TripDetail"
+        "404":
+          description: Trip or one of the orders not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Trip is terminal, or an order is already on a trip
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "422":
+          description: An order is not bundleable in its current status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /trips/{id}/orders/{orderId}:
+    delete:
+      operationId: removeOrderFromTrip
+      tags: [trips]
+      summary: Remove a single order from a trip
+      description: |
+        Pre-flight orders (pending/rider_assigned/rider_accepted) revert to
+        `pending` and are unassigned, same as dissolving a trip. In-flight
+        or already-terminal orders keep their status and rider — only the
+        trip link is dropped. If this leaves the trip with no orders, or
+        only terminal ones, the trip is marked completed.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: orderId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Trip updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TripDetail"
+        "404":
+          description: Trip not found, or order is not on this trip
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "422":
+          description: Trip is terminal
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /trips/{id}/dissolve:
     post:
       operationId: dissolveTrip
@@ -2461,6 +2552,15 @@ components:
           type: ["string", "null"]
         riderId:
           type: ["string", "null"]
+        orderIds:
+          type: array
+          items:
+            type: string
+          minItems: 1
+    AddOrdersToTripRequest:
+      type: object
+      required: [orderIds]
+      properties:
         orderIds:
           type: array
           items:

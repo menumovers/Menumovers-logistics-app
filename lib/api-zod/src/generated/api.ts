@@ -7400,6 +7400,597 @@ export const ReplaceTripStopsResponse = zod
   );
 
 /**
+ * Same bundling rules `POST /trips` applies at creation: each order
+must not already be on a trip, and must be pre-flight
+(pending/rider_assigned/rider_accepted). New stops are appended
+after the trip's existing ones — reorder them afterward with
+`PUT /trips/{id}/stops` if needed. If the trip has a rider, orders
+are attached to them the same way creation does (a pending order
+skips straight to rider_accepted, same as self-claim).
+
+ * @summary Add one or more bundleable orders to an existing trip
+ */
+export const AddOrdersToTripParams = zod.object({
+  id: zod.coerce.string(),
+});
+
+export const AddOrdersToTripBody = zod.object({
+  orderIds: zod.array(zod.string()).min(1),
+});
+
+export const AddOrdersToTripResponse = zod
+  .object({
+    id: zod.string(),
+    tripNumber: zod.number(),
+    name: zod.string().nullish(),
+    riderId: zod.string().nullish(),
+    riderName: zod.string().nullish(),
+    status: zod.enum(["planned", "in_progress", "completed", "dissolved"]),
+    orderCount: zod.number(),
+    stopCount: zod.number(),
+    doneStopCount: zod
+      .number()
+      .describe(
+        "Stops whose order reports them completed. Derived, not stored.",
+      ),
+    skippedStopCount: zod
+      .number()
+      .describe(
+        "Stops belonging to a failed order. Not outstanding, not completed —\n`stopCount - doneStopCount - skippedStopCount` is what is left to do.\n",
+      ),
+    createdAt: zod.coerce.date(),
+    updatedAt: zod.coerce.date(),
+  })
+  .and(
+    zod.object({
+      stops: zod.array(
+        zod
+          .object({
+            id: zod.string(),
+            orderId: zod.string(),
+            kind: zod.enum(["pickup", "dropoff"]),
+            sequence: zod.number(),
+            state: zod
+              .enum(["upcoming", "done", "skipped"])
+              .describe(
+                "Derived from the stop's order status — never stored. A pickup stop is\n`done` once the order reads `picked_up` or later; a dropoff stop is\n`done` once it reads `delivered`. A `failed` order marks both of its\nstops `skipped`: settled, but not completed. The status column is\nlast-write-wins, so after a failure we cannot tell whether the pickup\nhappened first, and the status log is the place to find out.\n",
+              ),
+          })
+          .and(
+            zod.object({
+              externalOrderId: zod.string(),
+              customerName: zod.string(),
+              customerPhone: zod.string(),
+              restaurantId: zod.string(),
+              restaurantName: zod.string(),
+              restaurantAddress: zod
+                .string()
+                .describe(
+                  "The pickup address. Carried on the stop so a rider running a\ntrip has somewhere to go without opening each order.\n",
+                ),
+              deliveryAddress: zod.string(),
+              orderStatus: zod.enum([
+                "pending",
+                "rider_assigned",
+                "rider_accepted",
+                "en_route_to_restaurant",
+                "arrived_at_restaurant",
+                "picked_up",
+                "en_route_to_customer",
+                "delivered",
+                "failed",
+                "postponed",
+              ]),
+              effectivePickupTime: zod.coerce.date(),
+            }),
+          ),
+      ),
+      orders: zod.array(
+        zod
+          .object({
+            id: zod.string(),
+            externalOrderId: zod.string(),
+            restaurantId: zod.string(),
+            riderId: zod.string().nullish(),
+            status: zod.enum([
+              "pending",
+              "rider_assigned",
+              "rider_accepted",
+              "en_route_to_restaurant",
+              "arrived_at_restaurant",
+              "picked_up",
+              "en_route_to_customer",
+              "delivered",
+              "failed",
+              "postponed",
+            ]),
+            customerName: zod.string(),
+            customerPhone: zod.string(),
+            customerEmail: zod.string().nullish(),
+            deliveryAddress: zod
+              .string()
+              .describe(
+                "The order's current address as one line, built from the components\nbelow on every read and never stored. This is what screens render.\nCorrections show up here because the components are the only\nwritable copy (D12).\n",
+              ),
+            deliveryAddressOriginal: zod
+              .string()
+              .describe(
+                "The single-line address exactly as the source sent it, immutable\nafter ingestion — the same pattern as `pickupTimeOriginal`. Kept so\na coordinator can see what actually arrived. Nothing operational\nreads it; use `deliveryAddress` for anything the app does.\n",
+              ),
+            street: zod.string(),
+            houseNumber: zod.string().nullish(),
+            addition: zod.string().nullish(),
+            postalCode: zod.string(),
+            city: zod.string(),
+            country: zod.string(),
+            latitude: zod.string().nullish(),
+            longitude: zod.string().nullish(),
+            deliveryInstructions: zod.string().nullish(),
+            subtotal: zod
+              .string()
+              .nullish()
+              .describe(
+                "Sum of the menu items only — before delivery fee, tips, SUP\/statiegeld\nor administration costs. Sent by the source directly (not computed\nhere); receipt data, like the other charge breakdown fields below.\nNullable only because it postdates orders already in the database —\nevery order ingested going forward has one, since the source always\nsends it (see `InboundOrderPayload.subtotal`, which is required).\n",
+              ),
+            deliveryFee: zod.string(),
+            totalAmount: zod.string(),
+            tipRider: zod.string(),
+            tipRestaurant: zod.string(),
+            supTotal: zod.string(),
+            statiegeldTotal: zod.string(),
+            administrationCosts: zod.string(),
+            deliveryMethod: zod.enum(["delivery", "pickup", "happy_hour"]),
+            paymentMethod: zod.string(),
+            cashPayment: zod
+              .object({
+                type: zod.string().nullish(),
+                changeAmount: zod.string().nullish(),
+                changeRequired: zod.string().nullish(),
+                label: zod.string().nullish(),
+              })
+              .nullish(),
+            kitchenNotes: zod.string().nullish(),
+            items: zod.array(
+              zod.object({
+                name: zod.string(),
+                quantity: zod.number(),
+                price: zod.string(),
+                options: zod
+                  .array(zod.string())
+                  .optional()
+                  .describe(
+                    "Selected item customizations (e.g. size, extras), one entry per option. Structured so an option's own text can safely contain a comma or other punctuation.",
+                  ),
+                notes: zod
+                  .string()
+                  .nullish()
+                  .describe(
+                    "Free-text note about the item, distinct from `options`. Legacy sources that have not migrated to `options` may still send customizations folded into this field as a single string.",
+                  ),
+                totalPrice: zod
+                  .string()
+                  .nullish()
+                  .describe(
+                    "Line total as sent by the source, not computed here. Absent for items added later via the admin add-item flow.",
+                  ),
+                externalId: zod
+                  .string()
+                  .nullish()
+                  .describe(
+                    "POS\/kitchen article id, when the source provides one.",
+                  ),
+              }),
+            ),
+            pickupTimeOriginal: zod.coerce.date(),
+            pickupTimeRider: zod.coerce.date().nullish(),
+            pickupTimeRestaurant: zod.coerce.date().nullish(),
+            pickupTimeOverride: zod.coerce.date().nullish(),
+            sourceCreatedAt: zod.coerce.date(),
+            requestedDeliveryTime: zod.coerce
+              .date()
+              .describe(
+                "The customer's checkout selection resolved to a timestamp, and the\nstorefront's source of truth for fulfilment. For a scheduled order this\nis exactly the time they picked; for an ASAP order it is the storefront's\ncalculated delivery estimate. The user-facing string the customer actually\nsaw (\"Zo snel mogelijk\", \"vandaag om 18:30\") lives in the storefront's\nseparate `deliveryTimeDisplay` field and is NOT sent here — so an ASAP\ntime should be presented as an estimate, never as a promised time.\n",
+              ),
+            deliveryTimeType: zod.enum(["asap", "later_today", "other_day"]),
+            sourceRestaurantReadyTime: zod.coerce.date().nullish(),
+            restaurantMinDeliveryTime: zod.number().nullish(),
+            restaurantMinPickupTime: zod.number().nullish(),
+            restaurantMinPrepTime: zod.number().nullish(),
+            deliveryTeamMinDeliveryTime: zod.number().nullish(),
+            deliveryTeamMinPickupTime: zod.number().nullish(),
+            deliveryTeamMinPrepTime: zod.number().nullish(),
+            effectivePickupTime: zod.coerce.date(),
+            effectivePickupSource: zod
+              .enum(["rider", "restaurant", "override"])
+              .optional(),
+            pendingRiderNotification: zod.string().nullish(),
+            failureReason: zod.string().nullish(),
+            allowedTransitions: zod
+              .array(
+                zod.enum([
+                  "pending",
+                  "rider_assigned",
+                  "rider_accepted",
+                  "en_route_to_restaurant",
+                  "arrived_at_restaurant",
+                  "picked_up",
+                  "en_route_to_customer",
+                  "delivered",
+                  "failed",
+                  "postponed",
+                ]),
+              )
+              .describe(
+                "Statuses reportable from the order's current one, derived server-side from\nthe state machine. Status is a report rather than a gate: skipping ahead\nand correcting a mis-tap are both accepted. `pending` and `rider_assigned`\nnever appear — they are coupled to `riderId` and written by\n`POST \/orders\/{id}\/assign`. `rider_accepted` appears only when the current\nstatus is `rider_assigned` — it is otherwise reachable solely via\n`POST \/orders\/{id}\/assign` (rider self-claim). Clients should render these\nrather than keep their own transition table.\n",
+              ),
+            itemsAdjustment: zod
+              .string()
+              .nullish()
+              .describe(
+                "Value of the delivered items minus the value of the ordered items, when a\ncoordinator has hidden or added anything. Null when untouched. `totalAmount`\nis written once at ingestion and never recomputed, so this is the amount by\nwhich the delivered list no longer matches what was charged — surfaced on the\nreceipt rather than silently producing a breakdown that doesn't add up.\n",
+              ),
+            restaurantAcceptedAt: zod.coerce
+              .date()
+              .nullish()
+              .describe(
+                "When the restaurant acknowledged the order. Null means not yet acknowledged,\nwhich blocks nothing — it is a read receipt, not a gate.\n",
+              ),
+            restaurantReadyAt: zod.coerce
+              .date()
+              .nullish()
+              .describe(
+                "When the kitchen reported the food was done. A status on the\nrestaurant's own journey (seen\/accepted → ready → picked up), which\nis informational — it is not a pickup time and nothing waits on it.\n",
+              ),
+            enRouteToCustomerAt: zod.coerce
+              .date()
+              .nullish()
+              .describe(
+                'When the order most recently entered `en_route_to_customer`. Set by\nthe transition itself rather than derived from `updatedAt`, which\nthe order can still pick up further writes after while the rider is\nunderway. Lets clients show \"underway for N min\" without fetching\nthe full status log. Moves forward again if the order is reported\nback into this status after leaving it.\n',
+              ),
+            restaurantAcceptedByName: zod.string().nullish(),
+            holdState: zod
+              .union([zod.enum(["parked", "on_hold"]), zod.null()])
+              .optional()
+              .describe(
+                "The hold family — the only mechanism that gates an order. Null means not\nheld. A hold blocks new assignment only; an order already being worked\nkeeps accepting status reports.\n",
+              ),
+            holdReason: zod.string().nullish(),
+            heldAt: zod.coerce.date().nullish(),
+            heldByUserName: zod
+              .string()
+              .nullish()
+              .describe("Null for automatic holds (`parked`)."),
+            tripId: zod.string().nullish(),
+            archivedAt: zod.coerce
+              .date()
+              .nullish()
+              .describe(
+                "Set when an admin archives the order. Archived orders are excluded from operational views.",
+              ),
+            archivedByUserId: zod.string().nullish(),
+            tripNumber: zod
+              .number()
+              .nullish()
+              .describe(
+                "Human-friendly trip number for the trip this order belongs to.",
+              ),
+            bundlePickupTime: zod.coerce
+              .date()
+              .nullish()
+              .describe(
+                "Earliest effective pickup time across same-restaurant orders in\nthe same trip. Null when the order is not part of a trip with\nanother order at the same restaurant.\n",
+              ),
+            createdAt: zod.coerce.date(),
+            updatedAt: zod.coerce
+              .date()
+              .describe(
+                'Bumped on any change to the order row, not only status. A usable\nproxy for \"when did this reach its current state\" only once a\nstatus is terminal (delivered\/failed) and therefore unlikely to\nbe touched again — do not read it as a status-change timestamp\nfor a non-terminal order.\n',
+              ),
+          })
+          .and(
+            zod.object({
+              restaurantName: zod.string().optional(),
+              riderName: zod.string().nullish(),
+            }),
+          ),
+      ),
+    }),
+  );
+
+/**
+ * Pre-flight orders (pending/rider_assigned/rider_accepted) revert to
+`pending` and are unassigned, same as dissolving a trip. In-flight
+or already-terminal orders keep their status and rider — only the
+trip link is dropped. If this leaves the trip with no orders, or
+only terminal ones, the trip is marked completed.
+
+ * @summary Remove a single order from a trip
+ */
+export const RemoveOrderFromTripParams = zod.object({
+  id: zod.coerce.string(),
+  orderId: zod.coerce.string(),
+});
+
+export const RemoveOrderFromTripResponse = zod
+  .object({
+    id: zod.string(),
+    tripNumber: zod.number(),
+    name: zod.string().nullish(),
+    riderId: zod.string().nullish(),
+    riderName: zod.string().nullish(),
+    status: zod.enum(["planned", "in_progress", "completed", "dissolved"]),
+    orderCount: zod.number(),
+    stopCount: zod.number(),
+    doneStopCount: zod
+      .number()
+      .describe(
+        "Stops whose order reports them completed. Derived, not stored.",
+      ),
+    skippedStopCount: zod
+      .number()
+      .describe(
+        "Stops belonging to a failed order. Not outstanding, not completed —\n`stopCount - doneStopCount - skippedStopCount` is what is left to do.\n",
+      ),
+    createdAt: zod.coerce.date(),
+    updatedAt: zod.coerce.date(),
+  })
+  .and(
+    zod.object({
+      stops: zod.array(
+        zod
+          .object({
+            id: zod.string(),
+            orderId: zod.string(),
+            kind: zod.enum(["pickup", "dropoff"]),
+            sequence: zod.number(),
+            state: zod
+              .enum(["upcoming", "done", "skipped"])
+              .describe(
+                "Derived from the stop's order status — never stored. A pickup stop is\n`done` once the order reads `picked_up` or later; a dropoff stop is\n`done` once it reads `delivered`. A `failed` order marks both of its\nstops `skipped`: settled, but not completed. The status column is\nlast-write-wins, so after a failure we cannot tell whether the pickup\nhappened first, and the status log is the place to find out.\n",
+              ),
+          })
+          .and(
+            zod.object({
+              externalOrderId: zod.string(),
+              customerName: zod.string(),
+              customerPhone: zod.string(),
+              restaurantId: zod.string(),
+              restaurantName: zod.string(),
+              restaurantAddress: zod
+                .string()
+                .describe(
+                  "The pickup address. Carried on the stop so a rider running a\ntrip has somewhere to go without opening each order.\n",
+                ),
+              deliveryAddress: zod.string(),
+              orderStatus: zod.enum([
+                "pending",
+                "rider_assigned",
+                "rider_accepted",
+                "en_route_to_restaurant",
+                "arrived_at_restaurant",
+                "picked_up",
+                "en_route_to_customer",
+                "delivered",
+                "failed",
+                "postponed",
+              ]),
+              effectivePickupTime: zod.coerce.date(),
+            }),
+          ),
+      ),
+      orders: zod.array(
+        zod
+          .object({
+            id: zod.string(),
+            externalOrderId: zod.string(),
+            restaurantId: zod.string(),
+            riderId: zod.string().nullish(),
+            status: zod.enum([
+              "pending",
+              "rider_assigned",
+              "rider_accepted",
+              "en_route_to_restaurant",
+              "arrived_at_restaurant",
+              "picked_up",
+              "en_route_to_customer",
+              "delivered",
+              "failed",
+              "postponed",
+            ]),
+            customerName: zod.string(),
+            customerPhone: zod.string(),
+            customerEmail: zod.string().nullish(),
+            deliveryAddress: zod
+              .string()
+              .describe(
+                "The order's current address as one line, built from the components\nbelow on every read and never stored. This is what screens render.\nCorrections show up here because the components are the only\nwritable copy (D12).\n",
+              ),
+            deliveryAddressOriginal: zod
+              .string()
+              .describe(
+                "The single-line address exactly as the source sent it, immutable\nafter ingestion — the same pattern as `pickupTimeOriginal`. Kept so\na coordinator can see what actually arrived. Nothing operational\nreads it; use `deliveryAddress` for anything the app does.\n",
+              ),
+            street: zod.string(),
+            houseNumber: zod.string().nullish(),
+            addition: zod.string().nullish(),
+            postalCode: zod.string(),
+            city: zod.string(),
+            country: zod.string(),
+            latitude: zod.string().nullish(),
+            longitude: zod.string().nullish(),
+            deliveryInstructions: zod.string().nullish(),
+            subtotal: zod
+              .string()
+              .nullish()
+              .describe(
+                "Sum of the menu items only — before delivery fee, tips, SUP\/statiegeld\nor administration costs. Sent by the source directly (not computed\nhere); receipt data, like the other charge breakdown fields below.\nNullable only because it postdates orders already in the database —\nevery order ingested going forward has one, since the source always\nsends it (see `InboundOrderPayload.subtotal`, which is required).\n",
+              ),
+            deliveryFee: zod.string(),
+            totalAmount: zod.string(),
+            tipRider: zod.string(),
+            tipRestaurant: zod.string(),
+            supTotal: zod.string(),
+            statiegeldTotal: zod.string(),
+            administrationCosts: zod.string(),
+            deliveryMethod: zod.enum(["delivery", "pickup", "happy_hour"]),
+            paymentMethod: zod.string(),
+            cashPayment: zod
+              .object({
+                type: zod.string().nullish(),
+                changeAmount: zod.string().nullish(),
+                changeRequired: zod.string().nullish(),
+                label: zod.string().nullish(),
+              })
+              .nullish(),
+            kitchenNotes: zod.string().nullish(),
+            items: zod.array(
+              zod.object({
+                name: zod.string(),
+                quantity: zod.number(),
+                price: zod.string(),
+                options: zod
+                  .array(zod.string())
+                  .optional()
+                  .describe(
+                    "Selected item customizations (e.g. size, extras), one entry per option. Structured so an option's own text can safely contain a comma or other punctuation.",
+                  ),
+                notes: zod
+                  .string()
+                  .nullish()
+                  .describe(
+                    "Free-text note about the item, distinct from `options`. Legacy sources that have not migrated to `options` may still send customizations folded into this field as a single string.",
+                  ),
+                totalPrice: zod
+                  .string()
+                  .nullish()
+                  .describe(
+                    "Line total as sent by the source, not computed here. Absent for items added later via the admin add-item flow.",
+                  ),
+                externalId: zod
+                  .string()
+                  .nullish()
+                  .describe(
+                    "POS\/kitchen article id, when the source provides one.",
+                  ),
+              }),
+            ),
+            pickupTimeOriginal: zod.coerce.date(),
+            pickupTimeRider: zod.coerce.date().nullish(),
+            pickupTimeRestaurant: zod.coerce.date().nullish(),
+            pickupTimeOverride: zod.coerce.date().nullish(),
+            sourceCreatedAt: zod.coerce.date(),
+            requestedDeliveryTime: zod.coerce
+              .date()
+              .describe(
+                "The customer's checkout selection resolved to a timestamp, and the\nstorefront's source of truth for fulfilment. For a scheduled order this\nis exactly the time they picked; for an ASAP order it is the storefront's\ncalculated delivery estimate. The user-facing string the customer actually\nsaw (\"Zo snel mogelijk\", \"vandaag om 18:30\") lives in the storefront's\nseparate `deliveryTimeDisplay` field and is NOT sent here — so an ASAP\ntime should be presented as an estimate, never as a promised time.\n",
+              ),
+            deliveryTimeType: zod.enum(["asap", "later_today", "other_day"]),
+            sourceRestaurantReadyTime: zod.coerce.date().nullish(),
+            restaurantMinDeliveryTime: zod.number().nullish(),
+            restaurantMinPickupTime: zod.number().nullish(),
+            restaurantMinPrepTime: zod.number().nullish(),
+            deliveryTeamMinDeliveryTime: zod.number().nullish(),
+            deliveryTeamMinPickupTime: zod.number().nullish(),
+            deliveryTeamMinPrepTime: zod.number().nullish(),
+            effectivePickupTime: zod.coerce.date(),
+            effectivePickupSource: zod
+              .enum(["rider", "restaurant", "override"])
+              .optional(),
+            pendingRiderNotification: zod.string().nullish(),
+            failureReason: zod.string().nullish(),
+            allowedTransitions: zod
+              .array(
+                zod.enum([
+                  "pending",
+                  "rider_assigned",
+                  "rider_accepted",
+                  "en_route_to_restaurant",
+                  "arrived_at_restaurant",
+                  "picked_up",
+                  "en_route_to_customer",
+                  "delivered",
+                  "failed",
+                  "postponed",
+                ]),
+              )
+              .describe(
+                "Statuses reportable from the order's current one, derived server-side from\nthe state machine. Status is a report rather than a gate: skipping ahead\nand correcting a mis-tap are both accepted. `pending` and `rider_assigned`\nnever appear — they are coupled to `riderId` and written by\n`POST \/orders\/{id}\/assign`. `rider_accepted` appears only when the current\nstatus is `rider_assigned` — it is otherwise reachable solely via\n`POST \/orders\/{id}\/assign` (rider self-claim). Clients should render these\nrather than keep their own transition table.\n",
+              ),
+            itemsAdjustment: zod
+              .string()
+              .nullish()
+              .describe(
+                "Value of the delivered items minus the value of the ordered items, when a\ncoordinator has hidden or added anything. Null when untouched. `totalAmount`\nis written once at ingestion and never recomputed, so this is the amount by\nwhich the delivered list no longer matches what was charged — surfaced on the\nreceipt rather than silently producing a breakdown that doesn't add up.\n",
+              ),
+            restaurantAcceptedAt: zod.coerce
+              .date()
+              .nullish()
+              .describe(
+                "When the restaurant acknowledged the order. Null means not yet acknowledged,\nwhich blocks nothing — it is a read receipt, not a gate.\n",
+              ),
+            restaurantReadyAt: zod.coerce
+              .date()
+              .nullish()
+              .describe(
+                "When the kitchen reported the food was done. A status on the\nrestaurant's own journey (seen\/accepted → ready → picked up), which\nis informational — it is not a pickup time and nothing waits on it.\n",
+              ),
+            enRouteToCustomerAt: zod.coerce
+              .date()
+              .nullish()
+              .describe(
+                'When the order most recently entered `en_route_to_customer`. Set by\nthe transition itself rather than derived from `updatedAt`, which\nthe order can still pick up further writes after while the rider is\nunderway. Lets clients show \"underway for N min\" without fetching\nthe full status log. Moves forward again if the order is reported\nback into this status after leaving it.\n',
+              ),
+            restaurantAcceptedByName: zod.string().nullish(),
+            holdState: zod
+              .union([zod.enum(["parked", "on_hold"]), zod.null()])
+              .optional()
+              .describe(
+                "The hold family — the only mechanism that gates an order. Null means not\nheld. A hold blocks new assignment only; an order already being worked\nkeeps accepting status reports.\n",
+              ),
+            holdReason: zod.string().nullish(),
+            heldAt: zod.coerce.date().nullish(),
+            heldByUserName: zod
+              .string()
+              .nullish()
+              .describe("Null for automatic holds (`parked`)."),
+            tripId: zod.string().nullish(),
+            archivedAt: zod.coerce
+              .date()
+              .nullish()
+              .describe(
+                "Set when an admin archives the order. Archived orders are excluded from operational views.",
+              ),
+            archivedByUserId: zod.string().nullish(),
+            tripNumber: zod
+              .number()
+              .nullish()
+              .describe(
+                "Human-friendly trip number for the trip this order belongs to.",
+              ),
+            bundlePickupTime: zod.coerce
+              .date()
+              .nullish()
+              .describe(
+                "Earliest effective pickup time across same-restaurant orders in\nthe same trip. Null when the order is not part of a trip with\nanother order at the same restaurant.\n",
+              ),
+            createdAt: zod.coerce.date(),
+            updatedAt: zod.coerce
+              .date()
+              .describe(
+                'Bumped on any change to the order row, not only status. A usable\nproxy for \"when did this reach its current state\" only once a\nstatus is terminal (delivered\/failed) and therefore unlikely to\nbe touched again — do not read it as a status-change timestamp\nfor a non-terminal order.\n',
+              ),
+          })
+          .and(
+            zod.object({
+              restaurantName: zod.string().optional(),
+              riderName: zod.string().nullish(),
+            }),
+          ),
+      ),
+    }),
+  );
+
+/**
  * @summary Dissolve a trip and detach its orders
  */
 export const DissolveTripParams = zod.object({

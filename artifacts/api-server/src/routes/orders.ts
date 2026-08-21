@@ -42,6 +42,7 @@ import { resolveOriginalPickupTime, leadTimeMinutes } from "../lib/pickup-time";
 import { SETTINGS, readSetting } from "../lib/settings-registry";
 import { notHeld } from "../lib/order-hold";
 import { formatAddress } from "../lib/address";
+import { completeTripIfDone } from "../lib/trip-completion";
 import { isRiderDeliverable, riderDeliverable } from "../lib/delivery-method";
 import {
   sendPushToRoles,
@@ -745,6 +746,13 @@ router.post(
       actorRole: primaryRoleLabel(auth.roles),
       note: logNote,
     });
+
+    // A trip whose last outstanding order just landed on delivered/failed
+    // has nothing left to do. completeTripIfDone re-checks every order on
+    // the trip rather than assuming this is the last one.
+    if ((toStatus === "delivered" || toStatus === "failed") && order.tripId) {
+      await completeTripIfDone(order.tripId);
+    }
 
     // Notifications.
     const audience = audienceForStatus(toStatus);

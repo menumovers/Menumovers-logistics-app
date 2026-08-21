@@ -1,5 +1,39 @@
 # Changelog
 
+## 2026-08-21 — Trips: edit membership after creation, auto-complete when done
+
+Two gaps found on first real use of the trips feature.
+
+**Add/remove orders after creation.** `PUT /trips/:id/stops` already let a
+coordinator reorder a trip's stops, but nothing let them change *which*
+orders were on it — bundling was create-time only. Added
+`POST /trips/:id/orders` (same bundling rules as creation: order must be
+unattached and pre-flight; new stops append after the trip's existing ones)
+and `DELETE /trips/:id/orders/:orderId` (pre-flight orders revert to
+pending and are unassigned, in-flight/terminal orders just lose the trip
+link — mirrors what dissolving a trip already did per-order). The
+attach/detach logic itself was extracted out of the create and dissolve
+handlers into two shared functions so all three code paths — create, add,
+dissolve — go through the exact same rules rather than three copies
+drifting apart.
+
+**Trips never completed.** `completed` has been in the `trip_status` enum
+since the schema was founded, but nothing ever set it — a trip stayed
+`planned`/`in_progress` forever, including after every one of its orders
+was delivered. Added `completeTripIfDone`, called after a status report
+lands an order on delivered/failed and after an order is removed from a
+trip (an order vacuously satisfies "all done" when there are none left, so
+emptying a trip out via removal completes it the same way finishing all its
+deliveries does). No new column or migration — it's a derived check against
+the trip's current orders, not stored state.
+
+Frontend: the coordinator trip page gained an "Add orders" picker (same
+candidate list/rules as the trip builder) and a remove button per order
+row; both hide once the trip reaches a terminal state, along with the
+rename/reassign and dissolve controls, which would otherwise now visibly
+404 against a trip a coordinator can actually reach in that state for the
+first time.
+
 ## 2026-08-21 — Paginated order history for restaurant and rider apps, PII-redacted after 24h
 
 New `GET /orders/history`: delivered/failed orders only, 10 per page,

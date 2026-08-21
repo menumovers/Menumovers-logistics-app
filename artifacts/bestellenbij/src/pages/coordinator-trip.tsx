@@ -6,7 +6,10 @@ import {
   useGetTrip,
   useUpdateTrip,
   useDissolveTrip,
+  useAddOrdersToTrip,
+  useRemoveOrderFromTrip,
   useListRiders,
+  useListOrders,
   getGetTripQueryKey,
   getListTripsQueryKey,
   getListOrdersQueryKey,
@@ -38,7 +41,7 @@ import {
 } from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
 import { StatusBadge } from "@/components/status-badge";
-import { ArrowLeft, Bike, Check, Home, Store, Layers, Trash2, X } from "lucide-react";
+import { ArrowLeft, Bike, Check, Home, Store, Layers, Plus, Trash2, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { formatTime } from "@/lib/format";
 import { tripProgress } from "@/lib/trip-progress";
@@ -60,6 +63,7 @@ export default function CoordinatorTripPage() {
   const riders = useListRiders({ query: { queryKey: getListRidersQueryKey() } });
   const update = useUpdateTrip();
   const dissolve = useDissolveTrip();
+  const removeOrder = useRemoveOrderFromTrip();
   const [pendingReassign, setPendingReassign] = useState<{
     name: string | null;
     riderId: string | null;
@@ -75,12 +79,27 @@ export default function CoordinatorTripPage() {
   }
   const data: TripDetail = trip.data;
   const progress = tripProgress(data);
+  const isTerminal = data.status === "completed" || data.status === "dissolved";
 
   function invalidate() {
     qc.invalidateQueries({ queryKey: getGetTripQueryKey(tripId) });
     qc.invalidateQueries({ queryKey: getListTripsQueryKey() });
     qc.invalidateQueries({ queryKey: getListOrdersQueryKey() });
     qc.invalidateQueries({ queryKey: getListOrdersQueryKey({}) });
+  }
+
+  function onRemoveOrder(orderId: string) {
+    if (!window.confirm(t("trip.removeOrderConfirm"))) return;
+    removeOrder.mutate(
+      { id: tripId, orderId },
+      {
+        onSuccess: () => {
+          toast({ title: t("trip.orderRemoved") });
+          invalidate();
+        },
+        onError: () => toast({ title: t("errors.generic"), variant: "destructive" }),
+      },
+    );
   }
 
   function submitUpdate(name: string | null, riderId: string | null, force: boolean) {
@@ -169,15 +188,17 @@ export default function CoordinatorTripPage() {
               : ""}
           </div>
         </div>
-        <Button
-          variant="destructive"
-          onClick={onDissolve}
-          disabled={dissolve.isPending}
-          data-testid="button-dissolve-trip"
-        >
-          <Trash2 className="size-4 mr-2" />
-          {t("trip.dissolve")}
-        </Button>
+        {!isTerminal ? (
+          <Button
+            variant="destructive"
+            onClick={onDissolve}
+            disabled={dissolve.isPending}
+            data-testid="button-dissolve-trip"
+          >
+            <Trash2 className="size-4 mr-2" />
+            {t("trip.dissolve")}
+          </Button>
+        ) : null}
       </header>
 
       <div className="grid gap-5 lg:grid-cols-3">
@@ -203,37 +224,54 @@ export default function CoordinatorTripPage() {
             </CardHeader>
             <CardContent className="space-y-2">
               {data.orders.map((o) => (
-                <Link
-                  key={o.id}
-                  href={`/coordinator/orders/${o.id}`}
-                  className="flex items-center justify-between gap-3 rounded-md border border-border px-3 py-2 hover:border-primary/40"
-                  data-testid={`trip-order-${o.id}`}
-                >
-                  <div className="min-w-0">
-                    <div className="text-sm font-semibold">
-                      <span className="tabular-nums">#{o.externalOrderId}</span> ·{" "}
-                      {o.customerName}
+                <div key={o.id} className="flex items-center gap-2">
+                  <Link
+                    href={`/coordinator/orders/${o.id}`}
+                    className="flex-1 min-w-0 flex items-center justify-between gap-3 rounded-md border border-border px-3 py-2 hover:border-primary/40"
+                    data-testid={`trip-order-${o.id}`}
+                  >
+                    <div className="min-w-0">
+                      <div className="text-sm font-semibold">
+                        <span className="tabular-nums">#{o.externalOrderId}</span> ·{" "}
+                        {o.customerName}
+                      </div>
+                      <div className="text-xs text-muted-foreground truncate">
+                        {o.restaurantName} · {o.deliveryAddress}
+                      </div>
                     </div>
-                    <div className="text-xs text-muted-foreground truncate">
-                      {o.restaurantName} · {o.deliveryAddress}
-                    </div>
-                  </div>
-                  <StatusBadge status={o.status} />
-                </Link>
+                    <StatusBadge status={o.status} />
+                  </Link>
+                  {!isTerminal ? (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => onRemoveOrder(o.id)}
+                      disabled={removeOrder.isPending}
+                      title={t("trip.removeOrder")}
+                      data-testid={`button-remove-trip-order-${o.id}`}
+                    >
+                      <X className="size-4" />
+                    </Button>
+                  ) : null}
+                </div>
               ))}
             </CardContent>
           </Card>
+
+          {!isTerminal ? <AddOrdersCard tripId={tripId} lang={lang} onDone={invalidate} /> : null}
         </div>
 
         <div className="space-y-5">
-          <EditCard
-            trip={data}
-            riders={(riders.data ?? []).filter(
-              (r) => r.availabilityStatus !== "offline" && r.accountStatus === "active",
-            )}
-            onSave={(name, riderId) => submitUpdate(name, riderId, false)}
-            saving={update.isPending}
-          />
+          {!isTerminal ? (
+            <EditCard
+              trip={data}
+              riders={(riders.data ?? []).filter(
+                (r) => r.availabilityStatus !== "offline" && r.accountStatus === "active",
+              )}
+              onSave={(name, riderId) => submitUpdate(name, riderId, false)}
+              saving={update.isPending}
+            />
+          ) : null}
         </div>
       </div>
 
@@ -287,6 +325,118 @@ export default function CoordinatorTripPage() {
         </AlertDialogContent>
       </AlertDialog>
     </div>
+  );
+}
+
+/** Same bundling rules as the trip builder: unattached, pre-flight orders
+ * only. Appends whatever's picked to the trip's existing stops. */
+function AddOrdersCard({
+  tripId,
+  lang,
+  onDone,
+}: {
+  tripId: string;
+  lang: string;
+  onDone: () => void;
+}) {
+  const { t } = useTranslation();
+  const { toast } = useToast();
+  const orders = useListOrders(
+    {},
+    { query: { queryKey: getListOrdersQueryKey({}), refetchInterval: 30_000 } },
+  );
+  const addOrders = useAddOrdersToTrip();
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+
+  const candidates = (orders.data ?? []).filter(
+    (o) =>
+      o.tripId == null &&
+      (o.status === "pending" || o.status === "rider_assigned" || o.status === "rider_accepted"),
+  );
+
+  function toggle(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function submit() {
+    if (selected.size === 0) return;
+    addOrders.mutate(
+      { id: tripId, data: { orderIds: Array.from(selected) } },
+      {
+        onSuccess: () => {
+          toast({ title: t("trip.ordersAdded") });
+          setSelected(new Set());
+          onDone();
+        },
+        onError: () => toast({ title: t("errors.generic"), variant: "destructive" }),
+      },
+    );
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base flex items-center gap-2">
+          <Plus className="size-4" /> {t("trip.addOrders")}
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {candidates.length === 0 ? (
+          <p className="text-sm text-muted-foreground py-2 text-center">
+            {t("trip.noOrdersAvailable")}
+          </p>
+        ) : (
+          <ul className="max-h-64 space-y-1.5 overflow-y-auto">
+            {candidates.map((o) => {
+              const isSelected = selected.has(o.id);
+              return (
+                <li
+                  key={o.id}
+                  className={`flex items-center gap-3 rounded-md border px-3 py-2 cursor-pointer ${
+                    isSelected ? "border-primary/40 bg-primary/[0.04]" : "border-border bg-card"
+                  }`}
+                  onClick={() => toggle(o.id)}
+                  data-testid={`add-orders-candidate-${o.id}`}
+                >
+                  <span
+                    className={`flex h-5 w-5 shrink-0 items-center justify-center rounded border ${
+                      isSelected
+                        ? "border-primary bg-primary text-primary-foreground"
+                        : "border-border bg-background"
+                    }`}
+                  >
+                    {isSelected ? <Check className="h-3 w-3" strokeWidth={3} /> : null}
+                  </span>
+                  <div className="min-w-0 flex-1 text-sm">
+                    <span className="font-semibold tabular-nums">#{o.externalOrderId}</span>{" "}
+                    <span className="text-muted-foreground">·</span> {o.restaurantName}{" "}
+                    <span className="text-muted-foreground">·</span>{" "}
+                    <span className="tabular-nums text-muted-foreground">
+                      {formatTime(o.effectivePickupTime, lang)}
+                    </span>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+        <Button
+          className="w-full"
+          disabled={selected.size === 0 || addOrders.isPending}
+          onClick={submit}
+          data-testid="button-add-orders-to-trip"
+        >
+          {addOrders.isPending
+            ? t("trip.addOrdersPending")
+            : `${t("trip.addOrders")} · ${t("trip.selectedCount", { count: selected.size })}`}
+        </Button>
+      </CardContent>
+    </Card>
   );
 }
 

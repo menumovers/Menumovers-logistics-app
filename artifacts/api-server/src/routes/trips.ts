@@ -38,6 +38,7 @@ import {
   audienceForTripDissolved,
 } from "../lib/push-triggers";
 import { stopStateFor, tripProgress } from "../lib/trip-progress";
+import { completeTripIfDone } from "../lib/trip-completion";
 
 const router: IRouter = Router();
 
@@ -334,6 +335,136 @@ router.get(
   }),
 );
 
+type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+/**
+ * Attaches `orders` to `trip` (assumed locked with `for("update")` by the
+ * caller already). Shared between trip creation and adding orders to an
+ * existing trip so both go through the exact same rider-attach rules: a
+ * pending order with a trip rider skips straight to rider_accepted (same as
+ * self-claim); anything else already matching that rider just gets the
+ * tripId link.
+ */
+async function attachOrdersToTrip(
+  tx: Tx,
+  trip: Pick<Trip, "id" | "tripNumber" | "riderId">,
+  orders: Order[],
+  auth: NonNullable<Request["auth"]>,
+): Promise<void> {
+  const riderId = trip.riderId;
+  for (const o of orders) {
+    if (riderId && o.status === "pending") {
+      const upd = await tx
+        .update(ordersTable)
+        .set({ tripId: trip.id, riderId, status: "rider_accepted" })
+        .where(
+          and(
+            eq(ordersTable.id, o.id),
+            eq(ordersTable.status, "pending"),
+            sql`${ordersTable.tripId} is null`,
+            isNull(ordersTable.archivedAt),
+          ),
+        )
+        .returning();
+      if (upd.length === 0) {
+        throw httpError(409, "STATE_CONFLICT", `Order ${o.externalOrderId} state changed concurrently`);
+      }
+      await tx.insert(orderStatusLogsTable).values({
+        orderId: o.id,
+        fromStatus: "pending",
+        toStatus: "rider_accepted",
+        actorUserId: auth.sub,
+        actorRole: primaryRoleLabel(auth.roles),
+        note: `Bundled into trip #${trip.tripNumber}`,
+      });
+      await tx.insert(riderAssignmentsTable).values({
+        orderId: o.id,
+        riderId,
+        outcome: "assigned",
+        assignedByUserId: auth.sub,
+      });
+    } else {
+      const upd = await tx
+        .update(ordersTable)
+        .set({ tripId: trip.id, ...(riderId ? { riderId } : {}) })
+        .where(
+          and(
+            eq(ordersTable.id, o.id),
+            eq(ordersTable.status, o.status),
+            sql`${ordersTable.tripId} is null`,
+            isNull(ordersTable.archivedAt),
+          ),
+        )
+        .returning();
+      if (upd.length === 0) {
+        throw httpError(409, "STATE_CONFLICT", `Order ${o.externalOrderId} state changed concurrently`);
+      }
+    }
+  }
+}
+
+/**
+ * Detaches one order from `trip` (assumed locked by the caller already).
+ * Shared between dissolving a whole trip and removing a single order:
+ * pre-flight orders revert to pending and are unassigned; in-flight or
+ * already-terminal orders keep their status/rider and just lose the trip
+ * link, so an active delivery is never rewound by a trip-membership edit.
+ */
+async function detachOrderFromTrip(
+  tx: Tx,
+  trip: Pick<Trip, "id" | "tripNumber">,
+  order: Order,
+  auth: NonNullable<Request["auth"]>,
+): Promise<void> {
+  if (!PRE_FLIGHT_STATUSES.includes(order.status)) {
+    await tx
+      .update(ordersTable)
+      .set({ tripId: null })
+      .where(and(eq(ordersTable.id, order.id), eq(ordersTable.tripId, trip.id), isNull(ordersTable.archivedAt)));
+    return;
+  }
+
+  const upd = await tx
+    .update(ordersTable)
+    .set({ tripId: null, riderId: null, status: "pending" })
+    .where(
+      and(
+        eq(ordersTable.id, order.id),
+        eq(ordersTable.tripId, trip.id),
+        inArray(ordersTable.status, PRE_FLIGHT_STATUSES),
+        isNull(ordersTable.archivedAt),
+      ),
+    )
+    .returning();
+  if (upd.length === 0) {
+    // Status moved forward concurrently (rider advanced mid-request). Detach
+    // without rewinding status/rider rather than leaving it stuck on the trip.
+    await tx
+      .update(ordersTable)
+      .set({ tripId: null })
+      .where(and(eq(ordersTable.id, order.id), eq(ordersTable.tripId, trip.id), isNull(ordersTable.archivedAt)));
+    return;
+  }
+  if (order.status !== "pending") {
+    await tx.insert(orderStatusLogsTable).values({
+      orderId: order.id,
+      fromStatus: order.status,
+      toStatus: "pending",
+      actorUserId: auth.sub,
+      actorRole: primaryRoleLabel(auth.roles),
+      note: `Removed from trip #${trip.tripNumber}`,
+    });
+  }
+  if (order.riderId) {
+    await tx.insert(riderAssignmentsTable).values({
+      orderId: order.id,
+      riderId: order.riderId,
+      outcome: "unassigned",
+      assignedByUserId: auth.sub,
+    });
+  }
+}
+
 // =====================================================================
 // POST /trips — create
 // =====================================================================
@@ -417,63 +548,7 @@ router.post(
       // (pending → rider_accepted — trip assignment skips the rider_assigned
       // accept step, same as self-claim) using a conditional update so a
       // concurrent change is detected.
-      for (const o of orders) {
-        if (riderId && o.status === "pending") {
-          const upd = await tx
-            .update(ordersTable)
-            .set({ tripId: createdTrip.id, riderId, status: "rider_accepted" })
-            .where(
-              and(
-                eq(ordersTable.id, o.id),
-                eq(ordersTable.status, "pending"),
-                sql`${ordersTable.tripId} is null`,
-                isNull(ordersTable.archivedAt),
-              ),
-            )
-            .returning();
-          if (upd.length === 0) {
-            throw httpError(
-              409,
-              "STATE_CONFLICT",
-              `Order ${o.externalOrderId} state changed concurrently`,
-            );
-          }
-          await tx.insert(orderStatusLogsTable).values({
-            orderId: o.id,
-            fromStatus: "pending",
-            toStatus: "rider_accepted",
-            actorUserId: auth.sub,
-            actorRole: primaryRoleLabel(auth.roles),
-            note: `Bundled into trip #${createdTrip.tripNumber}`,
-          });
-          await tx.insert(riderAssignmentsTable).values({
-            orderId: o.id,
-            riderId,
-            outcome: "assigned",
-            assignedByUserId: auth.sub,
-          });
-        } else {
-          const upd = await tx
-            .update(ordersTable)
-            .set({ tripId: createdTrip.id, ...(riderId ? { riderId } : {}) })
-            .where(
-              and(
-                eq(ordersTable.id, o.id),
-                eq(ordersTable.status, o.status),
-                sql`${ordersTable.tripId} is null`,
-                isNull(ordersTable.archivedAt),
-              ),
-            )
-            .returning();
-          if (upd.length === 0) {
-            throw httpError(
-              409,
-              "STATE_CONFLICT",
-              `Order ${o.externalOrderId} state changed concurrently`,
-            );
-          }
-        }
-      }
+      await attachOrdersToTrip(tx, createdTrip, orders, auth);
 
       return { trip: createdTrip, ordersForPush: orders };
     });
@@ -768,6 +843,136 @@ router.put(
         })),
       );
     });
+
+    const detail = await loadTripDetail(id);
+    res.json(detail);
+  }),
+);
+
+// =====================================================================
+// POST /trips/:id/orders — add orders to an existing trip
+// =====================================================================
+router.post(
+  "/trips/:id/orders",
+  requireAuth,
+  requireRole("admin", "coordinator"),
+  wrap(async (req, res) => {
+    const id = req.params["id"] as string;
+    const auth = req.auth!;
+    const body = req.body as { orderIds?: string[] };
+    const orderIds = Array.isArray(body.orderIds) ? body.orderIds : [];
+    if (orderIds.length === 0) {
+      throw httpError(400, "VALIDATION_ERROR", "orderIds required");
+    }
+    const uniqueOrderIds = Array.from(new Set(orderIds));
+    if (uniqueOrderIds.length !== orderIds.length) {
+      throw httpError(400, "VALIDATION_ERROR", "Duplicate orderIds");
+    }
+
+    await db.transaction(async (tx) => {
+      const [trip] = await tx.select().from(tripsTable).where(eq(tripsTable.id, id)).for("update");
+      if (!trip) throw httpError(404, "TRIP_NOT_FOUND", "Trip not found");
+      if (trip.status === "dissolved" || trip.status === "completed") {
+        throw httpError(422, "TRIP_TERMINAL", "Trip is no longer editable");
+      }
+
+      const orders = await tx
+        .select()
+        .from(ordersTable)
+        .where(and(inArray(ordersTable.id, uniqueOrderIds), isNull(ordersTable.archivedAt)));
+      if (orders.length !== uniqueOrderIds.length) {
+        throw httpError(404, "ORDER_NOT_FOUND", "One or more orders missing");
+      }
+      for (const o of orders) {
+        if (o.tripId) {
+          throw httpError(409, "ORDER_ON_TRIP", `Order ${o.externalOrderId} is already on a trip`);
+        }
+        if (!PRE_FLIGHT_STATUSES.includes(o.status)) {
+          throw httpError(
+            422,
+            "ORDER_NOT_BUNDLEABLE",
+            `Order ${o.externalOrderId} is not bundleable in status ${o.status}`,
+          );
+        }
+      }
+
+      // New stops go after the trip's existing ones — reorder afterward via
+      // PUT /trips/:id/stops if needed, same as the coordinator already does
+      // with a trip's original stops.
+      const existingStops = await tx
+        .select({ sequence: tripStopsTable.sequence })
+        .from(tripStopsTable)
+        .where(eq(tripStopsTable.tripId, id));
+      const nextSequence = existingStops.length
+        ? Math.max(...existingStops.map((s) => s.sequence)) + 1
+        : 0;
+      const newStops = buildDefaultStops(orders, uniqueOrderIds);
+      await tx.insert(tripStopsTable).values(
+        newStops.map((s, i) => ({
+          tripId: id,
+          orderId: s.orderId,
+          kind: s.kind,
+          sequence: nextSequence + i,
+        })),
+      );
+
+      await attachOrdersToTrip(tx, trip, orders, auth);
+    });
+
+    const detail = await loadTripDetail(id);
+    if (detail?.riderId) {
+      const audience = audienceForTripAssigned();
+      await Promise.all([
+        sendPushToRider(detail.riderId, {
+          title: `Trip #${detail.tripNumber} bijgewerkt`,
+          body: `${orderIds.length} order(s) toegevoegd`,
+          data: { tripId: id, type: "trip.assigned" },
+        }),
+        sendPushToRoles(audience.roles, {
+          title: `Trip #${detail.tripNumber} bijgewerkt`,
+          body: `${orderIds.length} order(s) toegevoegd`,
+          data: { tripId: id, type: "trip.assigned" },
+        }),
+      ]);
+    }
+    res.json(detail);
+  }),
+);
+
+// =====================================================================
+// DELETE /trips/:id/orders/:orderId — remove one order from a trip
+// =====================================================================
+router.delete(
+  "/trips/:id/orders/:orderId",
+  requireAuth,
+  requireRole("admin", "coordinator"),
+  wrap(async (req, res) => {
+    const id = req.params["id"] as string;
+    const orderId = req.params["orderId"] as string;
+    const auth = req.auth!;
+
+    await db.transaction(async (tx) => {
+      const [trip] = await tx.select().from(tripsTable).where(eq(tripsTable.id, id)).for("update");
+      if (!trip) throw httpError(404, "TRIP_NOT_FOUND", "Trip not found");
+      if (trip.status === "dissolved" || trip.status === "completed") {
+        throw httpError(422, "TRIP_TERMINAL", "Trip is no longer editable");
+      }
+
+      const [order] = await tx
+        .select()
+        .from(ordersTable)
+        .where(and(eq(ordersTable.id, orderId), eq(ordersTable.tripId, id), isNull(ordersTable.archivedAt)));
+      if (!order) throw httpError(404, "ORDER_NOT_FOUND", "Order is not on this trip");
+
+      await detachOrderFromTrip(tx, trip, order, auth);
+      await tx
+        .delete(tripStopsTable)
+        .where(and(eq(tripStopsTable.tripId, id), eq(tripStopsTable.orderId, orderId)));
+    });
+
+    // Outside the transaction: re-checks the trip's current order set, which
+    // this removal may have just emptied out or reduced to all-terminal.
+    await completeTripIfDone(id);
 
     const detail = await loadTripDetail(id);
     res.json(detail);

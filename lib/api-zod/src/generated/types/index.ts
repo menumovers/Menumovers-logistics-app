@@ -9,6 +9,7 @@
 export * from "./accountStatus";
 export * from "./acknowledgeOrderRequest";
 export * from "./addItemRequest";
+export * from "./addOrdersToTripRequest";
 export * from "./assignOrderRequest";
 export * from "./authSession";
 export * from "./createRestaurantRequest";

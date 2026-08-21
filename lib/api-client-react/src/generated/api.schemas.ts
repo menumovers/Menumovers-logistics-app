@@ -1099,6 +1099,11 @@ export interface CreateTripRequest {
   orderIds: string[];
 }
 
+export interface AddOrdersToTripRequest {
+  /** @minItems 1 */
+  orderIds: string[];
+}
+
 export interface UpdateTripRequest {
   /** @nullable */
   name?: string | null;

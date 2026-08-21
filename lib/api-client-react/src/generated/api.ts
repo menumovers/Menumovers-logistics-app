@@ -19,6 +19,7 @@ import type {
 import type {
   AcknowledgeOrderRequest,
   AddItemRequest,
+  AddOrdersToTripRequest,
   AssignOrderRequest,
   AuthSession,
   CreateRestaurantRequest,
@@ -4064,6 +4065,192 @@ export const useReplaceTripStops = <
   TContext
 > => {
   return useMutation(getReplaceTripStopsMutationOptions(options));
+};
+
+/**
+ * Same bundling rules `POST /trips` applies at creation: each order
+must not already be on a trip, and must be pre-flight
+(pending/rider_assigned/rider_accepted). New stops are appended
+after the trip's existing ones — reorder them afterward with
+`PUT /trips/{id}/stops` if needed. If the trip has a rider, orders
+are attached to them the same way creation does (a pending order
+skips straight to rider_accepted, same as self-claim).
+
+ * @summary Add one or more bundleable orders to an existing trip
+ */
+export const getAddOrdersToTripUrl = (id: string) => {
+  return `/api/trips/${id}/orders`;
+};
+
+export const addOrdersToTrip = async (
+  id: string,
+  addOrdersToTripRequest: AddOrdersToTripRequest,
+  options?: RequestInit,
+): Promise<TripDetail> => {
+  return customFetch<TripDetail>(getAddOrdersToTripUrl(id), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(addOrdersToTripRequest),
+  });
+};
+
+export const getAddOrdersToTripMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof addOrdersToTrip>>,
+    TError,
+    { id: string; data: BodyType<AddOrdersToTripRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof addOrdersToTrip>>,
+  TError,
+  { id: string; data: BodyType<AddOrdersToTripRequest> },
+  TContext
+> => {
+  const mutationKey = ["addOrdersToTrip"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof addOrdersToTrip>>,
+    { id: string; data: BodyType<AddOrdersToTripRequest> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return addOrdersToTrip(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AddOrdersToTripMutationResult = NonNullable<
+  Awaited<ReturnType<typeof addOrdersToTrip>>
+>;
+export type AddOrdersToTripMutationBody = BodyType<AddOrdersToTripRequest>;
+export type AddOrdersToTripMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Add one or more bundleable orders to an existing trip
+ */
+export const useAddOrdersToTrip = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof addOrdersToTrip>>,
+    TError,
+    { id: string; data: BodyType<AddOrdersToTripRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof addOrdersToTrip>>,
+  TError,
+  { id: string; data: BodyType<AddOrdersToTripRequest> },
+  TContext
+> => {
+  return useMutation(getAddOrdersToTripMutationOptions(options));
+};
+
+/**
+ * Pre-flight orders (pending/rider_assigned/rider_accepted) revert to
+`pending` and are unassigned, same as dissolving a trip. In-flight
+or already-terminal orders keep their status and rider — only the
+trip link is dropped. If this leaves the trip with no orders, or
+only terminal ones, the trip is marked completed.
+
+ * @summary Remove a single order from a trip
+ */
+export const getRemoveOrderFromTripUrl = (id: string, orderId: string) => {
+  return `/api/trips/${id}/orders/${orderId}`;
+};
+
+export const removeOrderFromTrip = async (
+  id: string,
+  orderId: string,
+  options?: RequestInit,
+): Promise<TripDetail> => {
+  return customFetch<TripDetail>(getRemoveOrderFromTripUrl(id, orderId), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getRemoveOrderFromTripMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof removeOrderFromTrip>>,
+    TError,
+    { id: string; orderId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof removeOrderFromTrip>>,
+  TError,
+  { id: string; orderId: string },
+  TContext
+> => {
+  const mutationKey = ["removeOrderFromTrip"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof removeOrderFromTrip>>,
+    { id: string; orderId: string }
+  > = (props) => {
+    const { id, orderId } = props ?? {};
+
+    return removeOrderFromTrip(id, orderId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RemoveOrderFromTripMutationResult = NonNullable<
+  Awaited<ReturnType<typeof removeOrderFromTrip>>
+>;
+
+export type RemoveOrderFromTripMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Remove a single order from a trip
+ */
+export const useRemoveOrderFromTrip = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof removeOrderFromTrip>>,
+    TError,
+    { id: string; orderId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof removeOrderFromTrip>>,
+  TError,
+  { id: string; orderId: string },
+  TContext
+> => {
+  return useMutation(getRemoveOrderFromTripMutationOptions(options));
 };
 
 /**

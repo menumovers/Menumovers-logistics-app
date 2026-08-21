@@ -415,7 +415,13 @@
     "statusDissolved": "Dissolved",
     "reassignWarningTitle": "Reassign rider on a trip in motion?",
     "reassignWarningBody": "These orders are already in motion. The new rider will take over them at their current step — no statuses will be rewound.",
-    "reassignConfirm": "Reassign anyway"
+    "reassignConfirm": "Reassign anyway",
+    "addOrders": "Add orders",
+    "addOrdersPending": "Adding...",
+    "ordersAdded": "Orders added",
+    "removeOrder": "Remove from trip",
+    "removeOrderConfirm": "Remove this order from the trip? A not-yet-underway order goes back to the open queue; one already in motion keeps its rider and status.",
+    "orderRemoved": "Order removed from trip"
   },
   "bundle": {
     "title": "Bundled pickup",
