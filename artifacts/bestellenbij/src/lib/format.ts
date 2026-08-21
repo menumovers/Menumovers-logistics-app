@@ -113,6 +113,16 @@ export function effectivePickup(o: AnyOrder): {
 }
 
 /**
+ * Ascending by effective pickup time — soonest first. The shared ordering
+ * for every order-list view (restaurant, rider, coordinator overviews) so
+ * they read consistently; apply it once to the full fetched list before any
+ * per-section filtering, since `Array.filter` preserves relative order.
+ */
+export function comparePickupTime(a: AnyOrder, b: AnyOrder): number {
+  return new Date(effectivePickup(a).iso).getTime() - new Date(effectivePickup(b).iso).getTime();
+}
+
+/**
  * Local-time parts for `<input type="date">` / `<input type="time">`.
  *
  * Deliberately local, not UTC: the operator is typing a wall-clock time in

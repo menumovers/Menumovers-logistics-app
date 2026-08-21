@@ -11,7 +11,7 @@ import { AcceptanceStatusBadge } from "@/components/acceptance-status-badge";
 import { useAuth } from "@/lib/auth";
 import { Bike, Layers } from "lucide-react";
 import { motion } from "framer-motion";
-import { effectivePickup, formatTime } from "@/lib/format";
+import { comparePickupTime, effectivePickup, formatTime } from "@/lib/format";
 
 // A rider carrying the order (or having finished it) is past the point
 // where the restaurant has anything left to do — these sit in their own
@@ -42,9 +42,9 @@ export default function RestaurantPage() {
     { query: { queryKey: getListOrdersQueryKey({ restaurantId: restId }), refetchInterval: 30_000, enabled: !!restId } },
   );
 
-  const visible = (orders.data ?? []).filter(
-    (o) => (o.status !== "delivered" && o.status !== "failed") || isRecent(o.updatedAt),
-  );
+  const visible = [...(orders.data ?? [])]
+    .sort(comparePickupTime)
+    .filter((o) => (o.status !== "delivered" && o.status !== "failed") || isRecent(o.updatedAt));
   const inDeliveryOrDone = visible.filter((o) => IN_DELIVERY_OR_DONE_STATUSES.includes(o.status));
   const stillWithRestaurant = visible.filter((o) => !IN_DELIVERY_OR_DONE_STATUSES.includes(o.status));
   const needsAction = stillWithRestaurant.filter((o) => !o.restaurantAcceptedAt);

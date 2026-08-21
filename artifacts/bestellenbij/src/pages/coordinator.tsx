@@ -34,7 +34,7 @@ import { StatusBadge } from "@/components/status-badge";
 import { AcceptanceStatusBadge } from "@/components/acceptance-status-badge";
 import { PickupCountdown } from "@/components/pickup-countdown";
 import { PickupTimeTypeIcon } from "@/components/delivery-expectation";
-import { effectivePickup, formatTime } from "@/lib/format";
+import { comparePickupTime, effectivePickup, formatTime } from "@/lib/format";
 import { tripProgress } from "@/lib/trip-progress";
 import { useAuth } from "@/lib/auth";
 import { Bike, MapPin, ChevronRight, Layers, Plus, PauseCircle, PlayCircle, ShoppingBag, AlertTriangle } from "lucide-react";
@@ -85,7 +85,7 @@ export default function CoordinatorPage() {
     query: { queryKey: getListTripsQueryKey(), refetchInterval: 30_000 },
   });
 
-  const all = orders.data ?? [];
+  const all = [...(orders.data ?? [])].sort(comparePickupTime);
   // Held orders get their own section rather than sitting in the board
   // looking dispatchable — a parked one is attributed to a placeholder
   // restaurant until someone resolves it.
