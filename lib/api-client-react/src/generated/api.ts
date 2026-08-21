@@ -30,11 +30,13 @@ import type {
   HideItemRequest,
   HoldOrderRequest,
   InboundOrderPayload,
+  ListOrderHistoryParams,
   ListOrdersParams,
   ListTripsParams,
   LoginRequest,
   Order,
   OrderDetail,
+  OrderHistoryPage,
   OrderListItem,
   OriginalOrderItemsResponse,
   PermanentOrderDeletionConfirmation,
@@ -569,6 +571,115 @@ export function useListOrders<
   },
 ): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getListOrdersQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Delivered and failed orders only — the day-to-day dispatch views
+already cover everything still active. Scoped automatically to the
+caller the same way `GET /orders` is: restaurant staff see their
+restaurant's orders, riders see their own deliveries, coordinator and
+admin see everything.
+
+Once more than 24 hours have passed since `updatedAt` (a safe "when
+this was delivered/failed" proxy once an order is terminal — nothing
+else touches the row after that), `customerName` and `customerPhone`
+are redacted to `null` and `deliveryAddress` is reduced to just the
+postal code and city. Everything else on the order stays visible.
+
+ * @summary Paginated order history, privacy-redacted after 24 hours
+ */
+export const getListOrderHistoryUrl = (params?: ListOrderHistoryParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/orders/history?${stringifiedParams}`
+    : `/api/orders/history`;
+};
+
+export const listOrderHistory = async (
+  params?: ListOrderHistoryParams,
+  options?: RequestInit,
+): Promise<OrderHistoryPage> => {
+  return customFetch<OrderHistoryPage>(getListOrderHistoryUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListOrderHistoryQueryKey = (
+  params?: ListOrderHistoryParams,
+) => {
+  return [`/api/orders/history`, ...(params ? [params] : [])] as const;
+};
+
+export const getListOrderHistoryQueryOptions = <
+  TData = Awaited<ReturnType<typeof listOrderHistory>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListOrderHistoryParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listOrderHistory>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListOrderHistoryQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listOrderHistory>>
+  > = ({ signal }) => listOrderHistory(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listOrderHistory>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListOrderHistoryQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listOrderHistory>>
+>;
+export type ListOrderHistoryQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Paginated order history, privacy-redacted after 24 hours
+ */
+
+export function useListOrderHistory<
+  TData = Awaited<ReturnType<typeof listOrderHistory>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListOrderHistoryParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listOrderHistory>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListOrderHistoryQueryOptions(params, options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

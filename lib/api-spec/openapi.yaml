@@ -166,6 +166,49 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/OrderListItem"
+  /orders/history:
+    get:
+      operationId: listOrderHistory
+      tags: [orders]
+      summary: Paginated order history, privacy-redacted after 24 hours
+      description: |
+        Delivered and failed orders only — the day-to-day dispatch views
+        already cover everything still active. Scoped automatically to the
+        caller the same way `GET /orders` is: restaurant staff see their
+        restaurant's orders, riders see their own deliveries, coordinator and
+        admin see everything.
+
+        Once more than 24 hours have passed since `updatedAt` (a safe "when
+        this was delivered/failed" proxy once an order is terminal — nothing
+        else touches the row after that), `customerName` and `customerPhone`
+        are redacted to `null` and `deliveryAddress` is reduced to just the
+        postal code and city. Everything else on the order stays visible.
+      parameters:
+        - in: query
+          name: dateFrom
+          description: Inclusive lower bound on updatedAt (ISO instant).
+          schema:
+            type: string
+            format: date-time
+        - in: query
+          name: dateTo
+          description: Inclusive upper bound on updatedAt (ISO instant).
+          schema:
+            type: string
+            format: date-time
+        - in: query
+          name: page
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+      responses:
+        "200":
+          description: A page of order history
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrderHistoryPage"
   /orders/{id}:
     get:
       operationId: getOrder
@@ -1909,6 +1952,75 @@ components:
               type: string
             riderName:
               type: ["string", "null"]
+    OrderHistoryItem:
+      description: |
+        A deliberately narrow row shape for the history list — not an
+        `OrderListItem`, because `customerName`/`customerPhone` need to be
+        nullable here (once redacted) without loosening those fields on every
+        other order representation in the app.
+      type: object
+      required:
+        [
+          id,
+          externalOrderId,
+          status,
+          restaurantName,
+          deliveryAddress,
+          deliveryMethod,
+          totalAmount,
+          updatedAt,
+          piiRedacted,
+        ]
+      properties:
+        id:
+          type: string
+        externalOrderId:
+          type: string
+        status:
+          $ref: "#/components/schemas/OrderStatus"
+        restaurantName:
+          type: string
+        riderName:
+          type: ["string", "null"]
+        customerName:
+          type: ["string", "null"]
+        customerPhone:
+          type: ["string", "null"]
+        deliveryAddress:
+          type: string
+          description: |
+            The full formatted address normally. Once `piiRedacted` is true,
+            reduced to just postal code and city.
+        deliveryMethod:
+          $ref: "#/components/schemas/DeliveryMethod"
+        totalAmount:
+          type: string
+        updatedAt:
+          type: string
+          format: date-time
+          description: |
+            When this order was delivered/failed — see the description on
+            `Order.updatedAt` for why this is a safe proxy once terminal.
+        piiRedacted:
+          type: boolean
+          description: |
+            True once more than 24 hours have passed since `updatedAt`.
+    OrderHistoryPage:
+      type: object
+      required: [items, page, pageSize, total, totalPages]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/OrderHistoryItem"
+        page:
+          type: integer
+        pageSize:
+          type: integer
+        total:
+          type: integer
+        totalPages:
+          type: integer
     OrderStatusLog:
       type: object
       required: [id, toStatus, createdAt]

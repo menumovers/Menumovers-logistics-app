@@ -7,7 +7,9 @@
     "admin": "Beheer",
     "coordinator": "Coördinatie",
     "rider": "Rijder",
+    "riderHistory": "Rijdergeschiedenis",
     "restaurant": "Restaurant",
+    "restaurantHistory": "Restaurantgeschiedenis",
     "settings": "Instellingen",
     "logout": "Afmelden"
   },
@@ -254,6 +256,18 @@
       "new": "Nieuwe order",
       "accepted": "Geaccepteerd"
     }
+  },
+  "history": {
+    "title": "Orderhistorie",
+    "dateFrom": "Van",
+    "dateTo": "Tot",
+    "clearFilters": "Filters wissen",
+    "noOrders": "Geen orders in deze periode",
+    "redacted": "Verborgen na 24 uur",
+    "redactedExplain": "Klantnaam, telefoonnummer en volledig adres zijn 24 uur na bezorging verborgen — alleen postcode en plaats blijven zichtbaar.",
+    "pageInfo": "Pagina {{page}} van {{totalPages}}",
+    "totalCount_one": "{{count}} order",
+    "totalCount_other": "{{count}} orders"
   },
   "admin": {
     "title": "Beheer",

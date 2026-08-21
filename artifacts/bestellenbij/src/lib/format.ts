@@ -177,6 +177,22 @@ export function combineDateAndTime(
   return combined.toISOString();
 }
 
+/**
+ * A `YYYY-MM-DD` date-range boundary as an ISO instant, interpreted in the
+ * operator's local timezone (same reasoning as `combineDateAndTime`) — the
+ * start of that local day for `edge: "start"`, or its last millisecond for
+ * `edge: "end"`. Returns null if the value isn't a well-formed date.
+ */
+export function localDayBoundaryIso(dateValue: string, edge: "start" | "end"): string | null {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateValue.trim());
+  if (!m) return null;
+  const [, y, mo, d] = m;
+  const time = edge === "start" ? [0, 0, 0, 0] : [23, 59, 59, 999];
+  const combined = new Date(Number(y), Number(mo) - 1, Number(d), ...(time as [number, number, number, number]));
+  if (Number.isNaN(combined.getTime())) return null;
+  return combined.toISOString();
+}
+
 export type Urgency = "neutral" | "warn" | "danger" | "late" | "lateAtRestaurant";
 
 /**

@@ -1,5 +1,5 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
-import { and, desc, eq, ilike, isNotNull, isNull, or, sql } from "drizzle-orm";
+import { and, count, desc, eq, gte, ilike, inArray, isNotNull, isNull, lte, or, sql } from "drizzle-orm";
 import {
   db,
   ordersTable,
@@ -9,6 +9,7 @@ import {
   riderAssignmentsTable,
   ridersTable,
   restaurantsTable,
+  usersTable,
   type OrderStatus,
   type Restaurant,
 } from "@workspace/db";
@@ -23,6 +24,7 @@ import {
   SetRiderNotificationBody,
   UpdateOrderContactBody,
   ListOrdersQueryParams,
+  ListOrderHistoryQueryParams,
   HoldOrderBody,
   SetOrderRestaurantBody,
   AcknowledgeOrderBody,
@@ -39,6 +41,7 @@ import { enqueueOutboundEvent } from "../lib/webhook";
 import { resolveOriginalPickupTime, leadTimeMinutes } from "../lib/pickup-time";
 import { SETTINGS, readSetting } from "../lib/settings-registry";
 import { notHeld } from "../lib/order-hold";
+import { formatAddress } from "../lib/address";
 import { isRiderDeliverable, riderDeliverable } from "../lib/delivery-method";
 import {
   sendPushToRoles,
@@ -464,6 +467,106 @@ router.get(
       .limit(500);
     const list = await serializeOrderListItems(rows);
     res.json(list);
+  }),
+);
+
+// =====================================================================
+// GET /orders/history — paginated, privacy-redacted past orders
+// =====================================================================
+// Registered ahead of GET /orders/:id so "history" is never captured by :id.
+
+const HISTORY_STATUSES: readonly OrderStatus[] = ["delivered", "failed"];
+const HISTORY_PAGE_SIZE = 10;
+const PII_REDACTION_WINDOW_MS = 24 * 60 * 60_000;
+
+router.get(
+  "/orders/history",
+  requireAuth,
+  wrap(async (req, res) => {
+    const auth = req.auth!;
+    const parsed = ListOrderHistoryQueryParams.safeParse(req.query);
+    if (!parsed.success) throw httpError(400, "VALIDATION_ERROR", parsed.error.message);
+    const { dateFrom, dateTo, page } = parsed.data;
+
+    const filters = [inArray(ordersTable.status, HISTORY_STATUSES), isNull(ordersTable.archivedAt)];
+    const scope = orderScopeWhere(auth);
+    if (scope) filters.push(scope);
+    if (dateFrom) filters.push(gte(ordersTable.updatedAt, dateFrom));
+    if (dateTo) filters.push(lte(ordersTable.updatedAt, dateTo));
+    const where = and(...filters);
+
+    const [totalRow] = await db.select({ value: count() }).from(ordersTable).where(where);
+    const total = totalRow?.value ?? 0;
+    const totalPages = Math.max(1, Math.ceil(total / HISTORY_PAGE_SIZE));
+    const currentPage = Math.min(Math.max(1, page ?? 1), totalPages);
+
+    const rows = await db
+      .select({
+        id: ordersTable.id,
+        externalOrderId: ordersTable.externalOrderId,
+        status: ordersTable.status,
+        restaurantId: ordersTable.restaurantId,
+        riderId: ordersTable.riderId,
+        customerName: ordersTable.customerName,
+        customerPhone: ordersTable.customerPhone,
+        street: ordersTable.street,
+        houseNumber: ordersTable.houseNumber,
+        addition: ordersTable.addition,
+        postalCode: ordersTable.postalCode,
+        city: ordersTable.city,
+        country: ordersTable.country,
+        deliveryMethod: ordersTable.deliveryMethod,
+        totalAmount: ordersTable.totalAmount,
+        updatedAt: ordersTable.updatedAt,
+      })
+      .from(ordersTable)
+      .where(where)
+      .orderBy(desc(ordersTable.updatedAt))
+      .limit(HISTORY_PAGE_SIZE)
+      .offset((currentPage - 1) * HISTORY_PAGE_SIZE);
+
+    const restaurantIds = [...new Set(rows.map((r) => r.restaurantId))];
+    const riderIds = [...new Set(rows.map((r) => r.riderId).filter((id): id is string => id != null))];
+    const [restaurants, riders] = await Promise.all([
+      restaurantIds.length
+        ? db
+            .select({ id: restaurantsTable.id, name: restaurantsTable.name })
+            .from(restaurantsTable)
+            .where(inArray(restaurantsTable.id, restaurantIds))
+        : Promise.resolve([]),
+      riderIds.length
+        ? db
+            .select({ id: ridersTable.id, name: usersTable.name })
+            .from(ridersTable)
+            .innerJoin(usersTable, eq(usersTable.id, ridersTable.userId))
+            .where(inArray(ridersTable.id, riderIds))
+        : Promise.resolve([]),
+    ]);
+    const restaurantNameById = new Map(restaurants.map((r) => [r.id, r.name]));
+    const riderNameById = new Map(riders.map((r) => [r.id, r.name]));
+
+    const now = Date.now();
+    const items = rows.map((o) => {
+      const piiRedacted = now - o.updatedAt.getTime() > PII_REDACTION_WINDOW_MS;
+      return {
+        id: o.id,
+        externalOrderId: o.externalOrderId,
+        status: o.status,
+        restaurantName: restaurantNameById.get(o.restaurantId) ?? "",
+        riderName: o.riderId ? (riderNameById.get(o.riderId) ?? null) : null,
+        customerName: piiRedacted ? null : o.customerName,
+        customerPhone: piiRedacted ? null : o.customerPhone,
+        deliveryAddress: piiRedacted
+          ? [o.postalCode.trim(), o.city.trim()].filter(Boolean).join(" ")
+          : formatAddress(o),
+        deliveryMethod: o.deliveryMethod,
+        totalAmount: o.totalAmount,
+        updatedAt: o.updatedAt.toISOString(),
+        piiRedacted,
+      };
+    });
+
+    res.json({ items, page: currentPage, pageSize: HISTORY_PAGE_SIZE, total, totalPages });
   }),
 );
 

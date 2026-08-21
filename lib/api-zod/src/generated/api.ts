@@ -672,6 +672,85 @@ export const ListOrdersResponseItem = zod
 export const ListOrdersResponse = zod.array(ListOrdersResponseItem);
 
 /**
+ * Delivered and failed orders only — the day-to-day dispatch views
+already cover everything still active. Scoped automatically to the
+caller the same way `GET /orders` is: restaurant staff see their
+restaurant's orders, riders see their own deliveries, coordinator and
+admin see everything.
+
+Once more than 24 hours have passed since `updatedAt` (a safe "when
+this was delivered/failed" proxy once an order is terminal — nothing
+else touches the row after that), `customerName` and `customerPhone`
+are redacted to `null` and `deliveryAddress` is reduced to just the
+postal code and city. Everything else on the order stays visible.
+
+ * @summary Paginated order history, privacy-redacted after 24 hours
+ */
+export const listOrderHistoryQueryPageDefault = 1;
+
+export const ListOrderHistoryQueryParams = zod.object({
+  dateFrom: zod.coerce
+    .date()
+    .optional()
+    .describe("Inclusive lower bound on updatedAt (ISO instant)."),
+  dateTo: zod.coerce
+    .date()
+    .optional()
+    .describe("Inclusive upper bound on updatedAt (ISO instant)."),
+  page: zod.coerce.number().min(1).default(listOrderHistoryQueryPageDefault),
+});
+
+export const ListOrderHistoryResponse = zod.object({
+  items: zod.array(
+    zod
+      .object({
+        id: zod.string(),
+        externalOrderId: zod.string(),
+        status: zod.enum([
+          "pending",
+          "rider_assigned",
+          "rider_accepted",
+          "en_route_to_restaurant",
+          "arrived_at_restaurant",
+          "picked_up",
+          "en_route_to_customer",
+          "delivered",
+          "failed",
+          "postponed",
+        ]),
+        restaurantName: zod.string(),
+        riderName: zod.string().nullish(),
+        customerName: zod.string().nullish(),
+        customerPhone: zod.string().nullish(),
+        deliveryAddress: zod
+          .string()
+          .describe(
+            "The full formatted address normally. Once `piiRedacted` is true,\nreduced to just postal code and city.\n",
+          ),
+        deliveryMethod: zod.enum(["delivery", "pickup", "happy_hour"]),
+        totalAmount: zod.string(),
+        updatedAt: zod.coerce
+          .date()
+          .describe(
+            "When this order was delivered\/failed — see the description on\n`Order.updatedAt` for why this is a safe proxy once terminal.\n",
+          ),
+        piiRedacted: zod
+          .boolean()
+          .describe(
+            "True once more than 24 hours have passed since `updatedAt`.\n",
+          ),
+      })
+      .describe(
+        "A deliberately narrow row shape for the history list — not an\n`OrderListItem`, because `customerName`\/`customerPhone` need to be\nnullable here (once redacted) without loosening those fields on every\nother order representation in the app.\n",
+      ),
+  ),
+  page: zod.number(),
+  pageSize: zod.number(),
+  total: zod.number(),
+  totalPages: zod.number(),
+});
+
+/**
  * Active orders are returned according to the caller's normal scope. Archived orders are visible only to admins.
  * @summary Get a single order with its full audit trail and overrides
  */

@@ -1,5 +1,42 @@
 # Changelog
 
+## 2026-08-21 — Paginated order history for restaurant and rider apps, PII-redacted after 24h
+
+New `GET /orders/history`: delivered/failed orders only, 10 per page,
+scoped to the caller exactly like `GET /orders` (`orderScopeWhere` reused
+as-is — the terminal-status filter already makes its "open pending pool"
+rider clause a no-op, so no new scoping logic was needed). Filterable by
+an inclusive `updatedAt` date range. Once more than 24 hours have passed
+since `updatedAt` (the same "safe once terminal" proxy documented on that
+column), `customerName`/`customerPhone` are redacted to `null` and
+`deliveryAddress` is reduced to postal code + city — everything else on
+the order stays visible. Redaction happens server-side, not client-side,
+so the PII never reaches the browser for old orders.
+
+Response rows use a new narrow `OrderHistoryItem` schema rather than
+extending `OrderListItem`, specifically to avoid the JSON-Schema `allOf`
+trap: re-declaring `customerName` as nullable in an `allOf` branch doesn't
+override the base (non-nullable) type, it intersects with it — Orval
+would have generated `string`, not `string | null`.
+
+Frontend: a shared `OrderHistoryView` component (date-range filter,
+pagination, redaction-aware row rendering) mounted at both
+`/rider/history` and `/restaurant/history`, linked from the header nav
+for every role that already has a `/rider` or `/restaurant` link. Query
+params travel as ISO instants computed from local day boundaries in the
+browser, same reasoning `combineDateAndTime` already documents for pickup
+times — a plain UTC split would land the wrong side of midnight in the
+operator's own timezone.
+
+One codegen fix needed along the way: Orval's zod output only coerces
+query-param dates when told to (`coerce.query`/`coerce.param` include
+`'date'`) — before this change nothing in the API had a date-time query
+parameter, so the gap was latent. Without it, `zod.date()` rejects the
+plain string every query string actually is, and every history request
+would have 400'd. Fixed in `orval.config.ts`; regenerating confirmed zero
+diff to any other generated query/param type, since this is the first one
+that needed it.
+
 ## 2026-08-20 — Pickup countdown becomes an underway timer once a rider is en route
 
 `orders` gains a nullable `en_route_to_customer_at` timestamp, set by

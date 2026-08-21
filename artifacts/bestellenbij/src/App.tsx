@@ -14,8 +14,10 @@ import CoordinatorTripPage from "@/pages/coordinator-trip";
 import RiderPage from "@/pages/rider";
 import RiderOrderPage from "@/pages/rider-order";
 import RiderTripPage from "@/pages/rider-trip";
+import RiderHistoryPage from "@/pages/rider-history";
 import RestaurantPage from "@/pages/restaurant";
 import RestaurantOrderPage from "@/pages/restaurant-order";
+import RestaurantHistoryPage from "@/pages/restaurant-history";
 import SettingsPage from "@/pages/settings";
 import { AuthProvider, RequireRole } from "@/lib/auth";
 import { AppShell } from "@/components/layout";
@@ -70,11 +72,17 @@ function Routes() {
       <Route path="/rider/trips/:id">
         <RequireRole roles={["admin", "coordinator", "rider"]}><AppShell><RiderTripPage /></AppShell></RequireRole>
       </Route>
+      <Route path="/rider/history">
+        <RequireRole roles={["admin", "coordinator", "rider"]}><AppShell><RiderHistoryPage /></AppShell></RequireRole>
+      </Route>
       <Route path="/restaurant">
         <RequireRole roles={["admin", "restaurant_staff"]}><AppShell><RestaurantPage /></AppShell></RequireRole>
       </Route>
       <Route path="/restaurant/orders/:id">
         <RequireRole roles={["admin", "restaurant_staff"]}><AppShell><RestaurantOrderPage /></AppShell></RequireRole>
+      </Route>
+      <Route path="/restaurant/history">
+        <RequireRole roles={["admin", "restaurant_staff"]}><AppShell><RestaurantHistoryPage /></AppShell></RequireRole>
       </Route>
       <Route path="/settings">
         <RequireRole roles={["admin", "coordinator", "rider", "restaurant_staff"]}><AppShell><SettingsPage /></AppShell></RequireRole>

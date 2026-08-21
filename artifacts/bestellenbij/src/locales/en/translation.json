@@ -7,7 +7,9 @@
     "admin": "Admin",
     "coordinator": "Coordination",
     "rider": "Rider",
+    "riderHistory": "Rider history",
     "restaurant": "Restaurant",
+    "restaurantHistory": "Restaurant history",
     "settings": "Settings",
     "logout": "Sign out"
   },
@@ -254,6 +256,18 @@
       "new": "New order",
       "accepted": "Accepted"
     }
+  },
+  "history": {
+    "title": "Order history",
+    "dateFrom": "From",
+    "dateTo": "To",
+    "clearFilters": "Clear filters",
+    "noOrders": "No orders in this range",
+    "redacted": "Hidden after 24h",
+    "redactedExplain": "Customer name, phone, and full address are hidden 24 hours after delivery — only postal code and city remain visible.",
+    "pageInfo": "Page {{page}} of {{totalPages}}",
+    "totalCount_one": "{{count}} order",
+    "totalCount_other": "{{count}} orders"
   },
   "admin": {
     "title": "Admin",
