@@ -25,7 +25,7 @@ import { effectivePickup, formatTime } from "@/lib/format";
 import { URGENCY_CLASS } from "@/lib/status";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import { ArrowLeft, CheckCircle2, ChefHat, Clock, Layers, Printer } from "lucide-react";
+import { ArrowLeft, CheckCircle2, ChefHat, Clock, Layers, MapPin, Phone, Printer } from "lucide-react";
 
 export default function RestaurantOrderPage() {
   const { id } = useParams();
@@ -110,8 +110,7 @@ export default function RestaurantOrderPage() {
         <CardHeader>
           <div className="flex items-start justify-between gap-2">
             <div>
-              <div className="text-xs text-muted-foreground tabular-nums">#{o.externalOrderId}</div>
-              <CardTitle className="text-xl">{o.customerName}</CardTitle>
+              <CardTitle className="text-xl tabular-nums">#{o.externalOrderId}</CardTitle>
             </div>
             <div className="flex flex-col items-end gap-1.5">
               <StatusBadge status={o.status} />
@@ -230,6 +229,19 @@ export default function RestaurantOrderPage() {
               {t("restaurant.readyForPickup")}
             </Button>
           )}
+
+          <div className="border-t border-border pt-3 space-y-1.5 text-sm" data-testid={`section-customer-${o.id}`}>
+            <div className="text-xs uppercase tracking-wide text-muted-foreground">{t("restaurant.customer")}</div>
+            <div className="font-medium">{o.customerName}</div>
+            <div className="flex items-start gap-2 text-muted-foreground">
+              <MapPin className="size-3.5 mt-0.5" />
+              <span>{o.deliveryAddress}</span>
+            </div>
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <Phone className="size-3.5" />
+              <span>{o.customerPhone}</span>
+            </div>
+          </div>
         </CardContent>
       </Card>
     </div>

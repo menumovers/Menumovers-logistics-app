@@ -243,6 +243,7 @@
     "hiddenItem": "Hidden by coordinator",
     "extraItem": "Added by coordinator",
     "kitchenNotes": "Note for the kitchen",
+    "customer": "Customer",
     "sectionNeedsAction": "Needs your action",
     "sectionNeedsActionEmpty": "Nothing waiting on you",
     "sectionAccepted": "Accepted",
