@@ -166,6 +166,49 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/OrderListItem"
+  /orders/history:
+    get:
+      operationId: listOrderHistory
+      tags: [orders]
+      summary: Paginated order history, privacy-redacted after 24 hours
+      description: |
+        Delivered and failed orders only — the day-to-day dispatch views
+        already cover everything still active. Scoped automatically to the
+        caller the same way `GET /orders` is: restaurant staff see their
+        restaurant's orders, riders see their own deliveries, coordinator and
+        admin see everything.
+
+        Once more than 24 hours have passed since `updatedAt` (a safe "when
+        this was delivered/failed" proxy once an order is terminal — nothing
+        else touches the row after that), `customerName` and `customerPhone`
+        are redacted to `null` and `deliveryAddress` is reduced to just the
+        postal code and city. Everything else on the order stays visible.
+      parameters:
+        - in: query
+          name: dateFrom
+          description: Inclusive lower bound on updatedAt (ISO instant).
+          schema:
+            type: string
+            format: date-time
+        - in: query
+          name: dateTo
+          description: Inclusive upper bound on updatedAt (ISO instant).
+          schema:
+            type: string
+            format: date-time
+        - in: query
+          name: page
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+      responses:
+        "200":
+          description: A page of order history
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrderHistoryPage"
   /orders/{id}:
     get:
       operationId: getOrder
@@ -342,6 +385,45 @@ paths:
                 $ref: "#/components/schemas/OrderDetail"
         "409":
           description: Order is no longer pending or already assigned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /orders/{id}/reassign:
+    post:
+      operationId: reassignOrder
+      tags: [orders]
+      summary: Unassign or swap the rider on an already-assigned order
+      description: |
+        For orders that already have a rider (anything past `pending`).
+        Passing a `riderId` swaps in that rider — while the current rider
+        hasn't left for the restaurant yet the order is treated as a fresh
+        assignment (`rider_accepted`); once en route or later, only the
+        rider changes and the current status is preserved. Omitting
+        `riderId` (or passing null) unassigns the order back to `pending`,
+        at any non-terminal, non-held stage — coordinators are trusted to
+        have a reason. Terminal (`delivered`/`failed`) and held orders are
+        rejected.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReassignOrderRequest"
+      responses:
+        "200":
+          description: Reassigned or unassigned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrderDetail"
+        "409":
+          description: Order is terminal, held, not assigned, or already on that rider
           content:
             application/json:
               schema:
@@ -1011,6 +1093,97 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/TripDetail"
+  /trips/{id}/orders:
+    post:
+      operationId: addOrdersToTrip
+      tags: [trips]
+      summary: Add one or more bundleable orders to an existing trip
+      description: |
+        Same bundling rules `POST /trips` applies at creation: each order
+        must not already be on a trip, and must be pre-flight
+        (pending/rider_assigned/rider_accepted). New stops are appended
+        after the trip's existing ones — reorder them afterward with
+        `PUT /trips/{id}/stops` if needed. If the trip has a rider, orders
+        are attached to them the same way creation does (a pending order
+        skips straight to rider_accepted, same as self-claim).
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddOrdersToTripRequest"
+      responses:
+        "200":
+          description: Trip updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TripDetail"
+        "404":
+          description: Trip or one of the orders not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Trip is terminal, or an order is already on a trip
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "422":
+          description: An order is not bundleable in its current status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /trips/{id}/orders/{orderId}:
+    delete:
+      operationId: removeOrderFromTrip
+      tags: [trips]
+      summary: Remove a single order from a trip
+      description: |
+        Pre-flight orders (pending/rider_assigned/rider_accepted) revert to
+        `pending` and are unassigned, same as dissolving a trip. In-flight
+        or already-terminal orders keep their status and rider — only the
+        trip link is dropped. If this leaves the trip with no orders, or
+        only terminal ones, the trip is marked completed.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: orderId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Trip updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TripDetail"
+        "404":
+          description: Trip not found, or order is not on this trip
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "422":
+          description: Trip is terminal
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /trips/{id}/dissolve:
     post:
       operationId: dissolveTrip
@@ -1803,6 +1976,16 @@ components:
             When the kitchen reported the food was done. A status on the
             restaurant's own journey (seen/accepted → ready → picked up), which
             is informational — it is not a pickup time and nothing waits on it.
+        enRouteToCustomerAt:
+          type: ["string", "null"]
+          format: date-time
+          description: |
+            When the order most recently entered `en_route_to_customer`. Set by
+            the transition itself rather than derived from `updatedAt`, which
+            the order can still pick up further writes after while the rider is
+            underway. Lets clients show "underway for N min" without fetching
+            the full status log. Moves forward again if the order is reported
+            back into this status after leaving it.
         restaurantAcceptedByName:
           type: ["string", "null"]
         holdState:
@@ -1860,6 +2043,75 @@ components:
               type: string
             riderName:
               type: ["string", "null"]
+    OrderHistoryItem:
+      description: |
+        A deliberately narrow row shape for the history list — not an
+        `OrderListItem`, because `customerName`/`customerPhone` need to be
+        nullable here (once redacted) without loosening those fields on every
+        other order representation in the app.
+      type: object
+      required:
+        [
+          id,
+          externalOrderId,
+          status,
+          restaurantName,
+          deliveryAddress,
+          deliveryMethod,
+          totalAmount,
+          updatedAt,
+          piiRedacted,
+        ]
+      properties:
+        id:
+          type: string
+        externalOrderId:
+          type: string
+        status:
+          $ref: "#/components/schemas/OrderStatus"
+        restaurantName:
+          type: string
+        riderName:
+          type: ["string", "null"]
+        customerName:
+          type: ["string", "null"]
+        customerPhone:
+          type: ["string", "null"]
+        deliveryAddress:
+          type: string
+          description: |
+            The full formatted address normally. Once `piiRedacted` is true,
+            reduced to just postal code and city.
+        deliveryMethod:
+          $ref: "#/components/schemas/DeliveryMethod"
+        totalAmount:
+          type: string
+        updatedAt:
+          type: string
+          format: date-time
+          description: |
+            When this order was delivered/failed — see the description on
+            `Order.updatedAt` for why this is a safe proxy once terminal.
+        piiRedacted:
+          type: boolean
+          description: |
+            True once more than 24 hours have passed since `updatedAt`.
+    OrderHistoryPage:
+      type: object
+      required: [items, page, pageSize, total, totalPages]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/OrderHistoryItem"
+        page:
+          type: integer
+        pageSize:
+          type: integer
+        total:
+          type: integer
+        totalPages:
+          type: integer
     OrderStatusLog:
       type: object
       required: [id, toStatus, createdAt]
@@ -1907,6 +2159,8 @@ components:
         - type: object
           required: [statusLog, itemOverrides, originalPayload]
           properties:
+            restaurantAddress:
+              type: string
             statusLog:
               type: array
               items:
@@ -1935,6 +2189,14 @@ components:
       properties:
         riderId:
           type: string
+    ReassignOrderRequest:
+      type: object
+      properties:
+        riderId:
+          description: |
+            The rider to swap onto the order. Omitted or null unassigns the
+            order back to `pending`.
+          type: ["string", "null"]
     UpdatePickupTimeRequest:
       type: object
       required: [source, pickupTime]
@@ -2290,6 +2552,15 @@ components:
           type: ["string", "null"]
         riderId:
           type: ["string", "null"]
+        orderIds:
+          type: array
+          items:
+            type: string
+          minItems: 1
+    AddOrdersToTripRequest:
+      type: object
+      required: [orderIds]
+      properties:
         orderIds:
           type: array
           items:

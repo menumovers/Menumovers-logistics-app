@@ -13,11 +13,12 @@ export const STATUS_CLASS: Record<OrderStatus, string> = {
   postponed: "bg-accent/15 text-accent-foreground border-accent/40",
 };
 
-export const URGENCY_CLASS: Record<"neutral" | "warn" | "danger" | "late", string> = {
+export const URGENCY_CLASS: Record<"neutral" | "warn" | "danger" | "late" | "lateAtRestaurant", string> = {
   neutral: "bg-muted text-foreground",
   warn: "bg-accent/15 text-accent-foreground border border-accent/40",
   danger: "bg-destructive/15 text-destructive border border-destructive/40",
   late: "bg-destructive text-destructive-foreground",
+  lateAtRestaurant: "bg-accent text-accent-foreground",
 };
 
 export function statusI18nKey(status: OrderStatus): string {

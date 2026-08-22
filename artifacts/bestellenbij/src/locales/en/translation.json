@@ -7,7 +7,9 @@
     "admin": "Admin",
     "coordinator": "Coordination",
     "rider": "Rider",
+    "riderHistory": "Rider history",
     "restaurant": "Restaurant",
+    "restaurantHistory": "Restaurant history",
     "settings": "Settings",
     "logout": "Sign out"
   },
@@ -135,6 +137,7 @@
     "in": "in {{minutes}} min",
     "ago": "{{minutes}} min ago",
     "late": "{{minutes}} min late",
+    "enRoute": "{{minutes}} min underway",
     "date": "Date",
     "time": "Time"
   },
@@ -158,6 +161,9 @@
     "completedOrdersEmpty": "Nothing delivered in the last hour",
     "needsAttention": "Needs attention",
     "assignRider": "Assign rider",
+    "reassignRider": "Reassign rider",
+    "unassignRider": "Unassign, back to pending",
+    "currentlyAssigned": "Currently assigned to {{name}}",
     "transition": "Change status",
     "advancePrompt": "Move status to",
     "items": "Items",
@@ -203,6 +209,8 @@
     "noOrders": "No orders assigned yet",
     "callRestaurant": "Call restaurant",
     "callCustomer": "Call customer",
+    "mapsDirections": "Maps",
+    "coordinatorView": "Coordinator view",
     "advance": "Next step",
     "fail": "Mark failed",
     "failureReason": "Failure reason",
@@ -237,10 +245,29 @@
     "hiddenItem": "Hidden by coordinator",
     "extraItem": "Added by coordinator",
     "kitchenNotes": "Note for the kitchen",
+    "customer": "Customer",
+    "sectionNeedsAction": "Needs your action",
+    "sectionNeedsActionEmpty": "Nothing waiting on you",
+    "sectionAccepted": "Accepted",
+    "sectionAcceptedEmpty": "No accepted orders yet",
+    "sectionInDeliveryOrDone": "In delivery or completed",
+    "sectionInDeliveryOrDoneEmpty": "Nothing in delivery or completed recently",
     "status": {
       "new": "New order",
       "accepted": "Accepted"
     }
+  },
+  "history": {
+    "title": "Order history",
+    "dateFrom": "From",
+    "dateTo": "To",
+    "clearFilters": "Clear filters",
+    "noOrders": "No orders in this range",
+    "redacted": "Hidden after 24h",
+    "redactedExplain": "Customer name, phone, and full address are hidden 24 hours after delivery — only postal code and city remain visible.",
+    "pageInfo": "Page {{page}} of {{totalPages}}",
+    "totalCount_one": "{{count}} order",
+    "totalCount_other": "{{count}} orders"
   },
   "admin": {
     "title": "Admin",
@@ -388,7 +415,13 @@
     "statusDissolved": "Dissolved",
     "reassignWarningTitle": "Reassign rider on a trip in motion?",
     "reassignWarningBody": "These orders are already in motion. The new rider will take over them at their current step — no statuses will be rewound.",
-    "reassignConfirm": "Reassign anyway"
+    "reassignConfirm": "Reassign anyway",
+    "addOrders": "Add orders",
+    "addOrdersPending": "Adding...",
+    "ordersAdded": "Orders added",
+    "removeOrder": "Remove from trip",
+    "removeOrderConfirm": "Remove this order from the trip? A not-yet-underway order goes back to the open queue; one already in motion keeps its rider and status.",
+    "orderRemoved": "Order removed from trip"
   },
   "bundle": {
     "title": "Bundled pickup",

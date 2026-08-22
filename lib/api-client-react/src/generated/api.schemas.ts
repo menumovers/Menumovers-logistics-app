@@ -660,6 +660,17 @@ is informational — it is not a pickup time and nothing waits on it.
    * @nullable
    */
   restaurantReadyAt?: string | null;
+  /**
+   * When the order most recently entered `en_route_to_customer`. Set by
+the transition itself rather than derived from `updatedAt`, which
+the order can still pick up further writes after while the rider is
+underway. Lets clients show "underway for N min" without fetching
+the full status log. Moves forward again if the order is reported
+back into this status after leaving it.
+
+   * @nullable
+   */
+  enRouteToCustomerAt?: string | null;
   /** @nullable */
   restaurantAcceptedByName?: string | null;
   /** The hold family — the only mechanism that gates an order. Null means not
@@ -714,6 +725,47 @@ export type OrderListItem = Order & {
   riderName?: string | null;
 };
 
+/**
+ * A deliberately narrow row shape for the history list — not an
+`OrderListItem`, because `customerName`/`customerPhone` need to be
+nullable here (once redacted) without loosening those fields on every
+other order representation in the app.
+
+ */
+export interface OrderHistoryItem {
+  id: string;
+  externalOrderId: string;
+  status: OrderStatus;
+  restaurantName: string;
+  /** @nullable */
+  riderName?: string | null;
+  /** @nullable */
+  customerName?: string | null;
+  /** @nullable */
+  customerPhone?: string | null;
+  /** The full formatted address normally. Once `piiRedacted` is true,
+reduced to just postal code and city.
+ */
+  deliveryAddress: string;
+  deliveryMethod: DeliveryMethod;
+  totalAmount: string;
+  /** When this order was delivered/failed — see the description on
+`Order.updatedAt` for why this is a safe proxy once terminal.
+ */
+  updatedAt: string;
+  /** True once more than 24 hours have passed since `updatedAt`.
+   */
+  piiRedacted: boolean;
+}
+
+export interface OrderHistoryPage {
+  items: OrderHistoryItem[];
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+}
+
 export interface OrderStatusLog {
   id: string;
   fromStatus?: OrderStatus | null;
@@ -752,6 +804,7 @@ export interface ItemOverride {
 export type OrderDetailOriginalPayload = { [key: string]: unknown };
 
 export type OrderDetail = OrderListItem & {
+  restaurantAddress?: string;
   statusLog: OrderStatusLog[];
   itemOverrides: ItemOverride[];
   /** The raw upstream order payload, kept as received for forensic/replay use. */
@@ -768,6 +821,16 @@ export interface TransitionStatusRequest {
 
 export interface AssignOrderRequest {
   riderId: string;
+}
+
+export interface ReassignOrderRequest {
+  /**
+   * The rider to swap onto the order. Omitted or null unassigns the
+order back to `pending`.
+
+   * @nullable
+   */
+  riderId?: string | null;
 }
 
 export interface UpdatePickupTimeRequest {
@@ -1036,6 +1099,11 @@ export interface CreateTripRequest {
   orderIds: string[];
 }
 
+export interface AddOrdersToTripRequest {
+  /** @minItems 1 */
+  orderIds: string[];
+}
+
 export interface UpdateTripRequest {
   /** @nullable */
   name?: string | null;
@@ -1078,6 +1146,21 @@ export const ListOrdersArchived = {
   true: "true",
   false: "false",
 } as const;
+
+export type ListOrderHistoryParams = {
+  /**
+   * Inclusive lower bound on updatedAt (ISO instant).
+   */
+  dateFrom?: string;
+  /**
+   * Inclusive upper bound on updatedAt (ISO instant).
+   */
+  dateTo?: string;
+  /**
+   * @minimum 1
+   */
+  page?: number;
+};
 
 export type ListTripsParams = {
   status?: TripStatus;

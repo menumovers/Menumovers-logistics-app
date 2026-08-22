@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Link, useParams } from "wouter";
+import { Link, useParams, useSearchParams } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   useGetOrder,
@@ -28,10 +28,10 @@ import { PickupCountdown, PickupSourceBadge } from "@/components/pickup-countdow
 import { DeliveryMethodBadge, RequestedTimeLabel } from "@/components/delivery-expectation";
 import { PickupTimeInput } from "@/components/pickup-time-input";
 import { PaymentPanel } from "@/components/payment-panel";
-import { ArrowLeft, Phone, MapPin, Bell, BellOff, Store, ChevronRight, Clock, Layers, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, Phone, MapPin, Navigation, Bell, BellOff, Store, ChevronRight, Clock, Layers, CheckCircle2, ClipboardList } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/lib/auth";
-import { effectivePickup, formatCurrency, formatTime } from "@/lib/format";
+import { effectivePickup, formatTime } from "@/lib/format";
 
 /**
  * The expected order of events, used purely to pick which button is the big
@@ -52,6 +52,11 @@ const HAPPY_PATH: Partial<Record<OrderStatusType, OrderStatusType>> = {
 export default function RiderOrderPage() {
   const { id } = useParams();
   const orderId = id!;
+  // Coordinators land here by default from the coordinator overview (see
+  // coordinator.tsx); `from=coordinator` on the URL means "back" should
+  // return them there instead of the rider's own order list.
+  const [searchParams] = useSearchParams();
+  const cameFromCoordinator = searchParams.get("from") === "coordinator";
   const order = useGetOrder(orderId, {
     query: { queryKey: getGetOrderQueryKey(orderId), refetchInterval: 30_000, enabled: !!orderId },
   });
@@ -64,6 +69,7 @@ export default function RiderOrderPage() {
   const { toast } = useToast();
   const { user } = useAuth();
   const riderId = user?.riderId ?? undefined;
+  const isCoordinator = !!user?.roles.includes("coordinator") || !!user?.roles.includes("admin");
 
   const [failureReason, setFailureReason] = useState("");
   const [postponeReason, setPostponeReason] = useState("");
@@ -92,9 +98,22 @@ export default function RiderOrderPage() {
 
   return (
     <div className="space-y-5 max-w-2xl mx-auto">
-      <Link href="/rider" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground" data-testid="link-back-rider">
-        <ArrowLeft className="size-4" /> {t("common.back")}
-      </Link>
+      <div className="flex items-center justify-between gap-2">
+        <Link
+          href={cameFromCoordinator ? "/coordinator" : "/rider"}
+          className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+          data-testid="link-back-rider"
+        >
+          <ArrowLeft className="size-4" /> {t("common.back")}
+        </Link>
+        {isCoordinator ? (
+          <Button asChild variant="ghost" size="sm" data-testid="button-open-coordinator-view">
+            <Link href={`/coordinator/orders/${orderId}?from=rider`}>
+              <ClipboardList className="size-4 mr-1.5" /> {t("rider.coordinatorView")}
+            </Link>
+          </Button>
+        ) : null}
+      </div>
 
       {o.tripId && o.tripNumber != null ? (
         <div className="rounded-lg border border-primary/40 bg-primary/[0.04] px-3 py-2 text-sm flex items-center gap-2" data-testid="banner-trip-context">
@@ -153,28 +172,35 @@ export default function RiderOrderPage() {
             </div>
           </div>
           <div className="flex gap-2">
-            <Button asChild variant="outline" className="flex-1" data-testid="button-call-customer">
-              <a href={`tel:${o.customerPhone}`}><Phone className="size-4 mr-2" />{t("rider.callCustomer")}</a>
+            <Button asChild variant="outline" className="flex-1" data-testid="button-maps-directions">
+              <a
+                href={`https://www.google.com/maps/dir/${encodeURIComponent(o.restaurantAddress ?? "")}/${encodeURIComponent(o.deliveryAddress)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <Navigation className="size-4 mr-2" />{t("rider.mapsDirections")}
+              </a>
+            </Button>
+            <Button asChild variant="outline" className="shrink-0" data-testid="button-call-customer">
+              <a href={`tel:${o.customerPhone}`} aria-label={t("rider.callCustomer")}><Phone className="size-4" /></a>
             </Button>
           </div>
           <div className="border-t border-border pt-3">
             <div className="text-xs uppercase tracking-wide text-muted-foreground mb-2">{t("coordinator.items")}</div>
             <ul className="text-sm space-y-1">
               {o.items.map((it, i) => (
-                <li key={i} className="flex justify-between gap-2">
-                  <span><span className="text-muted-foreground tabular-nums">{it.quantity}× </span>{it.name}</span>
-                  <span className="tabular-nums text-muted-foreground">{formatCurrency(it.price, lang)}</span>
+                <li key={i}>
+                  <span className="text-muted-foreground tabular-nums">{it.quantity}× </span>{it.name}
                 </li>
               ))}
             </ul>
-            <div className="flex justify-between text-sm font-medium mt-2 pt-2 border-t border-border">
-              <span>{t("common.actions")}</span><span className="tabular-nums">{formatCurrency(o.totalAmount, lang)}</span>
+          </div>
+          {o.cashPayment ? (
+            <div className="border-t border-border pt-3">
+              <div className="text-xs uppercase tracking-wide text-muted-foreground mb-2">{t("payment.title")}</div>
+              <PaymentPanel order={o} lang={lang} />
             </div>
-          </div>
-          <div className="border-t border-border pt-3">
-            <div className="text-xs uppercase tracking-wide text-muted-foreground mb-2">{t("payment.title")}</div>
-            <PaymentPanel order={o} lang={lang} />
-          </div>
+          ) : null}
         </CardContent>
       </Card>
 
@@ -314,22 +340,24 @@ export default function RiderOrderPage() {
             </Card>
           ) : null}
 
-          <Card>
-            <CardHeader><CardTitle className="text-base">{t("rider.suggestPickup")}</CardTitle></CardHeader>
-            <CardContent>
-              <PickupTimeInput
-                currentIso={effectivePickup(o).iso}
-                pending={updatePickup.isPending}
-                submitLabel={t("common.save")}
-                onSubmit={(pickupTime) =>
-                  updatePickup.mutate(
-                    { id: o.id, data: { source: "rider", pickupTime } },
-                    { onSuccess: () => { toast({ title: t("rider.suggestPickup") }); invalidate(); } },
-                  )
-                }
-              />
-            </CardContent>
-          </Card>
+          {o.status !== "delivered" && o.status !== "failed" ? (
+            <Card>
+              <CardHeader><CardTitle className="text-base">{t("rider.suggestPickup")}</CardTitle></CardHeader>
+              <CardContent>
+                <PickupTimeInput
+                  currentIso={effectivePickup(o).iso}
+                  pending={updatePickup.isPending}
+                  submitLabel={t("common.save")}
+                  onSubmit={(pickupTime) =>
+                    updatePickup.mutate(
+                      { id: o.id, data: { source: "rider", pickupTime } },
+                      { onSuccess: () => { toast({ title: t("rider.suggestPickup") }); invalidate(); } },
+                    )
+                  }
+                />
+              </CardContent>
+            </Card>
+          ) : null}
         </>
       ) : (
         <ClaimCard order={o} riderId={riderId} onClaimed={invalidate} />

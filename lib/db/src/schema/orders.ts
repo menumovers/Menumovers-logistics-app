@@ -215,6 +215,16 @@ export const ordersTable = pgTable(
       () => usersTable.id,
       { onDelete: "set null" },
     ),
+    /**
+     * When the order most recently entered `en_route_to_customer`. Set by the
+     * status transition itself, not derived from `updatedAt` — the order can
+     * still be touched afterwards (notes, pickup-time edits) while the rider
+     * is underway, which would corrupt `updatedAt` as an anchor. Lets clients
+     * show "underway for N min" without fetching the full status log. If the
+     * order is reported back into this status after leaving it, this moves
+     * forward too — it always reflects the start of the current leg.
+     */
+    enRouteToCustomerAt: timestamp("en_route_to_customer_at", { withTimezone: true }),
     // The hold family. NULL means the order is not held. A hold blocks *new
     // assignment only* — an order already being worked keeps accepting status
     // reports, so a hold never freezes a rider mid-delivery.

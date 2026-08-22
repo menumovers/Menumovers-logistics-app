@@ -1,5 +1,147 @@
 # Changelog
 
+## 2026-08-21 — Trips: edit membership after creation, auto-complete when done
+
+Two gaps found on first real use of the trips feature.
+
+**Add/remove orders after creation.** `PUT /trips/:id/stops` already let a
+coordinator reorder a trip's stops, but nothing let them change *which*
+orders were on it — bundling was create-time only. Added
+`POST /trips/:id/orders` (same bundling rules as creation: order must be
+unattached and pre-flight; new stops append after the trip's existing ones)
+and `DELETE /trips/:id/orders/:orderId` (pre-flight orders revert to
+pending and are unassigned, in-flight/terminal orders just lose the trip
+link — mirrors what dissolving a trip already did per-order). The
+attach/detach logic itself was extracted out of the create and dissolve
+handlers into two shared functions so all three code paths — create, add,
+dissolve — go through the exact same rules rather than three copies
+drifting apart.
+
+**Trips never completed.** `completed` has been in the `trip_status` enum
+since the schema was founded, but nothing ever set it — a trip stayed
+`planned`/`in_progress` forever, including after every one of its orders
+was delivered. Added `completeTripIfDone`, called after a status report
+lands an order on delivered/failed and after an order is removed from a
+trip (an order vacuously satisfies "all done" when there are none left, so
+emptying a trip out via removal completes it the same way finishing all its
+deliveries does). No new column or migration — it's a derived check against
+the trip's current orders, not stored state.
+
+Frontend: the coordinator trip page gained an "Add orders" picker (same
+candidate list/rules as the trip builder) and a remove button per order
+row; both hide once the trip reaches a terminal state, along with the
+rename/reassign and dissolve controls, which would otherwise now visibly
+404 against a trip a coordinator can actually reach in that state for the
+first time.
+
+## 2026-08-21 — Paginated order history for restaurant and rider apps, PII-redacted after 24h
+
+New `GET /orders/history`: delivered/failed orders only, 10 per page,
+scoped to the caller exactly like `GET /orders` (`orderScopeWhere` reused
+as-is — the terminal-status filter already makes its "open pending pool"
+rider clause a no-op, so no new scoping logic was needed). Filterable by
+an inclusive `updatedAt` date range. Once more than 24 hours have passed
+since `updatedAt` (the same "safe once terminal" proxy documented on that
+column), `customerName`/`customerPhone` are redacted to `null` and
+`deliveryAddress` is reduced to postal code + city — everything else on
+the order stays visible. Redaction happens server-side, not client-side,
+so the PII never reaches the browser for old orders.
+
+Response rows use a new narrow `OrderHistoryItem` schema rather than
+extending `OrderListItem`, specifically to avoid the JSON-Schema `allOf`
+trap: re-declaring `customerName` as nullable in an `allOf` branch doesn't
+override the base (non-nullable) type, it intersects with it — Orval
+would have generated `string`, not `string | null`.
+
+Frontend: a shared `OrderHistoryView` component (date-range filter,
+pagination, redaction-aware row rendering) mounted at both
+`/rider/history` and `/restaurant/history`, linked from the header nav
+for every role that already has a `/rider` or `/restaurant` link. Query
+params travel as ISO instants computed from local day boundaries in the
+browser, same reasoning `combineDateAndTime` already documents for pickup
+times — a plain UTC split would land the wrong side of midnight in the
+operator's own timezone.
+
+One codegen fix needed along the way: Orval's zod output only coerces
+query-param dates when told to (`coerce.query`/`coerce.param` include
+`'date'`) — before this change nothing in the API had a date-time query
+parameter, so the gap was latent. Without it, `zod.date()` rejects the
+plain string every query string actually is, and every history request
+would have 400'd. Fixed in `orval.config.ts`; regenerating confirmed zero
+diff to any other generated query/param type, since this is the first one
+that needed it.
+
+## 2026-08-21 — Order overview pages now sort by pickup time
+
+None of the three overview pages (restaurant, rider, coordinator) applied
+any ordering of their own — the list API returns rows by `createdAt`
+(insertion order), so cards appeared in whatever order the database
+happened to return them. Added `comparePickupTime` (ascending by each
+order's effective pickup time) to `lib/format.ts` and applied it once,
+right after each page reads its order list, before any section/bucket
+filtering. `Array.prototype.filter` preserves relative order, so every
+section, board column, and bundle group on all three pages now reads
+soonest-pickup-first for free, without sorting inside each one separately.
+
+## 2026-08-20 — Pickup countdown becomes an underway timer once a rider is en route
+
+`orders` gains a nullable `en_route_to_customer_at` timestamp, set by
+`POST /orders/:id/status` when `toStatus` is `en_route_to_customer` (and by
+`/orders/:id/resume` when resuming into that status — postponement pauses
+the clock, so resuming restarts the anchor rather than counting the pause).
+It is not derived from `updatedAt`: the order can still be touched after the
+rider leaves (notes, pickup-time edits), which would corrupt `updatedAt` as
+an anchor for "how long has the rider been underway." Read cost is free —
+existing whole-row selects already return it, no new query or join.
+
+The shared `PickupCountdown` badge now branches on status ahead of the
+pickup-time countdown it already had: `en_route_to_customer` shows a live
+up-count in minutes since `enRouteToCustomerAt` instead of a stale "N min
+late"; `delivered` shows the fixed delivered clock time, reusing `updatedAt`
+under the same "safe proxy once terminal" reasoning documented on that
+column. `picked_up` is unchanged — still frozen/neutral.
+
+Needs `pnpm --filter @workspace/db run push` against the live database
+before this lands there; the column is purely additive (nullable, no
+backfill) so the push should be a no-prompt no-op-on-existing-rows change.
+
+## 2026-08-20 — Coordinators can unassign or reassign a rider on an order
+
+Previously there was no way to change who's on an order once it left
+`pending` — `POST /orders/:id/assign` only works pending → assigned, and
+plain status reports can't touch `pending`/`rider_assigned` by design (see
+D1). Added `POST /orders/:id/reassign`: swaps in a different rider (a
+fresh assignment while pre-flight, or just a rider swap with status
+preserved once en route or later — same convention `PATCH /trips/:id`'s
+in-motion swap already uses), or unassigns back to `pending`. Both are
+blocked for terminal and held orders.
+
+Unassign initially carried a "hasn't left for the restaurant yet" cutoff,
+matching reassign's own pre-flight/in-flight status-preservation split.
+Removed after review: coordinators are trusted to have a reason for
+correcting an assignment at any non-terminal, non-held stage, rather than
+being blocked by a default-safe guess about when that's legitimate. See
+D18.
+
+The coordinator order detail's "Assign rider" card now shows a "Reassign
+rider" variant once an order has a rider — pick someone else, or unassign
+back to pending — instead of disappearing once assigned.
+
+## 2026-08-20 — Pickup countdown color now follows rider status; stops once picked up
+
+The countdown badge used to turn solid red purely on "later than the
+pickup time," regardless of where the rider actually was — including
+still counting up well after delivery. Split by rider status instead:
+late reads red only through `en_route_to_restaurant`; once the rider has
+reported `arrived_at_restaurant`, a late pickup reads orange
+(`lateAtRestaurant`, a new urgency tier) instead — the restaurant's delay
+by that point, not the rider's. Once `picked_up` or later, the badge goes
+neutral and stops counting altogether, rather than displaying an
+ever-growing "N min late" for a pickup that already happened. (Superseded
+in part the same day — see "underway timer" above, which gives
+`en_route_to_customer` and `delivered` their own non-neutral displays;
+`picked_up` alone still goes neutral per this entry.)
+
 ## 2026-08-20 — Restaurant receipt action prints immediately
 
 The Bon/Receipt action on the restaurant order detail now opens the existing

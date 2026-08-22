@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Link, useParams } from "wouter";
+import { Link, useParams, useSearchParams } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   useGetOrder,
   useAssignOrder,
+  useReassignOrder,
   useTransitionOrderStatus,
   useResumeOrder,
   useUpdatePickupTime,
@@ -54,6 +55,10 @@ export default function CoordinatorOrderPage() {
   const orderId = id!;
   const { t, i18n } = useTranslation();
   const lang = i18n.resolvedLanguage ?? "nl";
+  // Reached from the rider detail page's "Coordinator view" button (see
+  // rider-order.tsx) means "back" should return there, not to the overview.
+  const [searchParams] = useSearchParams();
+  const cameFromRider = searchParams.get("from") === "rider";
   const order = useGetOrder(orderId, {
     query: { queryKey: getGetOrderQueryKey(orderId), refetchInterval: 30_000, enabled: !!orderId },
   });
@@ -66,7 +71,11 @@ export default function CoordinatorOrderPage() {
   return (
     <div className="space-y-5">
       <div>
-        <Link href="/coordinator" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground" data-testid="link-back-coordinator">
+        <Link
+          href={cameFromRider ? `/rider/orders/${orderId}` : "/coordinator"}
+          className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+          data-testid="link-back-coordinator"
+        >
           <ArrowLeft className="size-4" /> {t("common.back")}
         </Link>
       </div>
@@ -116,24 +125,20 @@ export default function CoordinatorOrderPage() {
         </div>
       ) : null}
 
-      <div className="grid gap-5 lg:grid-cols-3">
-        <div className="lg:col-span-2 space-y-5">
-          <ItemsCard order={o} />
-          <Card>
-            <CardHeader><CardTitle className="text-base">{t("payment.title")}</CardTitle></CardHeader>
-            <CardContent><PaymentPanel order={o} lang={lang} /></CardContent>
-          </Card>
-          <PickupCard order={o} />
-          <ContactCard order={o} />
-          <NotificationCard order={o} />
-          <TimelineCard order={o} />
-          <OriginalPayloadCard order={o} />
-        </div>
-        <div className="space-y-5">
-          <HoldCard order={o} />
-          <AssignCard order={o} />
-          <TransitionCard order={o} />
-        </div>
+      <div className="space-y-5">
+        <HoldCard order={o} />
+        <PickupCard order={o} />
+        <ContactCard order={o} />
+        <TimelineCard order={o} />
+        <AssignCard order={o} />
+        <NotificationCard order={o} />
+        <TransitionCard order={o} />
+        <ItemsCard order={o} />
+        <Card>
+          <CardHeader><CardTitle className="text-base">{t("payment.title")}</CardTitle></CardHeader>
+          <CardContent><PaymentPanel order={o} lang={lang} /></CardContent>
+        </Card>
+        <OriginalPayloadCard order={o} />
       </div>
     </div>
   );
@@ -265,28 +270,82 @@ function AssignCard({ order }: { order: OrderDetail }) {
   const riders = useListRiders({ query: { queryKey: getListRidersQueryKey(), refetchInterval: 30_000 } });
   const [riderId, setRiderId] = useState<string>("");
   const assign = useAssignOrder();
+  const reassign = useReassignOrder();
   const invalidate = useInvalidateOrder(order.id);
   const { toast } = useToast();
   const candidates = (riders.data ?? []).filter((r) => r.availabilityStatus !== "offline" && r.accountStatus === "active");
 
   // Not dispatchable: held orders are refused by the server, and customer
   // pickup is never rider work at all. Don't offer an action that will fail.
-  if (order.status !== "pending") return null;
   if (order.holdState != null) return null;
   if (order.deliveryMethod === "pickup") return null;
+  if (order.status === "delivered" || order.status === "failed") return null;
+
+  if (order.status === "pending") {
+    return (
+      <Card>
+        <CardHeader><CardTitle className="text-base flex items-center gap-2"><Bike className="size-4" /> {t("coordinator.assignRider")}</CardTitle></CardHeader>
+        <CardContent className="space-y-3">
+          {candidates.length === 0 ? (
+            <p className="text-sm text-muted-foreground">{t("coordinator.noOnlineRiders")}</p>
+          ) : (
+            <>
+              <Select value={riderId} onValueChange={setRiderId}>
+                <SelectTrigger data-testid="select-rider"><SelectValue placeholder={t("coordinator.selectRider")} /></SelectTrigger>
+                <SelectContent>
+                  {candidates.map((r) => (
+                    <SelectItem key={r.id} value={r.id}>
+                      {r.name} · {t(`availability.${r.availabilityStatus}`)} · {r.activeOrderCount}+{r.queuedOrderCount}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button
+                className="w-full"
+                disabled={!riderId || assign.isPending}
+                onClick={() =>
+                  assign.mutate(
+                    { id: order.id, data: { riderId } },
+                    {
+                      onSuccess: () => {
+                        toast({ title: t("coordinator.assignRider") });
+                        invalidate();
+                      },
+                    },
+                  )
+                }
+                data-testid="button-assign-rider"
+              >
+                {t("coordinator.assignRider")}
+              </Button>
+            </>
+          )}
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // Already has a rider: offer swapping in someone else, or unassigning
+  // entirely — at any stage short of delivered/failed/held.
+  const reassignCandidates = candidates.filter((r) => r.id !== order.riderId);
 
   return (
     <Card>
-      <CardHeader><CardTitle className="text-base flex items-center gap-2"><Bike className="size-4" /> {t("coordinator.assignRider")}</CardTitle></CardHeader>
+      <CardHeader><CardTitle className="text-base flex items-center gap-2"><Bike className="size-4" /> {t("coordinator.reassignRider")}</CardTitle></CardHeader>
       <CardContent className="space-y-3">
-        {candidates.length === 0 ? (
+        {order.riderName ? (
+          <p className="text-sm text-muted-foreground" data-testid="text-current-rider">
+            {t("coordinator.currentlyAssigned", { name: order.riderName })}
+          </p>
+        ) : null}
+        {reassignCandidates.length === 0 ? (
           <p className="text-sm text-muted-foreground">{t("coordinator.noOnlineRiders")}</p>
         ) : (
           <>
             <Select value={riderId} onValueChange={setRiderId}>
-              <SelectTrigger data-testid="select-rider"><SelectValue placeholder={t("coordinator.selectRider")} /></SelectTrigger>
+              <SelectTrigger data-testid="select-reassign-rider"><SelectValue placeholder={t("coordinator.selectRider")} /></SelectTrigger>
               <SelectContent>
-                {candidates.map((r) => (
+                {reassignCandidates.map((r) => (
                   <SelectItem key={r.id} value={r.id}>
                     {r.name} · {t(`availability.${r.availabilityStatus}`)} · {r.activeOrderCount}+{r.queuedOrderCount}
                   </SelectItem>
@@ -295,24 +354,46 @@ function AssignCard({ order }: { order: OrderDetail }) {
             </Select>
             <Button
               className="w-full"
-              disabled={!riderId || assign.isPending}
+              disabled={!riderId || reassign.isPending}
               onClick={() =>
-                assign.mutate(
+                reassign.mutate(
                   { id: order.id, data: { riderId } },
                   {
                     onSuccess: () => {
-                      toast({ title: t("coordinator.assignRider") });
+                      setRiderId("");
+                      toast({ title: t("coordinator.reassignRider") });
                       invalidate();
                     },
+                    onError: () => toast({ title: t("errors.generic"), variant: "destructive" }),
                   },
                 )
               }
-              data-testid="button-assign-rider"
+              data-testid="button-reassign-rider"
             >
-              {t("coordinator.assignRider")}
+              {t("coordinator.reassignRider")}
             </Button>
           </>
         )}
+        <Button
+          variant="outline"
+          className="w-full"
+          disabled={reassign.isPending}
+          onClick={() =>
+            reassign.mutate(
+              { id: order.id, data: { riderId: null } },
+              {
+                onSuccess: () => {
+                  toast({ title: t("coordinator.unassignRider") });
+                  invalidate();
+                },
+                onError: () => toast({ title: t("errors.generic"), variant: "destructive" }),
+              },
+            )
+          }
+          data-testid="button-unassign-rider"
+        >
+          {t("coordinator.unassignRider")}
+        </Button>
       </CardContent>
     </Card>
   );

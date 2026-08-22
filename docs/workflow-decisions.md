@@ -916,6 +916,121 @@ on replay. Restoration reverses only the archive state.
 
 ---
 
+## D18. Reassignment and unassignment are default-permissive
+
+**Decided and built 2026-08-20.**
+
+`POST /orders/:id/assign` is atomic *from pending only* — it cannot change
+who's on an order that's already been assigned, and a plain status report
+can never touch `pending`/`rider_assigned` (D1, rule 1: both are coupled to
+`riderId`). Together those left no way to correct a wrong assignment once
+an order left `pending`. `POST /orders/:id/reassign` fills the gap: pass a
+`riderId` to swap in a different rider, or omit it to unassign back to
+`pending`.
+
+The first version of unassign carried a "hasn't left for the restaurant
+yet" cutoff — allowed only from `rider_assigned`/`rider_accepted` — on the
+reasoning that "no rider, pending" is data-inconsistent once a rider is
+physically holding the order. Reassigning to a *different* rider never had
+that cutoff (it preserves the reported status once in-flight instead of
+rewinding it, same as `PATCH /trips/:id`'s in-motion rider swap). Asked
+directly, the owner's answer was explicit: **assume a coordinator has a
+good reason, and don't put up a barrier unless there's a strong one.** The
+unassign cutoff was removed to match — it's now reachable at any
+non-terminal, non-held stage, same reach as reassign-to-someone-else. The
+only remaining hard barriers are the ones that actually matter: a
+delivered/failed order can't be reopened, and a held order stays untouched
+until released.
+
+This is a standing default for this codebase, not just this one endpoint:
+**when a barrier's cost falls on competent staff acting in good faith and
+its benefit is preventing a rare, recoverable mistake, don't add it without
+a concrete failure it prevents.** Weigh a new gate against that before
+adding one, the same way D8 already asks for a blocking decision.
+
+## D19. Trip membership is editable after creation; a trip completes itself
+
+**Decided and built 2026-08-21.**
+
+Two gaps surfaced on first real dispatcher use of trips, both silent —
+neither errored, they just left the feature quietly short of what a
+coordinator expected once they were actually using it day to day.
+
+**Membership was create-time only.** `PUT /trips/:id/stops` could reorder
+a trip's stops but never change which orders were on it — the only way to
+add or drop an order was to dissolve the whole trip and start over. Added
+`POST /trips/:id/orders` (add — same bundling eligibility as creation:
+unattached, pre-flight) and `DELETE /trips/:id/orders/:orderId` (remove —
+pre-flight reverts to `pending`/unassigned, in-flight just drops the trip
+link, mirroring what dissolve already did per order). The attach/detach
+logic was extracted out of trip creation and dissolve into two shared
+functions (`attachOrdersToTrip`, `detachOrderFromTrip` in `trips.ts`) so
+create+add and dissolve+remove can never drift into three slightly
+different implementations of "what happens to an order that joins/leaves a
+trip."
+
+**Trips never completed.** `completed` has been a value in the
+`trip_status` enum since the schema was founded (D6), but nothing anywhere
+in the codebase ever wrote it — a trip stayed `planned`/`in_progress`
+indefinitely, including well after every order on it was delivered. There
+is no `in_progress` transition either, for what it's worth (also never
+written) — out of scope for this pass, noted so it isn't mistaken for
+something this decision covers. `completeTripIfDone` (new,
+`lib/trip-completion.ts`) marks a trip `completed` once every order still
+on it is `delivered`/`failed` — or there are none left, which the same
+`Array.every` check on an empty array handles for free, so removing a
+trip's last order completes it exactly the same way finishing its last
+delivery does. It's called after a status report lands an order on a
+terminal status, and after an order is removed from a trip; it re-derives
+the answer from the trip's current orders every time rather than caching a
+flag, so it stays correct without its own locking.
+
+**Consequence acted on in the same pass, not left for later:** once trips
+can actually reach `completed` (previously true only for `dissolved`, and
+rarely seen), the coordinator trip page's rename/reassign, dissolve,
+add-orders, and remove-order controls would otherwise sit on a terminal
+trip and 404 on click. All four now hide once a trip is terminal.
+
+## D20. Order history redacts customer PII 24 hours after delivery
+
+**Decided and built 2026-08-21.**
+
+Restaurant and rider apps had no way to look back at a past order beyond
+the 1-hour "recently completed" window the live dispatch boards already
+show. Added a dedicated, paginated `GET /orders/history` (delivered/failed
+only, 10/page, filterable by date range) reachable from the header nav on
+both apps.
+
+**The privacy rule, stated back:** up to 24 hours after an order is set to
+`delivered`, show it as-is. Beyond 24 hours, redact `customerName` and
+`customerPhone` to `null`, and reduce `deliveryAddress` to postal code +
+city — enough to remain useful for aggregate/operational purposes, not
+enough to re-identify who lived there. Applied the same way to `failed`
+orders, on the reasoning that the same customer-PII exposure concern holds
+regardless of how the order ended — the owner's wording named `delivered`
+specifically; extending it to `failed` was this session's judgment call,
+flagged rather than silently assumed, and easy to split later if the two
+should behave differently.
+
+**Redaction is computed server-side, at read time, from `updatedAt`** — not
+a stored flag, and not something the client ever gets to decide. `updatedAt`
+is safe to use as "when this was delivered/failed" specifically because
+nothing else touches a terminal order's row afterward (see the SSOT entry
+"`updatedAt` as a terminal timestamp"). A dedicated `deliveredAt` column
+was considered and rejected as unnecessary — the existing column already
+answers the question once a status is terminal.
+
+**The response schema is deliberately not `OrderListItem` extended via
+`allOf`.** OpenAPI/JSON-Schema `allOf` is an intersection: re-declaring
+`customerName` as nullable in a second branch does not loosen the base
+(non-nullable) type, so the generated TypeScript would still have come out
+`string`, silently dropping the redaction from the type. `OrderHistoryItem`
+is instead its own narrow object with just the fields a history row needs.
+Worth remembering generally — **don't reach for `allOf` to change a
+field's nullability for one endpoint's response; give it its own schema.**
+
+---
+
 # Told once, not to be asked again
 
 The two sections below exist because the decision log above did not stop things

@@ -1,4 +1,4 @@
-import type { Order, PickupTimeSource } from "@workspace/api-client-react";
+import type { Order, OrderStatus, PickupTimeSource } from "@workspace/api-client-react";
 
 export type AnyOrder = Pick<
   Order,
@@ -6,6 +6,9 @@ export type AnyOrder = Pick<
   | "pickupTimeRider"
   | "pickupTimeRestaurant"
   | "pickupTimeOverride"
+  | "status"
+  | "updatedAt"
+  | "enRouteToCustomerAt"
 > &
   Partial<Pick<Order, "effectivePickupTime" | "effectivePickupSource">>;
 
@@ -84,6 +87,11 @@ export function minutesUntil(iso: string, now: Date = new Date()): number {
   return Math.round((new Date(iso).getTime() - now.getTime()) / 60000);
 }
 
+/** Whole minutes elapsed since `iso`, floored at 0 (never negative). */
+export function minutesSince(iso: string, now: Date = new Date()): number {
+  return Math.max(0, Math.round((now.getTime() - new Date(iso).getTime()) / 60000));
+}
+
 /**
  * Effective pickup time. If the backend already provides effectivePickupTime/Source,
  * use it; otherwise compute by priority override > restaurant > rider > original.
@@ -102,6 +110,16 @@ export function effectivePickup(o: AnyOrder): {
   if (o.pickupTimeRestaurant) return { iso: o.pickupTimeRestaurant, source: "restaurant" };
   if (o.pickupTimeRider) return { iso: o.pickupTimeRider, source: "rider" };
   return { iso: o.pickupTimeOriginal, source: "original" };
+}
+
+/**
+ * Ascending by effective pickup time — soonest first. The shared ordering
+ * for every order-list view (restaurant, rider, coordinator overviews) so
+ * they read consistently; apply it once to the full fetched list before any
+ * per-section filtering, since `Array.filter` preserves relative order.
+ */
+export function comparePickupTime(a: AnyOrder, b: AnyOrder): number {
+  return new Date(effectivePickup(a).iso).getTime() - new Date(effectivePickup(b).iso).getTime();
 }
 
 /**
@@ -159,11 +177,40 @@ export function combineDateAndTime(
   return combined.toISOString();
 }
 
-export type Urgency = "neutral" | "warn" | "danger" | "late";
+/**
+ * A `YYYY-MM-DD` date-range boundary as an ISO instant, interpreted in the
+ * operator's local timezone (same reasoning as `combineDateAndTime`) — the
+ * start of that local day for `edge: "start"`, or its last millisecond for
+ * `edge: "end"`. Returns null if the value isn't a well-formed date.
+ */
+export function localDayBoundaryIso(dateValue: string, edge: "start" | "end"): string | null {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateValue.trim());
+  if (!m) return null;
+  const [, y, mo, d] = m;
+  const time = edge === "start" ? [0, 0, 0, 0] : [23, 59, 59, 999];
+  const combined = new Date(Number(y), Number(mo) - 1, Number(d), ...(time as [number, number, number, number]));
+  if (Number.isNaN(combined.getTime())) return null;
+  return combined.toISOString();
+}
 
-export function urgencyFor(iso: string, now: Date = new Date()): Urgency {
+export type Urgency = "neutral" | "warn" | "danger" | "late" | "lateAtRestaurant";
+
+/**
+ * Once the rider has arrived, a late pickup is the restaurant's problem, not
+ * the rider's — "late" (red) becomes "lateAtRestaurant" (orange). Once the
+ * order is actually picked up, the countdown against pickup time is moot, so
+ * it reads neutral from then on regardless of the clock.
+ */
+const STOPS_COUNTDOWN: ReadonlySet<OrderStatus> = new Set([
+  "picked_up",
+  "en_route_to_customer",
+  "delivered",
+]);
+
+export function urgencyFor(iso: string, now: Date = new Date(), status?: OrderStatus): Urgency {
+  if (status && STOPS_COUNTDOWN.has(status)) return "neutral";
   const m = minutesUntil(iso, now);
-  if (m < 0) return "late";
+  if (m < 0) return status === "arrived_at_restaurant" ? "lateAtRestaurant" : "late";
   if (m < 5) return "danger";
   if (m < 20) return "warn";
   return "neutral";
@@ -183,7 +230,11 @@ export function pickupCountdownLabel(
   iso: string,
   lang: string,
   now: Date = new Date(),
+  status?: OrderStatus,
 ): PickupLabelDescriptor {
+  // Once picked up, stop counting elapsed lateness — always show the fixed
+  // pickup time rather than a number that keeps growing forever.
+  if (status && STOPS_COUNTDOWN.has(status)) return { kind: "literal", text: formatTime(iso, lang) };
   const m = minutesUntil(iso, now);
   const absM = Math.abs(m);
   if (absM >= 60) return { kind: "literal", text: formatTime(iso, lang) };

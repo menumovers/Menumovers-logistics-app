@@ -11,7 +11,25 @@ import { AcceptanceStatusBadge } from "@/components/acceptance-status-badge";
 import { useAuth } from "@/lib/auth";
 import { Bike, Layers } from "lucide-react";
 import { motion } from "framer-motion";
-import { effectivePickup, formatTime } from "@/lib/format";
+import { comparePickupTime, effectivePickup, formatTime } from "@/lib/format";
+
+// A rider carrying the order (or having finished it) is past the point
+// where the restaurant has anything left to do — these sit in their own
+// section regardless of acceptance state.
+const IN_DELIVERY_OR_DONE_STATUSES: ReadonlyArray<OrderListItem["status"]> = [
+  "picked_up",
+  "en_route_to_customer",
+  "delivered",
+  "failed",
+];
+/** Terminal orders (delivered/failed) stay visible for this long, same
+ * recency window the coordinator board uses for its Completed section —
+ * old ones fall off rather than accumulating forever. */
+const COMPLETED_WINDOW_MS = 60 * 60_000;
+
+function isRecent(iso: string): boolean {
+  return Date.now() - new Date(iso).getTime() <= COMPLETED_WINDOW_MS;
+}
 
 export default function RestaurantPage() {
   const { t, i18n } = useTranslation();
@@ -24,12 +42,64 @@ export default function RestaurantPage() {
     { query: { queryKey: getListOrdersQueryKey({ restaurantId: restId }), refetchInterval: 30_000, enabled: !!restId } },
   );
 
-  const active = (orders.data ?? []).filter((o) => !["delivered", "failed"].includes(o.status));
+  const visible = [...(orders.data ?? [])]
+    .sort(comparePickupTime)
+    .filter((o) => (o.status !== "delivered" && o.status !== "failed") || isRecent(o.updatedAt));
+  const inDeliveryOrDone = visible.filter((o) => IN_DELIVERY_OR_DONE_STATUSES.includes(o.status));
+  const stillWithRestaurant = visible.filter((o) => !IN_DELIVERY_OR_DONE_STATUSES.includes(o.status));
+  const needsAction = stillWithRestaurant.filter((o) => !o.restaurantAcceptedAt);
+  const accepted = stillWithRestaurant.filter((o) => o.restaurantAcceptedAt);
 
-  // Group by tripId — same trip + same restaurant means a bundled pickup.
+  return (
+    <div className="space-y-6">
+      <header className="flex justify-end">
+        <div className="text-sm text-muted-foreground" data-testid="text-visible-count">
+          {t("coordinator.ordersCount", { count: visible.length })}
+        </div>
+      </header>
+
+      {visible.length === 0 ? (
+        <Card>
+          <CardContent className="py-16 text-center text-muted-foreground">
+            {t("restaurant.noOrders")}
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="space-y-6">
+          <Section
+            title={t("restaurant.sectionNeedsAction")}
+            emptyText={t("restaurant.sectionNeedsActionEmpty")}
+            orders={needsAction}
+            lang={lang}
+            testId="section-needs-action"
+            highlight
+          />
+          <Section
+            title={t("restaurant.sectionAccepted")}
+            emptyText={t("restaurant.sectionAcceptedEmpty")}
+            orders={accepted}
+            lang={lang}
+            testId="section-accepted"
+          />
+          <Section
+            title={t("restaurant.sectionInDeliveryOrDone")}
+            emptyText={t("restaurant.sectionInDeliveryOrDoneEmpty")}
+            orders={inDeliveryOrDone}
+            lang={lang}
+            testId="section-in-delivery-or-done"
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Same trip + same restaurant means a bundled pickup — pulled out of the
+ * plain grid into its own BundleSection, the rest render solo. */
+function groupBundles(orders: OrderListItem[]) {
   const bundles = new Map<string, OrderListItem[]>();
   const solos: OrderListItem[] = [];
-  for (const o of active) {
+  for (const o of orders) {
     if (o.tripId) {
       const arr = bundles.get(o.tripId) ?? [];
       arr.push(o);
@@ -45,23 +115,43 @@ export default function RestaurantPage() {
   for (const [, ords] of bundles) {
     if (ords.length < 2) solos.push(...ords);
   }
+  return { bundleGroups, solos };
+}
 
+function Section({
+  title,
+  emptyText,
+  orders,
+  lang,
+  testId,
+  highlight = false,
+}: {
+  title: string;
+  emptyText: string;
+  orders: OrderListItem[];
+  lang: string;
+  testId: string;
+  highlight?: boolean;
+}) {
+  const { bundleGroups, solos } = groupBundles(orders);
   return (
-    <div className="space-y-6">
-      <header className="flex justify-end">
-        <div className="text-sm text-muted-foreground" data-testid="text-active-count">
-          {t("coordinator.ordersCount", { count: active.length })}
-        </div>
-      </header>
-
-      {active.length === 0 ? (
+    <section data-testid={testId} className="space-y-3">
+      <div className="flex items-baseline justify-between">
+        <h2
+          className={`text-sm font-semibold uppercase tracking-wide ${highlight && orders.length > 0 ? "text-accent-foreground" : "text-muted-foreground"}`}
+        >
+          {title}
+        </h2>
+        <span className="text-xs text-muted-foreground tabular-nums" data-testid={`${testId}-count`}>
+          {orders.length}
+        </span>
+      </div>
+      {orders.length === 0 ? (
         <Card>
-          <CardContent className="py-16 text-center text-muted-foreground">
-            {t("restaurant.noOrders")}
-          </CardContent>
+          <CardContent className="py-6 text-center text-sm text-muted-foreground">{emptyText}</CardContent>
         </Card>
       ) : (
-        <div className="space-y-5">
+        <div className="space-y-3">
           {bundleGroups.map((g) => (
             <BundleSection key={g.tripId} orders={g.orders} lang={lang} />
           ))}
@@ -74,7 +164,7 @@ export default function RestaurantPage() {
           ) : null}
         </div>
       )}
-    </div>
+    </section>
   );
 }
 

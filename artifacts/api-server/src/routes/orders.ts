@@ -1,5 +1,5 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
-import { and, desc, eq, ilike, isNotNull, isNull, or, sql } from "drizzle-orm";
+import { and, count, desc, eq, gte, ilike, inArray, isNotNull, isNull, lte, or, sql } from "drizzle-orm";
 import {
   db,
   ordersTable,
@@ -9,6 +9,7 @@ import {
   riderAssignmentsTable,
   ridersTable,
   restaurantsTable,
+  usersTable,
   type OrderStatus,
   type Restaurant,
 } from "@workspace/db";
@@ -16,12 +17,14 @@ import {
   IngestOrderBody,
   TransitionOrderStatusBody,
   AssignOrderBody,
+  ReassignOrderBody,
   UpdatePickupTimeBody,
   HideOrderItemBody,
   AddOrderItemBody,
   SetRiderNotificationBody,
   UpdateOrderContactBody,
   ListOrdersQueryParams,
+  ListOrderHistoryQueryParams,
   HoldOrderBody,
   SetOrderRestaurantBody,
   AcknowledgeOrderBody,
@@ -29,7 +32,7 @@ import {
 } from "@workspace/api-zod";
 import { requireAuth, requireRole, requireInboundCredential, primaryRoleLabel } from "../lib/auth";
 import { httpError } from "../lib/errors";
-import { assertValidTransition } from "../lib/state-machine";
+import { assertValidTransition, isTerminal } from "../lib/state-machine";
 import {
   serializeOrderDetail,
   serializeOrderListItems,
@@ -38,6 +41,8 @@ import { enqueueOutboundEvent } from "../lib/webhook";
 import { resolveOriginalPickupTime, leadTimeMinutes } from "../lib/pickup-time";
 import { SETTINGS, readSetting } from "../lib/settings-registry";
 import { notHeld } from "../lib/order-hold";
+import { formatAddress } from "../lib/address";
+import { completeTripIfDone } from "../lib/trip-completion";
 import { isRiderDeliverable, riderDeliverable } from "../lib/delivery-method";
 import {
   sendPushToRoles,
@@ -467,6 +472,106 @@ router.get(
 );
 
 // =====================================================================
+// GET /orders/history — paginated, privacy-redacted past orders
+// =====================================================================
+// Registered ahead of GET /orders/:id so "history" is never captured by :id.
+
+const HISTORY_STATUSES: readonly OrderStatus[] = ["delivered", "failed"];
+const HISTORY_PAGE_SIZE = 10;
+const PII_REDACTION_WINDOW_MS = 24 * 60 * 60_000;
+
+router.get(
+  "/orders/history",
+  requireAuth,
+  wrap(async (req, res) => {
+    const auth = req.auth!;
+    const parsed = ListOrderHistoryQueryParams.safeParse(req.query);
+    if (!parsed.success) throw httpError(400, "VALIDATION_ERROR", parsed.error.message);
+    const { dateFrom, dateTo, page } = parsed.data;
+
+    const filters = [inArray(ordersTable.status, HISTORY_STATUSES), isNull(ordersTable.archivedAt)];
+    const scope = orderScopeWhere(auth);
+    if (scope) filters.push(scope);
+    if (dateFrom) filters.push(gte(ordersTable.updatedAt, dateFrom));
+    if (dateTo) filters.push(lte(ordersTable.updatedAt, dateTo));
+    const where = and(...filters);
+
+    const [totalRow] = await db.select({ value: count() }).from(ordersTable).where(where);
+    const total = totalRow?.value ?? 0;
+    const totalPages = Math.max(1, Math.ceil(total / HISTORY_PAGE_SIZE));
+    const currentPage = Math.min(Math.max(1, page ?? 1), totalPages);
+
+    const rows = await db
+      .select({
+        id: ordersTable.id,
+        externalOrderId: ordersTable.externalOrderId,
+        status: ordersTable.status,
+        restaurantId: ordersTable.restaurantId,
+        riderId: ordersTable.riderId,
+        customerName: ordersTable.customerName,
+        customerPhone: ordersTable.customerPhone,
+        street: ordersTable.street,
+        houseNumber: ordersTable.houseNumber,
+        addition: ordersTable.addition,
+        postalCode: ordersTable.postalCode,
+        city: ordersTable.city,
+        country: ordersTable.country,
+        deliveryMethod: ordersTable.deliveryMethod,
+        totalAmount: ordersTable.totalAmount,
+        updatedAt: ordersTable.updatedAt,
+      })
+      .from(ordersTable)
+      .where(where)
+      .orderBy(desc(ordersTable.updatedAt))
+      .limit(HISTORY_PAGE_SIZE)
+      .offset((currentPage - 1) * HISTORY_PAGE_SIZE);
+
+    const restaurantIds = [...new Set(rows.map((r) => r.restaurantId))];
+    const riderIds = [...new Set(rows.map((r) => r.riderId).filter((id): id is string => id != null))];
+    const [restaurants, riders] = await Promise.all([
+      restaurantIds.length
+        ? db
+            .select({ id: restaurantsTable.id, name: restaurantsTable.name })
+            .from(restaurantsTable)
+            .where(inArray(restaurantsTable.id, restaurantIds))
+        : Promise.resolve([]),
+      riderIds.length
+        ? db
+            .select({ id: ridersTable.id, name: usersTable.name })
+            .from(ridersTable)
+            .innerJoin(usersTable, eq(usersTable.id, ridersTable.userId))
+            .where(inArray(ridersTable.id, riderIds))
+        : Promise.resolve([]),
+    ]);
+    const restaurantNameById = new Map(restaurants.map((r) => [r.id, r.name]));
+    const riderNameById = new Map(riders.map((r) => [r.id, r.name]));
+
+    const now = Date.now();
+    const items = rows.map((o) => {
+      const piiRedacted = now - o.updatedAt.getTime() > PII_REDACTION_WINDOW_MS;
+      return {
+        id: o.id,
+        externalOrderId: o.externalOrderId,
+        status: o.status,
+        restaurantName: restaurantNameById.get(o.restaurantId) ?? "",
+        riderName: o.riderId ? (riderNameById.get(o.riderId) ?? null) : null,
+        customerName: piiRedacted ? null : o.customerName,
+        customerPhone: piiRedacted ? null : o.customerPhone,
+        deliveryAddress: piiRedacted
+          ? [o.postalCode.trim(), o.city.trim()].filter(Boolean).join(" ")
+          : formatAddress(o),
+        deliveryMethod: o.deliveryMethod,
+        totalAmount: o.totalAmount,
+        updatedAt: o.updatedAt.toISOString(),
+        piiRedacted,
+      };
+    });
+
+    res.json({ items, page: currentPage, pageSize: HISTORY_PAGE_SIZE, total, totalPages });
+  }),
+);
+
+// =====================================================================
 // GET /orders/:id — detail
 // =====================================================================
 router.get(
@@ -610,6 +715,12 @@ router.post(
     if (toStatus === "failed") {
       updates.failureReason = parsed.data.failureReason ?? "Unspecified";
     }
+    // Anchor for "underway for N min" — set on entry to the status, not
+    // derived from updatedAt, which the order can still pick up further
+    // writes after (notes, pickup-time edits) while the rider is en route.
+    if (toStatus === "en_route_to_customer") {
+      updates.enRouteToCustomerAt = new Date();
+    }
     // Both roles are made to type a failure reason, but it was written only to
     // orders.failureReason while the status log recorded `note` — leaving the
     // timeline saying an order failed and staying silent on why. Carry it into
@@ -635,6 +746,13 @@ router.post(
       actorRole: primaryRoleLabel(auth.roles),
       note: logNote,
     });
+
+    // A trip whose last outstanding order just landed on delivered/failed
+    // has nothing left to do. completeTripIfDone re-checks every order on
+    // the trip rather than assuming this is the last one.
+    if ((toStatus === "delivered" || toStatus === "failed") && order.tripId) {
+      await completeTripIfDone(order.tripId);
+    }
 
     // Notifications.
     const audience = audienceForStatus(toStatus);
@@ -769,7 +887,12 @@ router.post(
       : and(eq(ordersTable.id, id), eq(ordersTable.status, "postponed"), riderInvariant);
     const updated = await db
       .update(ordersTable)
-      .set({ status: resumeStatus })
+      .set({
+        status: resumeStatus,
+        // Postponement pauses the clock — resuming into en-route restarts
+        // the "underway for N min" anchor rather than counting the pause.
+        ...(resumeStatus === "en_route_to_customer" ? { enRouteToCustomerAt: new Date() } : {}),
+      })
       .where(resumeWhere)
       .returning();
     if (updated.length === 0) {
@@ -957,6 +1080,134 @@ router.post(
         correlationId: String(req.id),
       }),
     ]);
+
+    const detail = await serializeOrderDetail(id);
+    res.json(detail);
+  }),
+);
+
+// =====================================================================
+// POST /orders/:id/reassign — unassign to pending, or swap in a new rider
+// =====================================================================
+
+// Hasn't left for the restaurant yet. Used only to decide whether swapping in
+// a new rider counts as a fresh assignment (pre-flight) or a plain rider swap
+// with the reported status left alone (once en route or later) — matches
+// PRE_FLIGHT_STATUSES in trips.ts. Unassigning to `pending` has no such
+// cutoff: coordinators are trusted to have a reason, at any non-terminal,
+// non-held stage.
+const PRE_FLIGHT_STATUSES: ReadonlyArray<OrderStatus> = ["rider_assigned", "rider_accepted"];
+
+router.post(
+  "/orders/:id/reassign",
+  requireAuth,
+  requireRole("admin", "coordinator"),
+  wrap(async (req, res) => {
+    const id = req.params["id"] as string;
+    const auth = req.auth!;
+    const parsed = ReassignOrderBody.safeParse(req.body ?? {});
+    if (!parsed.success) throw httpError(400, "VALIDATION_ERROR", parsed.error.message);
+    const newRiderId = parsed.data.riderId ?? null;
+
+    const [order] = await db.select().from(ordersTable).where(eq(ordersTable.id, id));
+    if (!order) throw httpError(404, "ORDER_NOT_FOUND", "Order not found");
+    if (isTerminal(order.status)) {
+      throw httpError(409, "ORDER_TERMINAL", "Order is delivered or failed");
+    }
+    if (order.holdState) {
+      throw httpError(409, "ORDER_ON_HOLD", "Order is on hold");
+    }
+    if (!order.riderId) {
+      throw httpError(409, "ORDER_NOT_ASSIGNED", "Order has no rider to unassign or reassign");
+    }
+    if (newRiderId === order.riderId) {
+      throw httpError(409, "SAME_RIDER", "Order is already assigned to that rider");
+    }
+
+    if (newRiderId) {
+      const [rider] = await db.select().from(ridersTable).where(eq(ridersTable.id, newRiderId));
+      if (!rider) throw httpError(404, "RIDER_NOT_FOUND", "Rider not found");
+    }
+
+    // Pre-flight: a swap is a fresh assignment (the new rider hasn't accepted
+    // yet). Once the rider has left, only the rider changes — the reported
+    // status is preserved rather than rewinding an in-flight leg. Unassigning
+    // always goes to `pending`, regardless of how far along the order is.
+    const newStatus: OrderStatus = newRiderId
+      ? PRE_FLIGHT_STATUSES.includes(order.status)
+        ? "rider_accepted"
+        : order.status
+      : "pending";
+
+    const updated = await db
+      .update(ordersTable)
+      .set({ status: newStatus, riderId: newRiderId })
+      .where(
+        and(
+          eq(ordersTable.id, id),
+          eq(ordersTable.status, order.status),
+          eq(ordersTable.riderId, order.riderId),
+          notHeld(),
+        ),
+      )
+      .returning();
+    if (updated.length === 0) {
+      throw httpError(409, "STATE_CONFLICT", "Order state changed concurrently");
+    }
+
+    const note = newRiderId ? "Reassigned by coordinator" : "Unassigned by coordinator";
+    await Promise.all([
+      newStatus !== order.status
+        ? db.insert(orderStatusLogsTable).values({
+            orderId: id,
+            fromStatus: order.status,
+            toStatus: newStatus,
+            actorUserId: auth.sub,
+            actorRole: primaryRoleLabel(auth.roles),
+            note,
+          })
+        : Promise.resolve(),
+      db.insert(riderAssignmentsTable).values({
+        orderId: id,
+        riderId: newRiderId ?? order.riderId,
+        outcome: newRiderId ? "reassigned" : "unassigned",
+        assignedByUserId: auth.sub,
+      }),
+    ]);
+
+    if (newRiderId) {
+      const updatedOrder = updated[0]!;
+      const audience = audienceForAssignment();
+      await Promise.all([
+        audience.notifyAssignedRider
+          ? sendPushToRider(newRiderId, {
+              title: "Rit toegewezen",
+              body: updatedOrder.customerName,
+              data: { orderId: id, type: "order.assigned" },
+            })
+          : Promise.resolve(),
+        audience.notifyOrderRestaurantStaff
+          ? sendPushToRestaurantStaff(updatedOrder.restaurantId, {
+              title: "Bezorger gewijzigd",
+              body: updatedOrder.customerName,
+              data: { orderId: id, type: "order.assigned" },
+            })
+          : Promise.resolve(),
+        enqueueOutboundEvent({
+          eventType: "order.assigned",
+          orderId: id,
+          payload: { riderId: newRiderId },
+          correlationId: String(req.id),
+        }),
+      ]);
+    } else {
+      await enqueueOutboundEvent({
+        eventType: "order.status_changed",
+        orderId: id,
+        payload: { fromStatus: order.status, toStatus: "pending", note },
+        correlationId: String(req.id),
+      });
+    }
 
     const detail = await serializeOrderDetail(id);
     res.json(detail);

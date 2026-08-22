@@ -19,6 +19,7 @@ import type {
 import type {
   AcknowledgeOrderRequest,
   AddItemRequest,
+  AddOrdersToTripRequest,
   AssignOrderRequest,
   AuthSession,
   CreateRestaurantRequest,
@@ -30,16 +31,19 @@ import type {
   HideItemRequest,
   HoldOrderRequest,
   InboundOrderPayload,
+  ListOrderHistoryParams,
   ListOrdersParams,
   ListTripsParams,
   LoginRequest,
   Order,
   OrderDetail,
+  OrderHistoryPage,
   OrderListItem,
   OriginalOrderItemsResponse,
   PermanentOrderDeletionConfirmation,
   PushSubscriptionAck,
   PushSubscriptionRequest,
+  ReassignOrderRequest,
   ReplaceTripStopsRequest,
   Restaurant,
   RiderWithWorkload,
@@ -568,6 +572,115 @@ export function useListOrders<
   },
 ): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getListOrdersQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Delivered and failed orders only — the day-to-day dispatch views
+already cover everything still active. Scoped automatically to the
+caller the same way `GET /orders` is: restaurant staff see their
+restaurant's orders, riders see their own deliveries, coordinator and
+admin see everything.
+
+Once more than 24 hours have passed since `updatedAt` (a safe "when
+this was delivered/failed" proxy once an order is terminal — nothing
+else touches the row after that), `customerName` and `customerPhone`
+are redacted to `null` and `deliveryAddress` is reduced to just the
+postal code and city. Everything else on the order stays visible.
+
+ * @summary Paginated order history, privacy-redacted after 24 hours
+ */
+export const getListOrderHistoryUrl = (params?: ListOrderHistoryParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/orders/history?${stringifiedParams}`
+    : `/api/orders/history`;
+};
+
+export const listOrderHistory = async (
+  params?: ListOrderHistoryParams,
+  options?: RequestInit,
+): Promise<OrderHistoryPage> => {
+  return customFetch<OrderHistoryPage>(getListOrderHistoryUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListOrderHistoryQueryKey = (
+  params?: ListOrderHistoryParams,
+) => {
+  return [`/api/orders/history`, ...(params ? [params] : [])] as const;
+};
+
+export const getListOrderHistoryQueryOptions = <
+  TData = Awaited<ReturnType<typeof listOrderHistory>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListOrderHistoryParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listOrderHistory>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListOrderHistoryQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listOrderHistory>>
+  > = ({ signal }) => listOrderHistory(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listOrderHistory>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListOrderHistoryQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listOrderHistory>>
+>;
+export type ListOrderHistoryQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Paginated order history, privacy-redacted after 24 hours
+ */
+
+export function useListOrderHistory<
+  TData = Awaited<ReturnType<typeof listOrderHistory>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListOrderHistoryParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listOrderHistory>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListOrderHistoryQueryOptions(params, options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;
@@ -1182,6 +1295,103 @@ export const useAssignOrder = <
   TContext
 > => {
   return useMutation(getAssignOrderMutationOptions(options));
+};
+
+/**
+ * For orders that already have a rider (anything past `pending`).
+Passing a `riderId` swaps in that rider — while the current rider
+hasn't left for the restaurant yet the order is treated as a fresh
+assignment (`rider_accepted`); once en route or later, only the
+rider changes and the current status is preserved. Omitting
+`riderId` (or passing null) unassigns the order back to `pending`,
+at any non-terminal, non-held stage — coordinators are trusted to
+have a reason. Terminal (`delivered`/`failed`) and held orders are
+rejected.
+
+ * @summary Unassign or swap the rider on an already-assigned order
+ */
+export const getReassignOrderUrl = (id: string) => {
+  return `/api/orders/${id}/reassign`;
+};
+
+export const reassignOrder = async (
+  id: string,
+  reassignOrderRequest: ReassignOrderRequest,
+  options?: RequestInit,
+): Promise<OrderDetail> => {
+  return customFetch<OrderDetail>(getReassignOrderUrl(id), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(reassignOrderRequest),
+  });
+};
+
+export const getReassignOrderMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof reassignOrder>>,
+    TError,
+    { id: string; data: BodyType<ReassignOrderRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof reassignOrder>>,
+  TError,
+  { id: string; data: BodyType<ReassignOrderRequest> },
+  TContext
+> => {
+  const mutationKey = ["reassignOrder"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof reassignOrder>>,
+    { id: string; data: BodyType<ReassignOrderRequest> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return reassignOrder(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ReassignOrderMutationResult = NonNullable<
+  Awaited<ReturnType<typeof reassignOrder>>
+>;
+export type ReassignOrderMutationBody = BodyType<ReassignOrderRequest>;
+export type ReassignOrderMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Unassign or swap the rider on an already-assigned order
+ */
+export const useReassignOrder = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof reassignOrder>>,
+    TError,
+    { id: string; data: BodyType<ReassignOrderRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof reassignOrder>>,
+  TError,
+  { id: string; data: BodyType<ReassignOrderRequest> },
+  TContext
+> => {
+  return useMutation(getReassignOrderMutationOptions(options));
 };
 
 /**
@@ -3855,6 +4065,192 @@ export const useReplaceTripStops = <
   TContext
 > => {
   return useMutation(getReplaceTripStopsMutationOptions(options));
+};
+
+/**
+ * Same bundling rules `POST /trips` applies at creation: each order
+must not already be on a trip, and must be pre-flight
+(pending/rider_assigned/rider_accepted). New stops are appended
+after the trip's existing ones — reorder them afterward with
+`PUT /trips/{id}/stops` if needed. If the trip has a rider, orders
+are attached to them the same way creation does (a pending order
+skips straight to rider_accepted, same as self-claim).
+
+ * @summary Add one or more bundleable orders to an existing trip
+ */
+export const getAddOrdersToTripUrl = (id: string) => {
+  return `/api/trips/${id}/orders`;
+};
+
+export const addOrdersToTrip = async (
+  id: string,
+  addOrdersToTripRequest: AddOrdersToTripRequest,
+  options?: RequestInit,
+): Promise<TripDetail> => {
+  return customFetch<TripDetail>(getAddOrdersToTripUrl(id), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(addOrdersToTripRequest),
+  });
+};
+
+export const getAddOrdersToTripMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof addOrdersToTrip>>,
+    TError,
+    { id: string; data: BodyType<AddOrdersToTripRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof addOrdersToTrip>>,
+  TError,
+  { id: string; data: BodyType<AddOrdersToTripRequest> },
+  TContext
+> => {
+  const mutationKey = ["addOrdersToTrip"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof addOrdersToTrip>>,
+    { id: string; data: BodyType<AddOrdersToTripRequest> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return addOrdersToTrip(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AddOrdersToTripMutationResult = NonNullable<
+  Awaited<ReturnType<typeof addOrdersToTrip>>
+>;
+export type AddOrdersToTripMutationBody = BodyType<AddOrdersToTripRequest>;
+export type AddOrdersToTripMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Add one or more bundleable orders to an existing trip
+ */
+export const useAddOrdersToTrip = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof addOrdersToTrip>>,
+    TError,
+    { id: string; data: BodyType<AddOrdersToTripRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof addOrdersToTrip>>,
+  TError,
+  { id: string; data: BodyType<AddOrdersToTripRequest> },
+  TContext
+> => {
+  return useMutation(getAddOrdersToTripMutationOptions(options));
+};
+
+/**
+ * Pre-flight orders (pending/rider_assigned/rider_accepted) revert to
+`pending` and are unassigned, same as dissolving a trip. In-flight
+or already-terminal orders keep their status and rider — only the
+trip link is dropped. If this leaves the trip with no orders, or
+only terminal ones, the trip is marked completed.
+
+ * @summary Remove a single order from a trip
+ */
+export const getRemoveOrderFromTripUrl = (id: string, orderId: string) => {
+  return `/api/trips/${id}/orders/${orderId}`;
+};
+
+export const removeOrderFromTrip = async (
+  id: string,
+  orderId: string,
+  options?: RequestInit,
+): Promise<TripDetail> => {
+  return customFetch<TripDetail>(getRemoveOrderFromTripUrl(id, orderId), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getRemoveOrderFromTripMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof removeOrderFromTrip>>,
+    TError,
+    { id: string; orderId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof removeOrderFromTrip>>,
+  TError,
+  { id: string; orderId: string },
+  TContext
+> => {
+  const mutationKey = ["removeOrderFromTrip"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof removeOrderFromTrip>>,
+    { id: string; orderId: string }
+  > = (props) => {
+    const { id, orderId } = props ?? {};
+
+    return removeOrderFromTrip(id, orderId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RemoveOrderFromTripMutationResult = NonNullable<
+  Awaited<ReturnType<typeof removeOrderFromTrip>>
+>;
+
+export type RemoveOrderFromTripMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Remove a single order from a trip
+ */
+export const useRemoveOrderFromTrip = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof removeOrderFromTrip>>,
+    TError,
+    { id: string; orderId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof removeOrderFromTrip>>,
+  TError,
+  { id: string; orderId: string },
+  TContext
+> => {
+  return useMutation(getRemoveOrderFromTripMutationOptions(options));
 };
 
 /**

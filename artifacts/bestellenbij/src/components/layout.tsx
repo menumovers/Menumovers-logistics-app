@@ -7,6 +7,7 @@ import {
   Store,
   Settings as SettingsIcon,
   ShieldCheck,
+  History,
 } from "lucide-react";
 import type { UserRole } from "@workspace/api-client-react";
 import { useAuth } from "@/lib/auth";
@@ -19,21 +20,26 @@ const ROLE_NAV: Record<UserRole, Array<{ to: string; key: string; icon: typeof B
   admin: [
     { to: "/coordinator", key: "coordinator", icon: LayoutDashboard },
     { to: "/rider", key: "rider", icon: Bike },
+    { to: "/rider/history", key: "riderHistory", icon: History },
     { to: "/restaurant", key: "restaurant", icon: Store },
+    { to: "/restaurant/history", key: "restaurantHistory", icon: History },
     { to: "/settings", key: "settings", icon: SettingsIcon },
     { to: "/admin", key: "admin", icon: ShieldCheck },
   ],
   coordinator: [
     { to: "/coordinator", key: "coordinator", icon: LayoutDashboard },
     { to: "/rider", key: "rider", icon: Bike },
+    { to: "/rider/history", key: "riderHistory", icon: History },
     { to: "/settings", key: "settings", icon: SettingsIcon },
   ],
   rider: [
     { to: "/rider", key: "rider", icon: Bike },
+    { to: "/rider/history", key: "riderHistory", icon: History },
     { to: "/settings", key: "settings", icon: SettingsIcon },
   ],
   restaurant_staff: [
     { to: "/restaurant", key: "restaurant", icon: Store },
+    { to: "/restaurant/history", key: "restaurantHistory", icon: History },
     { to: "/settings", key: "settings", icon: SettingsIcon },
   ],
 };
@@ -47,6 +53,14 @@ export function AppShell({ children }: { children: ReactNode }) {
     new Map(user.roles.flatMap((r) => ROLE_NAV[r]).map((item) => [item.to, item])).values(),
   );
   const home = getHomeForRoles(user.roles, getContextForPath(loc));
+  // The single best (longest) matching item, so a sub-path like
+  // /rider/history highlights only itself rather than also lighting up
+  // /rider as a prefix match.
+  const activeItem = items.reduce<(typeof items)[number] | undefined>((best, item) => {
+    const matches = loc === item.to || loc.startsWith(`${item.to}/`);
+    if (!matches) return best;
+    return !best || item.to.length > best.to.length ? item : best;
+  }, undefined);
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col">
@@ -58,7 +72,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           <nav className="flex items-center gap-1 ml-auto">
             {items.map((item) => {
               const Icon = item.icon;
-              const active = loc === item.to || loc.startsWith(`${item.to}/`);
+              const active = item === activeItem;
               return (
                 <Link
                   key={item.to}

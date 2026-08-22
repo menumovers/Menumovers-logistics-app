@@ -148,6 +148,17 @@ is informational — it is not a pickup time and nothing waits on it.
    * @nullable
    */
   restaurantReadyAt?: Date | null;
+  /**
+   * When the order most recently entered `en_route_to_customer`. Set by
+the transition itself rather than derived from `updatedAt`, which
+the order can still pick up further writes after while the rider is
+underway. Lets clients show "underway for N min" without fetching
+the full status log. Moves forward again if the order is reported
+back into this status after leaving it.
+
+   * @nullable
+   */
+  enRouteToCustomerAt?: Date | null;
   /** @nullable */
   restaurantAcceptedByName?: string | null;
   /** The hold family — the only mechanism that gates an order. Null means not

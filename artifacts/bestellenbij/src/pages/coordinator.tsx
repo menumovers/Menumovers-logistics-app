@@ -34,7 +34,7 @@ import { StatusBadge } from "@/components/status-badge";
 import { AcceptanceStatusBadge } from "@/components/acceptance-status-badge";
 import { PickupCountdown } from "@/components/pickup-countdown";
 import { PickupTimeTypeIcon } from "@/components/delivery-expectation";
-import { effectivePickup, formatTime } from "@/lib/format";
+import { comparePickupTime, effectivePickup, formatTime } from "@/lib/format";
 import { tripProgress } from "@/lib/trip-progress";
 import { useAuth } from "@/lib/auth";
 import { Bike, MapPin, ChevronRight, Layers, Plus, PauseCircle, PlayCircle, ShoppingBag, AlertTriangle } from "lucide-react";
@@ -85,7 +85,7 @@ export default function CoordinatorPage() {
     query: { queryKey: getListTripsQueryKey(), refetchInterval: 30_000 },
   });
 
-  const all = orders.data ?? [];
+  const all = [...(orders.data ?? [])].sort(comparePickupTime);
   // Held orders get their own section rather than sitting in the board
   // looking dispatchable — a parked one is attributed to a placeholder
   // restaurant until someone resolves it.
@@ -106,12 +106,15 @@ export default function CoordinatorPage() {
     (tr) => tr.status !== "completed" && tr.status !== "dissolved",
   );
 
+  const isMine = (o: OrderListItem) => !!myRiderId && o.riderId === myRiderId;
   const yourOrders = dispatch.filter(
-    (o) => !!myRiderId && o.riderId === myRiderId && o.status !== "delivered" && o.status !== "failed",
+    (o) => isMine(o) && o.status !== "delivered" && o.status !== "failed",
   );
   const openOrders = dispatch.filter((o) => o.status === "pending" && !o.riderId);
-  const activeOrders = dispatch.filter((o) => ACTIVE_STATUSES.includes(o.status));
-  const inDelivery = dispatch.filter((o) => IN_DELIVERY_STATUSES.includes(o.status));
+  // A coordinator who is also a rider already sees their own orders under
+  // "Your orders" above — don't list them again here.
+  const activeOrders = dispatch.filter((o) => ACTIVE_STATUSES.includes(o.status) && !isMine(o));
+  const inDelivery = dispatch.filter((o) => IN_DELIVERY_STATUSES.includes(o.status) && !isMine(o));
   const completedOrders = dispatch.filter((o) => o.status === "delivered" && isRecent(o.updatedAt));
 
   return (
@@ -331,7 +334,7 @@ function CustomerPickupSection({
           {orders.map((o) => (
             <li key={o.id}>
               <Link
-                href={`/coordinator/orders/${o.id}`}
+                href={`/rider/orders/${o.id}?from=coordinator`}
                 className="flex items-center gap-3 rounded-md border border-border px-3 py-2 hover:border-primary/50"
                 data-testid={`customer-pickup-row-${o.id}`}
               >
@@ -381,7 +384,7 @@ function NeedsAttentionSection({
           {orders.map((o) => (
             <li key={o.id}>
               <Link
-                href={`/coordinator/orders/${o.id}`}
+                href={`/rider/orders/${o.id}?from=coordinator`}
                 className="flex items-center gap-3 rounded-md border border-border bg-card px-3 py-2 hover:border-primary/50"
                 data-testid={`needs-attention-row-${o.id}`}
               >
@@ -494,7 +497,7 @@ function HeldRow({
           </div>
         </div>
         <Link
-          href={`/coordinator/orders/${order.id}`}
+          href={`/rider/orders/${order.id}?from=coordinator`}
           className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1 shrink-0"
         >
           {t("common.details")} <ChevronRight className="size-3" />
@@ -683,7 +686,7 @@ function CoordinatorOrderCard({ order, lang }: { order: OrderListItem; lang: str
   const { t } = useTranslation();
   const eff = effectivePickup(order);
   return (
-    <Link href={`/coordinator/orders/${order.id}`}>
+    <Link href={`/rider/orders/${order.id}?from=coordinator`}>
       <Card
         className="hover:border-primary/40 hover:shadow-md transition cursor-pointer"
         data-testid={`card-order-${order.id}`}

@@ -26,7 +26,7 @@ import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { tripProgress } from "@/lib/trip-progress";
-import { effectivePickup, formatTime } from "@/lib/format";
+import { comparePickupTime, effectivePickup, formatTime } from "@/lib/format";
 
 const AVAILABILITY_BG: Record<RiderAvailabilityType, string> = {
   online: "bg-[#E2F0D9]",
@@ -72,7 +72,7 @@ export default function RiderPage() {
     (tr) => tr.status === "planned" || tr.status === "in_progress",
   );
 
-  const all = orders.data ?? [];
+  const all = [...(orders.data ?? [])].sort(comparePickupTime);
   const mine = all.filter((o) => o.riderId === riderId);
   const active = mine.filter((o) => ACTIVE_STATUSES.includes(o.status));
   const queue = mine.filter(
